@@ -177,8 +177,8 @@ subroutine compute_feq
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
     end do
     ! because e /= 1?
-    feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/6.0d0 - &
-             & 2.0d0*h(:,:)/3.0d0*(u(:,:)**2 + v(:,:)**2.0d0)
+    feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
+             & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2.0d0)
     
     if (feq(a,Lx/2,Ly/2) < 0) then !debugging
         print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging

@@ -52,9 +52,11 @@ program main
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! define timestep dt
-    dt = (tau - 0.5)*dx**2/(3*nu)
+    dt = (tau - 0.5d0)*dx**2/(3*nu)
+    print*, "dt =", dt, "s"
 
     e = dx/dt 
+    print*, "e =", e, "m/s"
 
     ! Total simulation time
     itera_no = 1
