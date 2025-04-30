@@ -32,8 +32,8 @@ module LABSWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a 
-        double precision:: q_in, h_out, e, tau,nu,gacl = 9.81 
+        integer:: Lx,Ly,x,y,a!,b !b for debugging
+        double precision:: q_in, h_out, dx, dy, domainX, domainY, dt, e, tau,nu,gacl = 9.81 
         double precision, dimension(9):: ex,ey 
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -48,7 +48,7 @@ subroutine setup
     quarter_pi = datan(1.0d0) 
 
     ! calculate molecular viscosity 
-    nu = (2.0d0*tau-1.0d0)/6.0d0 
+    ! nu = (2.0d0*tau-1.0d0)/6.0d0 ! put in comment if using molecular viscosity of water instead
 
     ! compute the particle velocities 
     do a = 1, 8 
@@ -63,6 +63,7 @@ subroutine setup
     end do
     ex(9) = 0.0d0; ey(9) = 0.0d0
 
+    ! print*, "particle velocities defined" !debugging
     ! compute the equilibrium distribution function feq 
     call compute_feq
 
@@ -125,9 +126,9 @@ subroutine collide_stream
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
             ! debug to determine which populations are negative
-            do a=1,9
-                if (ftemp(a,Lx/2,Ly/2) < 0) print*, "f", a, "=", ftemp(a,Lx/2,Ly/2)
-            end do
+            ! do a=1,9
+            !     if (ftemp(a,Lx/2,Ly/2) < 0) print*, "f", a, "=", ftemp(a,Lx/2,Ly/2)
+            ! end do
         end do 
     end do
 
@@ -160,16 +161,17 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
+    ! print*, "beginning equilibrium populations" !debugging
     do a = 1, 8 
         ! if (mod(a,2) == 0) then 
-            feq(a,:,:) = gacl*h(:,:)*h(:,:)/24.0d0 +& 
-                & h(:,:)/12.0d0*(ex(a)*u(: ,:)+& 
-                & ey(a)*v(:,:))+h(:,:)/8.0d0& 
-                & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
-                & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
-                & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-                & h(:,:)/24.0d0*(u(:,:)*u(:,:)+& 
-                & V ( : , : ) *V ( : , : ) ) 
+        feq(a,:,:) = gacl*h(:,:)*h(:,:)/24.0d0 +& 
+            & h(:,:)/12.0d0*(ex(a)*u(: ,:)+& 
+            & ey(a)*v(:,:))+h(:,:)/8.0d0& 
+            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
+            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
+            & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
+            & h(:,:)/24.0d0*(u(:,:)*u(:,:)+& 
+            & V ( : , : ) *V ( : , : ) ) 
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
@@ -178,8 +180,8 @@ subroutine compute_feq
     feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/6.0d0 - &
              & 2.0d0*h(:,:)/3.0d0*(u(:,:)**2 + v(:,:)**2.0d0)
     
-    if (feq(a,Lx/2,Ly/2) < 0) then
-        print*, "feq", a, "=", feq(a,Lx/2,Ly/2)
+    if (feq(a,Lx/2,Ly/2) < 0) then !debugging
+        print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging
     end if
     return
 end subroutine compute_feq

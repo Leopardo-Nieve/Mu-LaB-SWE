@@ -28,24 +28,38 @@ program main
     implicit none ! had to write in a second line because VSCode was signaling an error
     
     ! declare local working variables 
-    integer:: time,itera_no!, i, j commented because only used to debug
-    double precision :: ho, uo, vo, simTime
+    integer:: itera_no!, i, j commented because only used to debug
+    double precision :: ho, uo, vo, time, simTime
     character:: fdate*24, td*24 ! get date for output
-    
-    ! Total iteration numbers 
-    itera_no = 1
-    ! itera_no = 200
 
     ! constants for initializing flow field. 
     ho = 2.0d0
     uo = 0.0d0
     vo = 0.0d0
 
-    ! define total lattice numbers in x and y directions
-    Lx = 250; Ly = 5
-
     ! assign a value for the relaxation time
     tau = 1.5d0 ! peut-être tendre plus vers 1
+
+    ! assign a value for the molecular viscosity
+    nu = 1.004d-6 ! m^2/s
+
+    ! assign a value of dx and dy
+    dx = 1.0d-1 ! m
+    dy = dx
+
+    ! define total lattice numbers in x and y directions
+    domainX = 25.0d0     ; domainY = 5*dx ! dimensions in metres
+    Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
+
+    ! define timestep dt
+    dt = (tau - 0.5)*dx**2/(3*nu)
+
+    e = dx/dt 
+
+    ! Total simulation time
+    itera_no = 1
+    ! itera_no = 200
+    simTime = itera_no*dt
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
@@ -60,19 +74,20 @@ program main
     force_x = 2.4d-8 ! modified from book example
     ! force_x = 2.4d-6 ! original book example
     force_y = 0.0d0
-    print*, itera_no
-    print*, ho
-    print*, uo
-    print*, vo
+    ! print*, itera_no
+    ! print*, ho
+    ! print*, uo
+    ! print*, vo
     ! print*, force_x, force_y
     ! prepare the calculations
+    ! print*, "starting setup" !debugging
     call setup
-
+    ! print*, "setup done" !debugging
     ! main loop for time marching
     time = 0
     timStep: do
 
-        time = time+1
+        time = time+dt
 
         ! Streaming and collision steps
         call collide_stream
@@ -86,7 +101,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I6,A2,3(ES26.16,A2))') time,'   ', u(Lx/2, Ly/2)
+        write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', u(Lx/2, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9
@@ -121,7 +136,7 @@ program main
         !     end do
         ! end do
         
-        if (time == itera_no) exit
+        if (time >= simTime) exit
 
     end do timStep
 
