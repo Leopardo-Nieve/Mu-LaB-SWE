@@ -59,7 +59,7 @@ program main
     print*, "e =", e, "m/s"
 
     ! Total simulation time
-    itera_no = 1
+    itera_no = 0
     ! itera_no = 200
     simTime = itera_no*dt
 
