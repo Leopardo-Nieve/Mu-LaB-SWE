@@ -33,7 +33,7 @@ module LABSWE
         implicit none 
 
         integer:: Lx,Ly,x,y,a!,b !b for debugging
-        double precision:: q_in, h_out, dx, dy, domainX, domainY, dt, e, tau,nu,gacl = 9.81 
+        double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,gacl = 9.81 
         double precision, dimension(9):: ex,ey 
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -46,9 +46,6 @@ subroutine setup
 
     ! set constant PI 
     quarter_pi = datan(1.0d0) 
-
-    ! calculate molecular viscosity 
-    ! nu = (2.0d0*tau-1.0d0)/6.0d0 ! put in comment if using molecular viscosity of water instead
 
     ! compute the particle velocities 
     do a = 1, 8 
@@ -175,14 +172,20 @@ subroutine compute_feq
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
-    end do
-    ! because e /= 1?
-    feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
-             & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2.0d0)
-    
-    if (feq(a,Lx/2,Ly/2) < 0) then !debugging
         print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging
-    end if
+    end do
+    feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
+             & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2)
+    
+    print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging
+    ! if (feq(a,Lx/2,Ly/2) < 0) then !debugging
+    !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging
+    !     if (a == 9) then !debugging
+    !         print*, "term 1 =", h(Lx/2,Ly/2) !debugging
+    !         print*, "term 2 =", - 5.0d0*gacl*h(Lx/2,Ly/2)*h(Lx/2,Ly/2)/(6.0d0*e**2) !debugging
+    !         print*, "term 3 =", - 2.0d0*h(Lx/2,Ly/2)/(3.0d0*e**2)*(u(Lx/2,Ly/2)**2 + v(Lx/2,Ly/2)**2.0d0) !debugging
+    !     end if !debugging
+    ! end if
     return
 end subroutine compute_feq
 

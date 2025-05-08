@@ -37,26 +37,52 @@ program main
     uo = 0.0d0
     vo = 0.0d0
 
-    ! assign a value for the relaxation time
-    tau = 1.5d0 ! peut-être tendre plus vers 1
+    ! assign a value for Zhou's relaxation time
+    tauZhou = 1.5d0 
+
+    ! assign a value for Zhou's lattice speed
+    eZhou = 15 ! m/s
+
+    ! assign a value for the inlet discharge
+    qZhou = 4.42d0 ! m^2/s
 
     ! assign a value for the molecular viscosity
-    nu = 1.004d-6 ! m^2/s
+    nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
     ! assign a value of dx and dy
     dx = 1.0d-1 ! m
     dy = dx
 
     ! define total lattice numbers in x and y directions
-    domainX = 25.0d0     ; domainY = 5*dx ! dimensions in metres
+    domainX = 25.0d0     ; domainY = 5.0d0*dx ! dimensions in metres
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
+    ! calculate the minimum possible value of e such that the stationary population is positive
+    eMin = sqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
+    print*, "e min =", eMin, "m/s"
+
+    ! calculate the lattice velocity
+    e = 2.0d0*eMin
+    print*, "e =", e, "m/s"
+
+        ! calculate molecular viscosity 
+    nuZhou = (tauZhou-0.5d0)*eZhou*dx/3.0d0
+    print*, "nu Zhou =", nuZhou, "m^2/s"
+
+    ! calculate the Reynolds number in Zhou's case
+    ReZhou = qZhou/nuZhou
+    print*, "ReZhou =", ReZhou
+
+    ! calculate equivalent inlet discharge
+    q_in = ReZhou*nu
+    print*, "q inlet =", q_in, "m^2/s"
+    
     ! define timestep dt
-    dt = (tau - 0.5d0)*dx**2/(3*nu)
+    dt = dx/e !s
     print*, "dt =", dt, "s"
 
-    e = dx/dt 
-    print*, "e =", e, "m/s"
+    ! calculate the dimensionless relaxation time
+    tau = 3.0d0*nu*dt/dx**2 + 0.5d0
 
     ! Total simulation time
     itera_no = 0
@@ -99,11 +125,12 @@ program main
 
         ! Calculate h, u & v
         call solution
+        print*, " h after solution =", h(Lx/2,Ly/2) !debugging
 
         ! Update the feq
         call compute_feq
 
-        write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', u(Lx/2, Ly/2)
+        ! write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', u(Lx/2, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9
@@ -141,6 +168,7 @@ program main
         if (time >= simTime) exit
 
     end do timStep
+    print*, " h after loop =", h(Lx/2,Ly/2) !debugging
 
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 
