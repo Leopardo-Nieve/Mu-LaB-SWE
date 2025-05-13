@@ -41,7 +41,7 @@ program main
     tauZhou = 1.5d0 
 
     ! assign a value for Zhou's lattice speed
-    eZhou = 15 ! m/s
+    eZhou = 15.0d0 ! m/s
 
     ! assign a value for the inlet discharge
     qZhou = 4.42d0 ! m^2/s
