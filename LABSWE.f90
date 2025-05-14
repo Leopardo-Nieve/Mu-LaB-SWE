@@ -161,13 +161,13 @@ subroutine compute_feq
     ! print*, "beginning equilibrium populations" !debugging
     do a = 1, 8 
         ! if (mod(a,2) == 0) then 
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)/24.0d0 +& 
-            & h(:,:)/12.0d0*(ex(a)*u(: ,:)+& 
-            & ey(a)*v(:,:))+h(:,:)/8.0d0& 
+        feq(a,:,:) = gacl*h(:,:)*h(:,:)/(24.0d0*e**2) +& 
+            & h(:,:)/(12.0d0*e**2)*(ex(a)*u(: ,:)+& 
+            & ey(a)*v(:,:))+h(:,:)/(8.0d0*e**4)& 
             & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
             & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
             & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-            & h(:,:)/24.0d0*(u(:,:)*u(:,:)+& 
+            & h(:,:)/(24.0d0*e**2)*(u(:,:)*u(:,:)+& 
             & V ( : , : ) *V ( : , : ) ) 
         ! end if
 
