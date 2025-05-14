@@ -85,18 +85,27 @@ program main
     tau = 3.0d0*nu*dt/dx**2 + 0.5d0
 
     ! Total simulation time
-    itera_no = 0
-    ! itera_no = 200
+    ! itera_no = 1
+    itera_no = 200
     simTime = itera_no*dt
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly)) 
+        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx)) 
     
     ! initialize the depth and velocities 
     h = ho 
     u = uo 
     v = vo
+
+    zb = 0
+    do x = 1, Lx
+        if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 -0.05d0 *(x*dx - 10.0d0)**2 ! bump function
+    end do
+
+    do y = 1,Ly
+        h(:,y) = h(:,y) - zb(:)
+    end do
 
     ! Set constant force
     force_x = 2.4d-8 ! modified from book example
@@ -125,7 +134,6 @@ program main
 
         ! Calculate h, u & v
         call solution
-        print*, " h after solution =", h(Lx/2,Ly/2) !debugging
 
         ! Update the feq
         call compute_feq
