@@ -129,8 +129,8 @@ program main
         ! Streaming and collision steps
         call collide_stream
 
-        ! Apply Noslip BC
-        call Noslip_BC
+        ! Apply Slip BC
+        call Slip_BC
 
         ! Calculate h, u & v
         call solution
