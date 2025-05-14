@@ -168,7 +168,7 @@ subroutine compute_feq
             & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
             & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
             & h(:,:)/(24.0d0*e**2)*(u(:,:)*u(:,:)+& 
-            & V ( : , : ) *V ( : , : ) ) 
+            & v(:,:)*v(:,:)) 
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
