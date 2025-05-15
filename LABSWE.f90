@@ -210,14 +210,14 @@ subroutine Slip_BC
     ! this is for slip boundary with Bounce back scheme
 
     ! for lower boundary
-    ftemp(2,:,1) = f(8,:,1) 
-    ftemp(3,:,1) = f(7,:,1) 
-    ftemp(4,:,1) = f(6,:,1) 
+    ftemp(2,:,1) = ftemp(8,:,1) 
+    ftemp(3,:,1) = ftemp(7,:,1) 
+    ftemp(4,:,1) = ftemp(6,:,1) 
     
     ! for upper boundary
-    ftemp(8,:,Ly) = f(2,:,Ly) 
-    ftemp(7,:,Ly) = f(3,:,Ly)
-    ftemp(6,:,Ly) = f(4,:,Ly)
+    ftemp(8,:,Ly) = ftemp(2,:,Ly) 
+    ftemp(7,:,Ly) = ftemp(3,:,Ly)
+    ftemp(6,:,Ly) = ftemp(4,:,Ly)
 
     return 
 end subroutine Slip_BC 
