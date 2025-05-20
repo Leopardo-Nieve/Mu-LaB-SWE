@@ -227,12 +227,16 @@ subroutine write_csv
     open(67, file='result.csv', status='unknown')
     
     ! Write CSV header
-    write(67, '(A)') 'x,y,h,u,v'
-    
+    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s)'
+
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67, '(I0,",",I0,3(",",ES15.6))') x, y, h(x,y), u(x,y), v(x,y)
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
+                x, y, &
+                x * dx, y * dy, &
+                h(x,y) + zb(x), zb(x), h(x,y), &
+                u(x,y), v(x,y)
         end do
     end do
     
