@@ -100,7 +100,7 @@ program main
 
     zb = 0
     do x = 1, Lx
-        if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 -0.05d0 *(x*dx - 10.0d0)**2 ! bump function
+        if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2 ! bump function
     end do
 
     do y = 1,Ly
@@ -176,7 +176,7 @@ program main
         if (time >= simTime) exit
 
     end do timStep
-    print*, " h after loop =", h(Lx/2,Ly/2) !debugging
+    print*, " h after loop =", h(100,Ly/2) !debugging
 
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 
