@@ -60,6 +60,7 @@ subroutine setup
         end if 
     end do
     ex(9) = 0.0d0; ey(9) = 0.0d0
+    ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
     ! print*, "particle velocities defined" !debug
     ! compute the equilibrium distribution function feq 
@@ -211,7 +212,7 @@ subroutine Slip_BC
     return 
 end subroutine Slip_BC 
 
-subroutine Inflow_Outflow
+subroutine Inflow_Outflow_BC
     ! Following lines implement inflow BC (Zhou, p.59)
     ftemp(1,1,:) = ftemp(5,1,:) + 2*q_in/(3*e)
     ftemp(2,1,:) = q_in/(6*e) + ftemp(6,1,:) + 0.5*(ftemp(7,1,:) - ftemp(3,1,:))
@@ -231,9 +232,9 @@ subroutine Inflow_Outflow
     do a=1,9 !debug
         print*, "f final", a, "=", ftemp(a,1,1)
     end do ! debug
-end subroutine Inflow_Outflow
+end subroutine Inflow_Outflow_BC
 
-subroutine Four_Corners
+subroutine Four_Corners_BC
     ! node (1,1)
     ! ftemp(3,1,1) = ftemp(7,1,1) !slip (should be already done)
     ! ftemp(4,1,1) = ftemp(6,1,1) !slip (should be already done)
@@ -255,7 +256,7 @@ subroutine Four_Corners
     ! node (Lx,Ly)
     ftemp(4,Lx,Ly) = ftemp(6,Lx,Ly)
 
-end subroutine Four_Corners
+end subroutine Four_Corners_BC
 
 
 subroutine write_csv

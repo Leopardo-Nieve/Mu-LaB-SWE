@@ -57,13 +57,7 @@ program main
     domainX = 25.0d0     ; domainY = 5.0d0*dx ! dimensions in metres
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
-    ! calculate the minimum possible value of e such that the stationary population is positive
-    eMin = sqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
-    print*, "e min =", eMin, "m/s"
-
-    ! calculate the lattice velocity
-    e = 2.0d0*eMin
-    print*, "e =", e, "m/s"
+    
 
         ! calculate molecular viscosity 
     nuZhou = (tauZhou-0.5d0)*eZhou*dx/3.0d0
@@ -77,6 +71,14 @@ program main
     q_in = ReZhou*nu
     print*, "q inlet =", q_in, "m^2/s"
     
+    ! calculate the minimum possible value of e such that the stationary population is positive
+    eMin = sqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
+    print*, "e min =", eMin, "m/s"
+
+    ! calculate the lattice velocity
+    e = 2.0d0*eMin
+    print*, "e =", e, "m/s"
+
     ! define timestep dt
     dt = dx/e !s
     print*, "dt =", dt, "s"
