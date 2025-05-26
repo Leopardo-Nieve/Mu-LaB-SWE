@@ -32,7 +32,7 @@ module LABSWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a!,b !b for debugging
+        integer:: Lx,Ly,x,y,a!,b !b for debug
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,gacl = 9.81 
         double precision, dimension(9):: ex,ey 
         double precision, allocatable, dimension(:):: zb
@@ -61,7 +61,7 @@ subroutine setup
     end do
     ex(9) = 0.0d0; ey(9) = 0.0d0
 
-    ! print*, "particle velocities defined" !debugging
+    ! print*, "particle velocities defined" !debug
     ! compute the equilibrium distribution function feq 
     call compute_feq
 
@@ -82,51 +82,40 @@ subroutine collide_stream
         yf = y + 1
         yb = y -1
     
-        do x = 1, Lx 
+        do x = 1, Lx
             xf = x + 1
             xb = x -1
 
             ! print*, x, y !debug
             ! Following 4 lines Implement periodic BCs 
-            if (xf > Lx) xf = xf - Lx
-            if (xb < 1) xb = Lx + xb 
-            if (yf > Ly) yf = yf - Ly
-            if (yb < 1) yb = Ly + yb 
-            
-            ! Following lines implement inflow BC (Zhou, p.59)
-            ! ftemp(1,0,:) = f(5,0,:) + 2*q_in/(3*e)
-            ! ftemp(2,0,:) = q_in/(6*e) + f(6,0,:) + 0.5*(f(7,0,:) - f(3,0,:))
-            ! ftemp(8,0,:) = q_in/(6*e) + f(4,0,:) + 0.5*(f(3,0,:) - f(7,0,:))
-
-            ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
-            ! h(Lx,:) = h_out
-            ! ftemp(5,Lx,:) = f(1,Lx,:) - 2*h(Lx,:)*u(Lx-1,:)/(3*e)
-            ! ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + f(8,Lx,:) + 0.5*(f(7,Lx,:) - f(3,Lx,:))
-            ! ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + f(2,Lx,:) + 0.5*(f(3,Lx,:) - f(7,Lx,:))
+            ! if (xf > Lx) xf = xf - Lx
+            ! if (xb < 1) xb = Lx + xb 
+            ! if (yf > Ly) yf = yf - Ly
+            ! if (yb < 1) yb = Ly + yb 
 
             ! start streaming and collision 
-            ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
+            if (xf<=Lx) ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
                 & + 1.0d0/6.0d0*(ex(1)*force_x(x,y)+ey(1)*force_y(x,y))
-            ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
+            if (xf<=Lx .and. yf<=Ly) ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(2)*force_x(x,y)+ey(2)*force_y(x,y)) 
-            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
+            if (yf<=Ly) ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(3)*force_x(x,y)+ey(3)*force_y(x,y)) 
-            ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
+            if (xb>=1 .and. yf<=Ly) ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(4)*force_x(x,y)+ey(4)*force_y(x,y)) 
-            ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
+            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(5)*force_x(x,y)+ey(5)*force_y(x,y)) 
-            ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
+            if (xb>=1 .and. yb>=1) ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(6)*force_x(x,y)+ey(6)*force_y(x,y)) 
-            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
+            if (yb>=1) ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(7)*force_x(x,y)+ey(7)*force_y(x,y)) 
-            ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
+            if (xf<=Lx .and. yb>=1) ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
                 & + 1.0d0/6.0d0*(ex(8)*force_x(x,y)+ey(8)*force_y(x,y)) 
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
             ! debug to determine which populations are negative
-            ! do a=1,9
-            !     if (ftemp(a,Lx/2,Ly/2) < 0) print*, "f", a, "=", ftemp(a,Lx/2,Ly/2)
-            ! end do
+            do a=1,9
+                if (ftemp(a,Lx/2,Ly/2) < -1.0d-23) print*, "f", a, "=", ftemp(a,Lx/2,Ly/2)
+            end do
         end do 
     end do
 
@@ -159,7 +148,7 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
-    ! print*, "beginning equilibrium populations" !debugging
+    ! print*, "beginning equilibrium populations" !debug
     do a = 1, 8 
         ! if (mod(a,2) == 0) then 
         feq(a,:,:) = gacl*h(:,:)*h(:,:)/(24.0d0*e**2) +& 
@@ -176,15 +165,15 @@ subroutine compute_feq
     end do
     feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
              & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2)
-    
-    ! if (feq(a,Lx/2,Ly/2) < 0) then !debugging
-    !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debugging
-    !     if (a == 9) then !debugging
-    !         print*, "term 1 =", h(Lx/2,Ly/2) !debugging
-    !         print*, "term 2 =", - 5.0d0*gacl*h(Lx/2,Ly/2)*h(Lx/2,Ly/2)/(6.0d0*e**2) !debugging
-    !         print*, "term 3 =", - 2.0d0*h(Lx/2,Ly/2)/(3.0d0*e**2)*(u(Lx/2,Ly/2)**2 + v(Lx/2,Ly/2)**2.0d0) !debugging
-    !     end if !debugging
-    ! end if
+    print*, "feq_0 = ",feq(9,1,1) !debug
+    ! if (feq(a,Lx/2,Ly/2) < -1.0d-23) then !debug
+    !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debug
+    !     if (a == 9) then !debug
+    !         print*, "term 1 =", h(Lx/2,Ly/2) !debug
+    !         print*, "term 2 =", - 5.0d0*gacl*h(Lx/2,Ly/2)*h(Lx/2,Ly/2)/(6.0d0*e**2) !debug
+    !         print*, "term 3 =", - 2.0d0*h(Lx/2,Ly/2)/(3.0d0*e**2)*(u(Lx/2,Ly/2)**2 + v(Lx/2,Ly/2)**2.0d0) !debug
+    !     end if !debug
+    ! end if !debug
     return
 end subroutine compute_feq
 
@@ -221,6 +210,53 @@ subroutine Slip_BC
 
     return 
 end subroutine Slip_BC 
+
+subroutine Inflow_Outflow
+    ! Following lines implement inflow BC (Zhou, p.59)
+    ftemp(1,1,:) = ftemp(5,1,:) + 2*q_in/(3*e)
+    ftemp(2,1,:) = q_in/(6*e) + ftemp(6,1,:) + 0.5*(ftemp(7,1,:) - ftemp(3,1,:))
+    ftemp(8,1,:) = q_in/(6*e) + ftemp(4,1,:) + 0.5*(ftemp(3,1,:) - ftemp(7,1,:))
+
+
+    do a=1,9 !debug
+        print*, "f after inflow", a, "=", ftemp(a,1,1)
+    end do ! debug
+
+    ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
+    ! h(Lx,:) = h_out
+    ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2*h(Lx,:)*u(Lx-1,:)/(3*e)
+    ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + ftemp(8,Lx,:) + 0.5*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+    ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + ftemp(2,Lx,:) + 0.5*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+
+    do a=1,9 !debug
+        print*, "f final", a, "=", ftemp(a,1,1)
+    end do ! debug
+end subroutine Inflow_Outflow
+
+subroutine Four_Corners
+    ! node (1,1)
+    ! ftemp(3,1,1) = ftemp(7,1,1) !slip (should be already done)
+    ! ftemp(4,1,1) = ftemp(6,1,1) !slip (should be already done)
+    ! ftemp(2,1,1) = q_in/(6*e) + ftemp(6,1,1) + 0.5*(ftemp(7,1,1) - ftemp(3,1,1)) !inflow
+    ftemp(8,1,1) = ftemp(2,1,1) !slip
+
+    ! node (1,Ly)
+    ! ftemp(6,1,Ly) = ftemp(4,1,Ly) !slip (should be already done)
+    ! ftemp(7,1,Ly) = ftemp(3,1,Ly) !slip (should be already done)
+    ! ftemp(8,1,Ly) = q_in/(6*e) + ftemp(4,1,Ly) + 0.5*(ftemp(3,1,Ly) - ftemp(7,1,Ly)) !inflow
+    ftemp(2,1,Ly) = ftemp(8,1,Ly) !slip
+
+    ! node (Lx,1)
+    ! ftemp(2,1,1) = ftemp(8,1,1) !slip (should be already done)
+    ! ftemp(3,1,1) = ftemp(7,1,1) !slip (should be already done)
+    ! ftemp(4,Lx,1) = -h(Lx,1)*u(Lx-1,1)/(6*e) + ftemp(8,Lx,1) + 0.5*(ftemp(7,Lx,1) - ftemp(3,Lx,1))
+    ftemp(6,Lx,1) = ftemp(4,Lx,1)
+
+    ! node (Lx,Ly)
+    ftemp(4,Lx,Ly) = ftemp(6,Lx,Ly)
+
+end subroutine Four_Corners
+
 
 subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
