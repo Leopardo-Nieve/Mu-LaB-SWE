@@ -98,17 +98,26 @@ program main
     u = uo 
     v = vo
 
+    !define bed geometry
     zb = 0
     do x = 1, Lx
         if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2 ! bump function
     end do
 
+    !apply geometry
     do y = 1,Ly
         h(:,y) = h(:,y) - zb(:)
     end do
 
+    !define initial velocity profile
+    u(1,:) = q_in/h(1,:) 
+
+    ! do y=1,Ly! debug
+    !     print*, "u(1,",y,")=", u(1,y), "u(2,",y,")=", u(2,y)! debug
+    ! end do! debug
+
     ! Set constant force
-    force_x = 2.4d-8 ! modified from book example
+    force_x = 0.0d0 ! modified from book example
     ! force_x = 2.4d-6 ! original book example
     force_y = 0.0d0
     ! print*, itera_no
@@ -132,13 +141,19 @@ program main
         ! Apply Slip BC
         call Slip_BC
 
+        ! Apply Inflow and Outflow BC
+        call Inflow_Outflow_BC
+
+        ! Apply BCs to corners
+        call Four_Corners_BC
+
         ! Calculate h, u & v
         call solution
 
         ! Update the feq
         call compute_feq
 
-        ! write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', u(Lx/2, Ly/2)
+        write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', h(100, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9
