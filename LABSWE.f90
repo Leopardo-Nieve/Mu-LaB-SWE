@@ -91,26 +91,38 @@ subroutine collide_stream
             ! Following 4 lines Implement periodic BCs 
             ! if (xf > Lx) xf = xf - Lx
             ! if (xb < 1) xb = Lx + xb 
-            ! if (yf > Ly) yf = yf - Ly
-            ! if (yb < 1) yb = Ly + yb 
+            if (yf > Ly) yf = yf - Ly
+            if (yb < 1) yb = Ly + yb 
 
             ! start streaming and collision 
-            if (xf<=Lx) ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + 1.0d0/6.0d0*(ex(1)*force_x(x,y)+ey(1)*force_y(x,y))
-            if (xf<=Lx .and. yf<=Ly) ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(2)*force_x(x,y)+ey(2)*force_y(x,y)) 
-            if (yf<=Ly) ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(3)*force_x(x,y)+ey(3)*force_y(x,y)) 
-            if (xb>=1 .and. yf<=Ly) ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(4)*force_x(x,y)+ey(4)*force_y(x,y)) 
+            if (xf<=Lx) then
+                ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
+                & + dt_6e2*(ex(1)*force_x(x,y)+ey(1)*force_y(x,y))
+            end if
+            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
+            ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
+                & + dt_6e2*(ex(2)*force_x(x,y)+ey(2)*force_y(x,y)) 
+            end if
+            ! if (yf<=Ly) 
+            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
+                & + dt_6e2*(ex(3)*force_x(x,y)+ey(3)*force_y(x,y)) 
+            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
+                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
+                & + dt_6e2*(ex(4)*force_x(x,y)+ey(4)*force_y(x,y)) 
+            end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(5)*force_x(x,y)+ey(5)*force_y(x,y)) 
-            if (xb>=1 .and. yb>=1) ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(6)*force_x(x,y)+ey(6)*force_y(x,y)) 
-            if (yb>=1) ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(7)*force_x(x,y)+ey(7)*force_y(x,y)) 
-            if (xf<=Lx .and. yb>=1) ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + 1.0d0/6.0d0*(ex(8)*force_x(x,y)+ey(8)*force_y(x,y)) 
+                & + dt_6e2*(ex(5)*force_x(x,y)+ey(5)*force_y(x,y)) 
+            if (xb>=1) then !if (xb>=1 .and. yb>=1) 
+                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
+                & + dt_6e2*(ex(6)*force_x(x,y)+ey(6)*force_y(x,y)) 
+            end if
+            ! if (yb>=1) 
+            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
+                & + dt_6e2*(ex(7)*force_x(x,y)+ey(7)*force_y(x,y)) 
+            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
+                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
+                & + dt_6e2*(ex(8)*force_x(x,y)+ey(8)*force_y(x,y)) 
+            end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
             ! debug to determine which populations are negative

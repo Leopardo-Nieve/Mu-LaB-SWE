@@ -141,13 +141,43 @@ program main
         call collide_stream
 
         ! Apply Slip BC
-        call Slip_BC
+        ! call Slip_BC
+        ! do a=1,9
+        !     if (ftemp(a,1,2)/=ftemp(a,1,4)) then
+        !         if (.not. stopSim) print*, "populations diverge after slip bc"
+        !         print*, "ftemp(",a,"1,2)=", ftemp(a,1,2),"ftemp(",a,"1,4)=", ftemp(a,1,4)
+        !         stopSim = .true.
+        !     end if
+        !     if (stopSim) stop
+        ! end do
+        ! print*, "after Slip_BC" !debug
+        ! print*, "feq",3,"=", feq(3,1,3) !debug
+        ! print*, "feq",7,"=", feq(7,1,3) !debug
+        ! print*, "--------After Slip_BC---------" !debug
+        ! do a=1,9 !debug
+        !     print*,"f",a,"(1,3) =",ftemp(a,1,3) !debug
+        ! end do !debug
 
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC
 
         ! Apply BCs to corners
-        call Four_Corners_BC
+        ! call Four_Corners_BC
+        ! do a=1,9
+        !     if (ftemp(a,1,2)/=ftemp(a,1,4)) then
+        !         if (.not. stopSim) print*, "populations diverge after 4 corners"
+        !         print*, "ftemp(",a,"1,2)=", ftemp(a,1,2),"ftemp(",a,"1,4)=", ftemp(a,1,4)
+        !         stopSim = .true.
+        !     end if
+        !     if (stopSim) stop
+        ! end do
+        ! print*, "after Four_Corners_BC" !debug
+        ! print*, "feq",3,"=", feq(3,1,3) !debug
+        ! print*, "feq",7,"=", feq(7,1,3) !debug
+        ! print*, "-----After Four_Corners_BC----" !debug
+        ! do a=1,9 !debug
+        !     print*,"f",a,"(1,3) =",ftemp(a,1,3) !debug
+        ! end do !debug
 
         ! Calculate h, u & v
         call solution
