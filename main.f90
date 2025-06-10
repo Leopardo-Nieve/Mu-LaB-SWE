@@ -68,7 +68,8 @@ program main
     print*, "ReZhou =", ReZhou
 
     ! calculate equivalent inlet discharge
-    q_in = ReZhou*nu
+    ! q_in = ReZhou*nu
+    q_in=qZhou ! to replicate physical behaviour
     print*, "q inlet =", q_in, "m^2/s"
     
     ! calculate the minimum possible value of e such that the stationary population is positive
@@ -82,6 +83,8 @@ program main
     ! define timestep dt
     dt = dx/e !s
     print*, "dt =", dt, "s"
+
+    dt_6e2=dt/(6.0d0*e*e)
 
     ! calculate the dimensionless relaxation time
     tau = 3.0d0*nu*dt/dx**2 + 0.5d0

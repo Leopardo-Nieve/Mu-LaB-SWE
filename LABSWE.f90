@@ -33,7 +33,8 @@ module LABSWE
         implicit none 
 
         integer:: Lx,Ly,x,y,a!,b !b for debug
-        double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,gacl = 9.81 
+        double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
+        &dt_6e2,gacl = 9.81 
         double precision, dimension(9):: ex,ey 
         double precision, allocatable, dimension(:):: zb
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y
