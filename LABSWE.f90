@@ -280,7 +280,7 @@ end subroutine Four_Corners_BC
 
 subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
-    open(67, file='result.csv', status='unknown')
+    open(67, file='../results_7.2.1/result.csv', status='unknown')
     
     ! Write CSV header
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s)'

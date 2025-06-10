@@ -273,7 +273,7 @@ program main
 
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 
-    open(66,file='result.dat',status='unknown') 
+    open(66,file='../results_7.2.1/result.dat',status='unknown') 
     td=fdate() 
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 
