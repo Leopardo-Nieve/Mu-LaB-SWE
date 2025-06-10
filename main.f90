@@ -28,8 +28,8 @@ program main
     implicit none ! had to write in a second line because VSCode was signaling an error
     
     ! declare local working variables 
-    integer:: itera_no!, i, j commented because only used to debug
-    double precision :: ho, uo, vo, time, simTime, uMax, FrMax, Fr, Ma
+    integer:: itera_no
+    double precision :: ho, uo, vo, time, simTime
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim to let the simulation run
@@ -49,8 +49,7 @@ program main
     ! assign a value for the inlet discharge
     qZhou = 4.42d0 ! m^2/s
 
-    ! assign a value for the molecular viscosity
-    nu = 1.004d-6 ! m^2/s molecular viscosity of water
+    
 
     ! assign a value of dx and dy
     dx = 1.0d-1 ! m
@@ -66,31 +65,35 @@ program main
     nuZhou = (tauZhou-0.5d0)*eZhou*dx/3.0d0
     print*, "nu Zhou =", nuZhou, "m^2/s"
 
+    ! assign a value for the molecular viscosity
+    ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
+    nu=nuZhou ! to replicate Zhou's results
+
     ! calculate the Reynolds number in Zhou's case
     ReZhou = qZhou/nuZhou
     print*, "ReZhou =", ReZhou
 
     ! calculate equivalent inlet discharge
     ! q_in = ReZhou*nu
-    q_in=qZhou ! to replicate physical behaviour
+    q_in=qZhou ! to replicate Zhou's results
     print*, "q inlet =", q_in, "m^2/s"
     
     ! calculate the minimum possible value of e such that the stationary population is positive
-    eMin = sqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
+    eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
     print*, "e min =", eMin, "m/s"
 
     ! calculate the lattice velocity
-    e = 2.0d0*eMin
+    ! e = 2.0d0*eMin
+    e=eZhou ! to replicate Zhou's results
     print*, "e =", e, "m/s"
 
     ! define timestep dt
     dt = dx/e !s
     print*, "dt =", dt, "s"
 
-    dt_6e2=dt/(6.0d0*e*e)
-
     ! calculate the dimensionless relaxation time
-    tau = 3.0d0*nu*dt/dx**2 + 0.5d0
+    ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
+    tau =tauZhou ! to replicate Zhou's results
 
     ! Total simulation time
     ! itera_no = 1
@@ -146,6 +149,19 @@ program main
         ! Streaming and collision steps
         call collide_stream
 
+        ! debug first node negative populations
+        ! do a=4,6
+        !     if (ftemp(a,1,3)<0) then
+        !         print*, "NEGATIVE population",a
+        !         print*, "previous timestep: ",a,f(4,1+1,3-1)
+        !         print*, "feq                ",a,feq(4,1+1,3-1)
+        !         print*, "force term         ",a,dt_6e2*(ex(4)*force_x(1+1,3-1)+ey(4)*force_y(1+1,3-1))
+        !     end if
+        !     print*, "ftemp(",a,"1,3)=",ftemp(a,1,3)
+        ! end do
+        ! print*, "Please press enter to continue"
+        ! read(*,*)
+
         ! Apply Slip BC
         ! call Slip_BC
         ! do a=1,9
@@ -197,20 +213,6 @@ program main
                 end do
             end do
         end do
-        
-        if (stopSim) then
-            uIndex = maxloc(u)
-            uMax = u(uIndex(1),uIndex(2))
-            FrMax = 0
-            do x=1,Lx
-                do y=1,Ly
-                    Fr = dsqrt(u(x,y)**2 + v(x,y)**2)
-                    if (Fr>FrMax) FrMax=Fr
-                end do
-            end do
-            Ma = uMax/(1.0d0/sqrt(3.0d0)*e)
-            exit
-        end if
 
         ! Calculate h, u & v
         call solution
@@ -255,16 +257,7 @@ program main
         
         if (time >= simTime) exit
         if (stopSim) then
-            uIndex = maxloc(u)
-            uMax = u(uIndex(1),uIndex(2))
-            FrMax = 0
-            do x=1,Lx
-                do y=1,Ly
-                    Fr = dsqrt(u(x,y)**2 + v(x,y)**2)
-                    if (Fr>FrMax) FrMax=Fr
-                end do
-            end do
-            Ma = uMax/(1.0d0/sqrt(3.0d0)*e)
+            call end_simulation
             exit
         end if
 

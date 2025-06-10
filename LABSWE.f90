@@ -32,11 +32,12 @@ module LABSWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a!,b !b for debug
-        integer, dimension(2):: uIndex
-        logical:: stopSim
+        integer:: Lx,Ly,x,y,a,b,i,j !b,i,j for debug
+        integer, dimension(2):: hIndex
+        logical:: stopSim, tauOk, velOk, celOk, FrOk
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
-        &dt_6e2,gacl = 9.81 
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
+        & hMax, uMax2, FrMax, Fr, Ma 
         double precision, dimension(9):: ex,ey 
         double precision, allocatable, dimension(:):: zb
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y
@@ -72,6 +73,19 @@ subroutine setup
     
     ex(9) = 0.0d0; ey(9) = 0.0d0
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
+
+
+    ! constants to limit random error
+    one_24th_e2=1.0d0/(24.0d0*e*e)
+    one_12th_e2=2.0d0*one_24th_e2
+    one_6th_e2 =2.0d0*one_12th_e2
+    one_3rd_e2 =2.0d0*one_6th_e2
+    one_8th_e4 = 1.0d0/(8.0d0*e*e*e*e)
+    five_6th_g_e2 = 5.0d0*gacl*one_6th_e2
+    two_3rd_e2 = 2.0d0*one_3rd_e2
+
+    dt_6e2=dt/(6.0d0*e*e)
+
 
     ! print*, "particle velocities defined" !debug
     ! compute the equilibrium distribution function feq 
@@ -171,21 +185,43 @@ subroutine compute_feq
     ! print*, "beginning equilibrium populations" !debug
     do a = 1, 8 
         ! if (mod(a,2) == 0) then 
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)/(24.0d0*e**2) +& 
-            & h(:,:)/(12.0d0*e**2)*(ex(a)*u(: ,:)+& 
-            & ey(a)*v(:,:))+h(:,:)/(8.0d0*e**4)& 
+        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +& 
+            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+& 
+            & ey(a)*v(:,:))+h(:,:)*one_8th_e4& 
             & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
             & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
             & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-            & h(:,:)/(24.0d0*e**2)*(u(:,:)*u(:,:)+& 
+            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+& 
             & v(:,:)*v(:,:)) 
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
     end do
-    feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
-             & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2)
-    ! print*, "feq_0 = ",feq(9,1,1) !debug
+    feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
+             & two_3rd_e2*h(:,:)*(u(:,:)**2 + v(:,:)**2)
+    ! do a=4,6
+    !     i=1+1
+    !     if (a==4) then
+    !         j=3-1
+    !     elseif(a==5) then
+    !         j=3
+    !     else
+    !         j=3+1
+    !     end if
+    !     print*, "1st term", gacl*h(i,j)*h(i,j)*one_24th_e2
+    !     print*, "2nd term", h(i,j)*one_12th_e2*(ex(a)*u(i,j)+ ey(a)*v(i,j))
+    !     print*, "3rd term",h(i,j)*one_8th_e4& 
+    !         & *(ex(a)*u(i,j)*ex(a)*u(i,j)+& 
+    !         & 2.0d0*ex(a)*u(i,j)*ey(a)*v(i,j)+& 
+    !         & ey(a)*v(i,j)*ey(a)*v(i,j))
+    !     print*, "4th term",- h(i,j)*one_24th_e2*(u(i,j)*u(i,j)+ v(i,j)*v(i,j)) 
+    !     print*,"feq",a,feq(a,i,j)
+    !     print*, "Please press enter to continue"
+    ! read(*,*)
+    ! end do
+    
+
+             ! print*, "feq_0 = ",feq(9,1,1) !debug
     ! if (feq(a,Lx/2,Ly/2) < -1.0d-23) then !debug
     !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debug
     !     if (a == 9) then !debug
@@ -298,5 +334,64 @@ subroutine write_csv
     
     close(67)
 end subroutine write_csv
+
+subroutine end_simulation
+    tauOk = .false.
+    velOk = .false.
+    celOk = .false.
+    FrOk  = .false.
+
+    hIndex = maxloc(h)
+    hMax = h(hIndex(1),hIndex(2))
+    uMax2 = 0
+    FrMax = 0
+    do x=1,Lx
+        do y=1,Ly
+            if (u(x,y)**2+v(x,y)**2>uMax2) uMax2 = u(x,y)**2+v(x,y)**2 
+            Fr = (u(x,y)**2 + v(x,y)**2)/h(x,y)
+            if (Fr>FrMax) then
+                FrMax=Fr
+                i=x;j=y
+            end if
+        end do
+    end do
+    FrMax = dsqrt(FrMax/gacl)
+
+    if (tau     > 0.5) tauOk = .true. ! stability condition 1
+    if (uMax2   < e*e) velOk = .true. ! stability condition 2
+    if (gacl*hMax<e*e) celOk = .true. ! stability condition 3
+    if (FrMax   < 1)   FrOk  = .true. ! stability condition 4
+    Ma = sqrt(uMax2)/(1.0d0/sqrt(3.0d0)*e)
+    print*, "tau =",tau 
+    if (tauOk) then
+        print*, "tau ok!"
+    else
+        print*, "tau NOT OKAY!!"
+    end if
+    print*, "u_ju_j/e^2 =", uMax2/(e*e)
+    if (velOk) then
+        print*, "velocity ok!"
+    else
+        print*, "velocity NOT OKAY!!"
+    end if
+    print*, "gh/e^2 =", gacl*hMax/(e*e)
+    if (celOk) then
+        print*, "celerity ok!"
+    else
+        print*, "celerity NOT OKAY!!"
+    end if
+    print*, "Fr max = ",FrMax, "at node:",i,j
+    if (FrOk) then
+        print*, "Froude ok!"
+    else
+        print*, "Froude NOT OKAY!!"
+    end if
+    print*, "Ma max = ",Ma!, "at node:",uIndex
+    if (Ma<0.3) then
+        print*, "Mach ok!"
+    else 
+        print*, "Mach NOT OKAY!!"
+    end if
+end subroutine end_simulation
 
 end module LABSWE
