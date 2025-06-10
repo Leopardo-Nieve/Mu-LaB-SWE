@@ -29,8 +29,11 @@ program main
     
     ! declare local working variables 
     integer:: itera_no!, i, j commented because only used to debug
-    double precision :: ho, uo, vo, time, simTime
+    double precision :: ho, uo, vo, time, simTime, uMax, FrMax, Fr, Ma
     character:: fdate*24, td*24 ! get date for output
+
+    ! initialize stopSim to let the simulation run
+    stopSim = .false.
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -182,6 +185,33 @@ program main
         !     print*,"f",a,"(1,3) =",ftemp(a,1,3) !debug
         ! end do !debug
 
+        ! debug to determine which populations are negative
+        do x=1,Lx
+            do y=1,Ly
+                do a=1,9
+                    if (ftemp(a,x,y) < -1.0d-23) then
+                        if (.not. stopSim) print*, "Error: negative population"
+                        print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
+                        stopSim=.true.
+                    end if
+                end do
+            end do
+        end do
+        
+        if (stopSim) then
+            uIndex = maxloc(u)
+            uMax = u(uIndex(1),uIndex(2))
+            FrMax = 0
+            do x=1,Lx
+                do y=1,Ly
+                    Fr = dsqrt(u(x,y)**2 + v(x,y)**2)
+                    if (Fr>FrMax) FrMax=Fr
+                end do
+            end do
+            Ma = uMax/(1.0d0/sqrt(3.0d0)*e)
+            exit
+        end if
+
         ! Calculate h, u & v
         call solution
 
@@ -224,6 +254,19 @@ program main
         ! end do
         
         if (time >= simTime) exit
+        if (stopSim) then
+            uIndex = maxloc(u)
+            uMax = u(uIndex(1),uIndex(2))
+            FrMax = 0
+            do x=1,Lx
+                do y=1,Ly
+                    Fr = dsqrt(u(x,y)**2 + v(x,y)**2)
+                    if (Fr>FrMax) FrMax=Fr
+                end do
+            end do
+            Ma = uMax/(1.0d0/sqrt(3.0d0)*e)
+            exit
+        end if
 
     end do timStep
     print*, " h after loop =", h(100,Ly/2) !debugging

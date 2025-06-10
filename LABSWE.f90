@@ -33,6 +33,8 @@ module LABSWE
         implicit none 
 
         integer:: Lx,Ly,x,y,a!,b !b for debug
+        integer, dimension(2):: uIndex
+        logical:: stopSim
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
         &dt_6e2,gacl = 9.81 
         double precision, dimension(9):: ex,ey 
@@ -44,22 +46,30 @@ contains
 
 subroutine setup 
     ! declare a local double precision for the quarter of PI 
-    double precision:: quarter_pi 
+    ! double precision:: quarter_pi 
 
-    ! set constant PI 
-    quarter_pi = datan(1.0d0) 
+    ! ! set constant PI 
+    ! quarter_pi = datan(1.0d0) 
 
-    ! compute the particle velocities 
-    do a = 1, 8 
-        if (mod(a,2) == 0) then 
-            ex(a) = dsqrt(2.0d0)*dcos(quarter_pi*dble(a-1)) 
-            ey(a) = dsqrt(2.0d0)*dsin(quarter_pi*dble(a-1)) 
-        else
-            ex(a) = dcos(quarter_pi*dble(a-1)) 
-            ey(a) = dsin(quarter_pi*dble(a-1))
+    ! ! compute the particle velocities 
+    ! do a = 1, 8 
+    !     if (mod(a,2) == 0) then 
+    !         ex(a) = dsqrt(2.0d0)*dcos(quarter_pi*dble(a-1)) 
+    !         ey(a) = dsqrt(2.0d0)*dsin(quarter_pi*dble(a-1)) 
+    !     else
+    !         ex(a) = dcos(quarter_pi*dble(a-1)) 
+    !         ey(a) = dsin(quarter_pi*dble(a-1))
 
-        end if 
-    end do
+    !     end if 
+    ! end do
+     ! hard-code lattice velocities    
+
+    ! D2Q9 directions:
+    ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
+
+    ex = (/ 1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0,  0.0d0,  1.0d0, 0.0d0 /)
+    ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
+    
     ex(9) = 0.0d0; ey(9) = 0.0d0
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
@@ -126,10 +136,6 @@ subroutine collide_stream
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
-            ! debug to determine which populations are negative
-            do a=1,9
-                if (ftemp(a,Lx/2,Ly/2) < -1.0d-23) print*, "f", a, "=", ftemp(a,Lx/2,Ly/2)
-            end do
         end do 
     end do
 
@@ -179,7 +185,7 @@ subroutine compute_feq
     end do
     feq(9,:,:) = h(:,:) - 5.0d0*gacl*h(:,:)*h(:,:)/(6.0d0*e**2) - &
              & 2.0d0*h(:,:)/(3.0d0*e**2)*(u(:,:)**2 + v(:,:)**2)
-    print*, "feq_0 = ",feq(9,1,1) !debug
+    ! print*, "feq_0 = ",feq(9,1,1) !debug
     ! if (feq(a,Lx/2,Ly/2) < -1.0d-23) then !debug
     !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debug
     !     if (a == 9) then !debug
@@ -227,24 +233,24 @@ end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
     ! Following lines implement inflow BC (Zhou, p.59)
-    ftemp(1,1,:) = ftemp(5,1,:) + 2*q_in/(3*e)
-    ftemp(2,1,:) = q_in/(6*e) + ftemp(6,1,:) + 0.5*(ftemp(7,1,:) - ftemp(3,1,:))
-    ftemp(8,1,:) = q_in/(6*e) + ftemp(4,1,:) + 0.5*(ftemp(3,1,:) - ftemp(7,1,:))
+    ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*q_in/(3.0d0*e)
+    ftemp(2,1,:) = q_in/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+    ftemp(8,1,:) = q_in/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
 
 
-    do a=1,9 !debug
-        print*, "f after inflow", a, "=", ftemp(a,1,1)
-    end do ! debug
+    ! do a=1,9 !debug
+    !     print*, "f after inflow", a, "=", ftemp(a,1,1)
+    ! end do ! debug
 
     ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
     ! h(Lx,:) = h_out
-    ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2*h(Lx,:)*u(Lx-1,:)/(3*e)
-    ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + ftemp(8,Lx,:) + 0.5*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-    ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6*e) + ftemp(2,Lx,:) + 0.5*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+    ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx-1,:)/(3.0d0*e)
+    ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+    ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
 
-    do a=1,9 !debug
-        print*, "f final", a, "=", ftemp(a,1,1)
-    end do ! debug
+    ! do a=1,9 !debug
+    !     print*, "f final", a, "=", ftemp(a,1,1)
+    ! end do ! debug
 end subroutine Inflow_Outflow_BC
 
 subroutine Four_Corners_BC
