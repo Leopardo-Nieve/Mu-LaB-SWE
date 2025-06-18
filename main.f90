@@ -104,7 +104,7 @@ program main
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx)) 
+        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly)) 
     
     ! initialize the depth and velocities 
     h = ho 
@@ -114,8 +114,13 @@ program main
     !define bed geometry
     zb = 0
     do x = 1, Lx
-        if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2 ! bump function
+        if (x*dx > 8 .and. x*dx < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2.0d0 ! bump function
     end do
+
+    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
+    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
+
 
     !apply geometry
     h = h - zb
@@ -129,8 +134,7 @@ program main
     ! end do! debug
 
     ! Set constant force
-    force_x = 0.0d0 ! modified from book example
-    ! force_x = 2.4d-6 ! original book example
+    force_x = h*gacl*dzbdx ! bed slope force
     force_y = 0.0d0
     ! print*, itera_no
     ! print*, ho
@@ -256,8 +260,8 @@ program main
         !     end do
         ! end do
         
-        if (time >= simTime) exit
-        if (stopSim) then
+        ! if (time >= simTime) exit
+        if (stopSim .or. check_convergence(u,epsilon)) then
             call end_simulation
             exit
         end if

@@ -1,20 +1,12 @@
 2025-06-18
 
-Non physical bump (because force is not centered scheme?)
-
-depth surges at entrance (bad inlet conditions?)
+Pausing on exception
 
 modifications:
-- MISSING dzdbx SO FORCE TERM IS UNDEFINED!!!
+- completed making zb 2D
 
-- added convergence check as criteria to end loop
+- defined dzbdx
 
-- added max value of e before getting negative equilibrium density functions
+- applied basic force scheme
 
-- made zb a 2D array 
-
-- made e=15 m/s again
-
-- used Zhou's parameters to replicate his results
-
-- some debugging lines
+- applied convergence criteria condition
