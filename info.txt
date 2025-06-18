@@ -1,6 +1,6 @@
 2025-06-18
 
-Pausing on exception
+Not allocating for dzdbx caused pausing in previous version
 
 modifications:
 - completed making zb 2D
