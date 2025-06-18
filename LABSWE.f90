@@ -130,31 +130,31 @@ subroutine collide_stream
             ! start streaming and collision 
             if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(x,y)+ey(1)*force_y(x,y))
+                & + dt_6e2*(ex(1)*0.05d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.05d0*(force_y(x,y)+force_y(xf,y)))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
             ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(x,y)+ey(2)*force_y(x,y)) 
+                & + dt_6e2*(ex(2)*0.05d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.05d0*(force_y(x,y)+force_y(xf,yf)))
             end if
             ! if (yf<=Ly) 
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(x,y)+ey(3)*force_y(x,y)) 
+                & + dt_6e2*(ex(3)*0.05d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.05d0*(force_y(x,y)+force_y(x,yf)))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(x,y)+ey(4)*force_y(x,y)) 
+                & + dt_6e2*(ex(4)*0.05d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.05d0*(force_y(x,y)+force_y(xb,yf)))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(x,y)+ey(5)*force_y(x,y)) 
+                & + dt_6e2*(ex(5)*0.05d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.05d0*(force_y(x,y)+force_y(xb,y)))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) 
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(x,y)+ey(6)*force_y(x,y)) 
+                & + dt_6e2*(ex(6)*0.05d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.05d0*(force_y(x,y)+force_y(xb,yb)))
             end if
             ! if (yb>=1) 
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(x,y)+ey(7)*force_y(x,y)) 
+                & + dt_6e2*(ex(7)*0.05d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.05d0*(force_y(x,y)+force_y(x,yb)))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(x,y)+ey(8)*force_y(x,y)) 
+                & + dt_6e2*(ex(8)*0.05d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.05d0*(force_y(x,y)+force_y(xf,yb)))
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
@@ -176,7 +176,6 @@ subroutine solution
     u = 0.0d0
     v = 0.0d0
     do a = 1, 9
-        print*, a,"ex = ",ex(a), "f_a =",f(a,1,1)
         h(:,:) = h(:,:) + f(a,:,:)
         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)

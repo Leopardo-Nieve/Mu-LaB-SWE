@@ -1,12 +1,10 @@
 2025-06-18
 
-Not allocating for dzdbx caused pausing in previous version
+Behaviour is still not physical. Non-physical depth at entrance seems to cause negative populations and depth never settles to 2 m.
 
 modifications:
-- completed making zb 2D
+- calculated space-averaged force in collision_streaming subroutine for centered force scheme
 
-- defined dzbdx
+- commented negative population detector lines
 
-- applied basic force scheme
-
-- applied convergence criteria condition
+- reduced espilon (convergence criterion)

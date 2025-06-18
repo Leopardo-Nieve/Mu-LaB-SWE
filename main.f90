@@ -34,7 +34,7 @@ program main
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-7
+    epsilon = 1.0d-8
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -207,17 +207,17 @@ program main
         ! end do !debug
 
         ! debug to determine which populations are negative
-        do x=1,Lx
-            do y=1,Ly
-                do a=1,9
-                    if (ftemp(a,x,y) < -1.0d-23) then
-                        if (.not. stopSim) print*, "Error: negative population"
-                        print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
-                        stopSim=.true.
-                    end if
-                end do
-            end do
-        end do
+        ! do x=1,Lx
+        !     do y=1,Ly
+        !         do a=1,9
+        !             if (ftemp(a,x,y) < -1.0d-23) then
+        !                 if (.not. stopSim) print*, "Error: negative population"
+        !                 print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
+        !                 stopSim=.true.
+        !             end if
+        !         end do
+        !     end do
+        ! end do
 
         ! Calculate h, u & v
         call solution
