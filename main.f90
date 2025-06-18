@@ -104,7 +104,7 @@ program main
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx)) 
+        & force_x(2*Lx-1,2*Ly-1),force_y(2*Lx-1,2*Ly-1),u(Lx,Ly),v(Lx,Ly),zb(2*Lx-1,2*Ly-1),dzbdx(2*Lx-1,2*Ly-1)) 
     
     ! initialize the depth and velocities 
     h = ho 
@@ -113,9 +113,15 @@ program main
 
     !define bed geometry
     zb = 0
-    do x = 1, Lx
-        if (x*dx > 8 .and. x*dx < 12) zb(x) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2 ! bump function
+    do x = 1, 2*Lx-1
+        if (x*dx/2 > 8 .and. x*dx/2 < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx/2.0d0 - 10.0d0)**2.0d0 ! bump function
     end do
+
+    ! 2nd order difference scheme for derivative in space
+    dzbdx(2:2*Lx-2,:) = (zb(3:2*Lx-1,:) - zb(1:2*Lx-3,:)) / (2.0d0 * dx/2.d0)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx/2.0d0)
+    dzbdx(2*Lx-1,:) = (3.0d0 * zb(2*Lx-1,:) - 4.0d0 * zb(2*Lx-2,:) + zb(2*Lx-3,:)) / (2.0d0 * dx/2.0d0)
+    
 
     !apply geometry
     h = h - zb
@@ -129,7 +135,18 @@ program main
     ! end do! debug
 
     ! Set constant force
-    force_x = 0.0d0 ! modified from book example
+    
+    force_x(1,:) = h(1,:)*gacl*dzbdx(1,:) ! slope force
+    force_x(2*Lx-1,:) = h(Lx,:)*gacl*dzbdx(2*Lx-1,:) ! slope force
+    do x=2,2*Lx-2
+        if (mod(x,2)==1) then
+            force_x(x,:) = h((x+1)/2,:)*gacl*dzbdx(x,:)
+        else
+            force_x(x,:) = 0.5d0*(h(x/2,:)+h(x/2+1,:))*gacl*dzbdx(x,:)
+            
+        end if
+    end do
+    ! force_x = 1.0d1*h*gacl*dzbdx ! debug
     ! force_x = 2.4d-6 ! original book example
     force_y = 0.0d0
     ! print*, itera_no
@@ -150,6 +167,17 @@ program main
         ! Streaming and collision steps
         call collide_stream
 
+        do i=1,Lx
+            do j=1,Ly
+                do a=1,9
+                    if (ieee_is_nan(ftemp(a,i,j))) then
+                        print *, "La variable ftemp est un NaN.", a,i,j
+                        
+                        ! stop
+                    end if
+                end do
+            end do
+        end do
         ! debug first node negative populations
         ! do a=4,6
         !     if (ftemp(a,1,3)<0) then
@@ -203,17 +231,17 @@ program main
         ! end do !debug
 
         ! debug to determine which populations are negative
-        do x=1,Lx
-            do y=1,Ly
-                do a=1,9
-                    if (ftemp(a,x,y) < -1.0d-23) then
-                        if (.not. stopSim) print*, "Error: negative population"
-                        print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
-                        stopSim=.true.
-                    end if
-                end do
-            end do
-        end do
+        ! do x=1,Lx
+        !     do y=1,Ly
+        !         do a=1,9
+        !             if (ftemp(a,x,y) < -1.0d-23) then
+        !                 if (.not. stopSim) print*, "Error: negative population"
+        !                 print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
+        !                 stopSim=.true.
+        !             end if
+        !         end do
+        !     end do
+        ! end do
 
         ! Calculate h, u & v
         call solution
@@ -232,38 +260,37 @@ program main
         !     end do
         ! end if
 
-        ! do i=1,Lx 
-        !     do j = 1, Ly
+        do i=1,Lx 
+            do j = 1, Ly
                 
-        !         ! Vérifier si u est un NaN
-        !         if (ieee_is_nan(u(i,j))) then
-        !             print *, "La variable u est un NaN.", i,j
+                ! Vérifier si u est un NaN
+                if (ieee_is_nan(u(i,j))) then
+                    print *, "La variable u est un NaN.", i,j
                     
-        !             stop
-        !         end if
+                    stop
+                end if
                 
-        !         ! Vérifier si v est un NaN
-        !         if (ieee_is_nan(v(i,j))) then
-        !             print *, "La variable v est un NaN.", i,j
-        !             stop
-        !         end if
+                ! Vérifier si v est un NaN
+                if (ieee_is_nan(v(i,j))) then
+                    print *, "La variable v est un NaN.", i,j
+                    ! stop
+                end if
 
-        !         ! Vérifier si h est un NaN
-        !         if (ieee_is_nan(h(i,j))) then
-        !             print *, "La variable h est un NaN.", i,j
-        !             stop
-        !         end if
-        !     end do
-        ! end do
+                ! Vérifier si h est un NaN
+                if (ieee_is_nan(h(i,j))) then
+                    print *, "La variable h est un NaN.", i,j
+                    ! stop
+                end if
+            end do
+        end do
         
-        if (time >= simTime) exit
-        if (stopSim) then
+        ! if (time >= simTime) exit
+        if (stopSim .or. check_convergence(u,epsilon)) then
             call end_simulation
             exit
         end if
 
     end do timStep
-    print*, " h after loop =", h(100,Ly/2) !debugging
 
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 

@@ -1,20 +1,10 @@
 2025-06-18
 
-Non physical bump (because force is not centered scheme?)
-
-depth surges at entrance (bad inlet conditions?)
+CRITICAL ERROR: +/- Infinity values at nodes (1,1) and (1,Ly) and perhaps more
 
 modifications:
-- MISSING dzdbx SO FORCE TERM IS UNDEFINED!!!
+- LIKELY CAUSING CRITICAL ERROR: modified the collide_stream subroutine and the dimensions of zb, dzbdx, force_x, force_y
 
-- added convergence check as criteria to end loop
+- added a script verifying if any ftemp is a NaN after the collide_stream subroutine
 
-- added max value of e before getting negative equilibrium density functions
-
-- made zb a 2D array 
-
-- made e=15 m/s again
-
-- used Zhou's parameters to replicate his results
-
-- some debugging lines
+- commented debugging lines

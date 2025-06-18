@@ -130,31 +130,31 @@ subroutine collide_stream
             ! start streaming and collision 
             if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(x,y)+ey(1)*force_y(x,y))
+                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
             ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(x,y)+ey(2)*force_y(x,y)) 
+                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1)) 
             end if
             ! if (yf<=Ly) 
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(x,y)+ey(3)*force_y(x,y)) 
+                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1)) 
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(x,y)+ey(4)*force_y(x,y)) 
+                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1)) 
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(x,y)+ey(5)*force_y(x,y)) 
+                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y)) 
             if (xb>=1) then !if (xb>=1 .and. yb>=1) 
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(x,y)+ey(6)*force_y(x,y)) 
+                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1)) 
             end if
             ! if (yb>=1) 
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(x,y)+ey(7)*force_y(x,y)) 
+                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1)) 
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(x,y)+ey(8)*force_y(x,y)) 
+                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1)) 
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
