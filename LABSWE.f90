@@ -38,9 +38,8 @@ module LABSWE
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma 
-        double precision, dimension(9):: ex,ey 
-        double precision, allocatable, dimension(:):: zb
-        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y
+        double precision, dimension(9):: ex,ey, eMax
+        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -72,7 +71,16 @@ subroutine setup
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
     
     ex(9) = 0.0d0; ey(9) = 0.0d0
+    eMax = gacl*h(1,3)/3.0d0
+    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
+    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
+    eMax = eMax/-(ex*u(1,3) + ey*v(1,3))
+    eMax = 6.0d0*eMax
+    do a=1,9
+        if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
+    end do
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
+    print*, "eMax = ", eMax
 
 
     ! constants to limit random error
@@ -168,6 +176,7 @@ subroutine solution
     u = 0.0d0
     v = 0.0d0
     do a = 1, 9
+        print*, a,"ex = ",ex(a), "f_a =",f(a,1,1)
         h(:,:) = h(:,:) + f(a,:,:)
         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
@@ -198,16 +207,20 @@ subroutine compute_feq
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
     end do
     feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
-             & two_3rd_e2*h(:,:)*(u(:,:)**2 + v(:,:)**2)
-    ! do a=4,6
-    !     i=1+1
-    !     if (a==4) then
-    !         j=3-1
-    !     elseif(a==5) then
-    !         j=3
-    !     else
-    !         j=3+1
-    !     end if
+             & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+    ! do a=1,9
+    !     ! i=1+1
+    !     ! if (a==4) then
+    !     !     j=3-1
+    !     ! elseif(a==5) then
+    !     !     j=3
+    !     ! else
+    !     !     j=3+1
+    !     ! end if
+    !     i=1
+    !     j=3
+    !     print*, "Population:",a
+    !     print*, "ex(",a,") =",ex(a)
     !     print*, "1st term", gacl*h(i,j)*h(i,j)*one_24th_e2
     !     print*, "2nd term", h(i,j)*one_12th_e2*(ex(a)*u(i,j)+ ey(a)*v(i,j))
     !     print*, "3rd term",h(i,j)*one_8th_e4& 
@@ -219,7 +232,11 @@ subroutine compute_feq
     !     print*, "Please press enter to continue"
     ! read(*,*)
     ! end do
-    
+
+    ! do a=1,9
+    !     print*, "f(",a,",1,3) =",f(a,1,3)
+    ! end do
+    ! read(*,*)
 
              ! print*, "feq_0 = ",feq(9,1,1) !debug
     ! if (feq(a,Lx/2,Ly/2) < -1.0d-23) then !debug
@@ -327,13 +344,43 @@ subroutine write_csv
             write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
                 x, y, &
                 x * dx, y * dy, &
-                h(x,y) + zb(x), zb(x), h(x,y), &
+                h(x,y) + zb(x,y), zb(x,y), h(x,y), &
                 u(x,y), v(x,y)
         end do
     end do
     
     close(67)
 end subroutine write_csv
+
+logical function check_convergence(uCheck, epsilonCheck)
+    implicit none
+    real(8), intent(in)  :: uCheck(:,:)
+    real(8), intent(in)  :: epsilonCheck
+    real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0
+    real(8)              :: current_avg, diff1, diff2
+
+    current_avg = sum(uCheck) / size(uCheck)
+
+    ! Shift average history
+    u_nMinus2 = u_nMinus1
+    u_nMinus1 = u_n
+    u_n = current_avg
+
+    ! Avoid check on first 2 calls
+    if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
+      check_convergence = .false.
+      return
+    end if
+
+    diff1 = u_n - u_nMinus1
+    diff2 = u_nMinus1 - u_nMinus2
+
+    if (abs(diff1 - diff2) < epsilonCheck) then
+      check_convergence = .true.
+    else
+      check_convergence = .false.
+    end if
+  end function check_convergence
 
 subroutine end_simulation
     tauOk = .false.

@@ -29,11 +29,12 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo, time, simTime
+    double precision :: ho, uo, vo, time, epsilon!, simTime
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
+    epsilon = 1.0d-7
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -67,7 +68,6 @@ program main
 
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
-    nu=nuZhou ! to replicate Zhou's results
 
     ! calculate the Reynolds number in Zhou's case
     ReZhou = qZhou/nuZhou
@@ -84,7 +84,8 @@ program main
 
     ! calculate the lattice velocity
     ! e = 2.0d0*eMin
-    e=eZhou ! to replicate Zhou's results
+    ! e=eZhou ! to replicate Zhou's results
+    e=15.0d0 ! test to see if eMax is a valid stability condition
     print*, "e =", e, "m/s"
 
     ! define timestep dt
@@ -94,11 +95,12 @@ program main
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
     tau =tauZhou ! to replicate Zhou's results
+    nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! Total simulation time
     ! itera_no = 1
-    itera_no = 200
-    simTime = itera_no*dt
+    ! itera_no = NINT(200/dt) 
+    ! simTime = 200 ! assuming steady state after 200 s
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
