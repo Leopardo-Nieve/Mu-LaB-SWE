@@ -118,9 +118,8 @@ program main
     end do
 
     !apply geometry
-    do y = 1,Ly
-        h(:,y) = h(:,y) - zb(:)
-    end do
+    h = h - zb
+
 
     !define initial velocity profile
     u(1,:) = q_in/h(1,:) 
