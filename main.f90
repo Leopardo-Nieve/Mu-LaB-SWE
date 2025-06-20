@@ -35,6 +35,12 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     epsilon = 1.0d-23
+    
+    current_iteration = 0
+    itera_no = 2
+
+    ! constants for boundary conditions
+    h_out = 2.0d0
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -97,15 +103,11 @@ program main
     tau =tauZhou ! to replicate Zhou's results
     nu = (tau-0.5d0)*e*dx/3.0d0
 
-    ! Total simulation time
-    current_iteration = 0
-    itera_no = 2e+4
-    ! itera_no = NINT(200/dt) 
-    ! simTime = 200 ! assuming steady state after 200 s
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly)) 
+        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly)) 
     
     ! initialize the depth and velocities 
     h = ho 
@@ -221,9 +223,22 @@ program main
         !     end do
         ! end do
 
+        ! make sure no populations are NaN
+        do i = 1, Lx
+            do j = 1, Ly
+                do a = 1, 9
+                    if ( ieee_is_nan(ftemp(a,i,j)) ) then
+                        print*, "ftemp",a,x,y,"is not a number"
+                        stopSim = .true.
+                    end if
+                end do
+            end do
+        end do
+
         ! Calculate h, u & v
-        call solution
-        print*,current_iteration,"Inflow: h=", h(1,3),"u=", u(1,3), "v=", v(1,3)
+        if (.not. stopSim) call solution
+        ! print*,current_iteration,"Inflow: h=", h(1,3),"u=", u(1,3), "v=", v(1,3)
+        ! print*,current_iteration,"Outflow: h=", h(Lx,3),"u=", u(Lx,3), "v=", v(Lx,3)
 
         ! Update the feq
         call compute_feq
@@ -264,7 +279,7 @@ program main
         ! end do
         if (current_iteration >=itera_no) stopSim = .true. ! stop simulation after certain no timesteps
         ! if (time >= simTime) exit
-        if (stopSim .or. check_convergence(u,epsilon)) then
+        if (stopSim .or. check_convergence(u,h,epsilon)) then
             call end_simulation
             exit
         end if

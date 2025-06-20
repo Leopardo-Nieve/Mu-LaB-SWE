@@ -1,16 +1,19 @@
 2025-06-20
 
-Behaviour is still not physical. Non-physical depth at entrance seems to cause negative populations and depth never settles to 2 m.
-Bump does not create a dip: it's almost as if the bump had no impact on the depth, i.e. surface profile varies very little with x.
-Simulation is conservative (q is constant at every node).
+Behaviour is still not physical. 
+Outlet condition is now better enforced, but the issue at the inlet is amplified. 
+The inlet depth increases until it reaches infinity. Note that the consistency condition is not respected at the inlet. The definite cause remains to be determined.
+---
 
-modifications:
-- added iteration tracker variable (current_iteration)
+Modifications since last version:
+- added consistency check for inlet and outlet boundary conditions. If the consistency condition is verified, then the inlet or outlet equations are valid. Otherwise, the solutions are incorrect.
 
-- modified write_csv to add simulation parameters above header and added column for q (m^2/s)
+- used h_out instead of past timestep h to enforce depth at outlet
 
-- moved check_convergence function to end of LABSWE module
+- added depth to convergence criteria
 
+- added a is_nan verification for ftemp before solution subroutine is called
+---
 
-potential next steps:
-- verify outlet condition to impose depth at outlet and compare results
+Potential next step(s):
+- Assign values to initial mesoscopic populations as well as macroscopic values for inlet and outlet boundary conditions. It may enforce the consistency equation and thus create a physical depth at the inlet.
