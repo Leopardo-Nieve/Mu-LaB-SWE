@@ -32,9 +32,9 @@ program main
     double precision :: ho, uo, vo, time, epsilon!, simTime
     character:: fdate*24, td*24 ! get date for output
 
-    ! initialize stopSim to let the simulation run
+    ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-8
+    epsilon = 1.0d-23
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -98,7 +98,8 @@ program main
     nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! Total simulation time
-    ! itera_no = 1
+    current_iteration = 0
+    itera_no = 2e+4
     ! itera_no = NINT(200/dt) 
     ! simTime = 200 ! assuming steady state after 200 s
 
@@ -150,6 +151,7 @@ program main
     timStep: do
 
         time = time+dt
+        current_iteration = current_iteration + 1
 
         ! Streaming and collision steps
         call collide_stream
@@ -221,11 +223,12 @@ program main
 
         ! Calculate h, u & v
         call solution
+        print*,current_iteration,"Inflow: h=", h(1,3),"u=", u(1,3), "v=", v(1,3)
 
         ! Update the feq
         call compute_feq
 
-        write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', h(100, Ly/2)
+        ! write(6,'(ES26.16,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9
@@ -259,7 +262,7 @@ program main
         !         end if
         !     end do
         ! end do
-        
+        if (current_iteration >=itera_no) stopSim = .true. ! stop simulation after certain no timesteps
         ! if (time >= simTime) exit
         if (stopSim .or. check_convergence(u,epsilon)) then
             call end_simulation
@@ -276,7 +279,7 @@ program main
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 
     write(66,*) '# tau =',tau,', uO =',uo 
-    write(66,*) '# Iteration No.: ',itera_no 
+    write(66,*) '# Iteration No.: ',current_iteration 
     write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly 
     write(66,*) '#      Results of the computations' 
     write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',& 

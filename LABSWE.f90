@@ -32,7 +32,7 @@ module LABSWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a,b,i,j !b,i,j for debug
+        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
@@ -334,52 +334,29 @@ subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
     open(67, file='../results_7.2.1/result.csv', status='unknown')
     
+    ! write simulation parameters
+    write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
+    write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+
+
+    
     ! Write CSV header
-    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s)'
+    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),3(F12.4,","),F12.4)') &
                 x, y, &
                 x * dx, y * dy, &
                 h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                u(x,y), v(x,y)
+                u(x,y), v(x,y), h(x,y)*u(x,y)
         end do
     end do
     
     close(67)
 end subroutine write_csv
-
-logical function check_convergence(uCheck, epsilonCheck)
-    implicit none
-    real(8), intent(in)  :: uCheck(:,:)
-    real(8), intent(in)  :: epsilonCheck
-    real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0
-    real(8)              :: current_avg, diff1, diff2
-
-    current_avg = sum(uCheck) / size(uCheck)
-
-    ! Shift average history
-    u_nMinus2 = u_nMinus1
-    u_nMinus1 = u_n
-    u_n = current_avg
-
-    ! Avoid check on first 2 calls
-    if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
-      check_convergence = .false.
-      return
-    end if
-
-    diff1 = u_n - u_nMinus1
-    diff2 = u_nMinus1 - u_nMinus2
-
-    if (abs(diff1 - diff2) < epsilonCheck) then
-      check_convergence = .true.
-    else
-      check_convergence = .false.
-    end if
-  end function check_convergence
 
 subroutine end_simulation
     tauOk = .false.
@@ -439,5 +416,35 @@ subroutine end_simulation
         print*, "Mach NOT OKAY!!"
     end if
 end subroutine end_simulation
+
+logical function check_convergence(uCheck, epsilonCheck)
+    implicit none
+    real(8), intent(in)  :: uCheck(:,:)
+    real(8), intent(in)  :: epsilonCheck
+    real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0, h_nMinus2 = 0.0d0, h_nMinus1 = 0.0d0, h_n = 0.0d0
+    real(8)              :: u_avg, h_avg, u_diff1, u_diff2, h_diff1, h_diff2
+
+    u_avg = sum(uCheck) / size(uCheck)
+
+    ! Shift average history
+    u_nMinus2 = u_nMinus1; h_nMinus2 = h_nMinus1
+    u_nMinus1 = u_n;       h_nMinus1 = h_n
+    u_n     = u_avg;       h_n = h_avg
+
+    ! Avoid check on first 2 calls
+    if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
+      check_convergence = .false.
+      return
+    end if
+
+    u_diff1 = u_n - u_nMinus1; h_diff1 = h_n - h_nMinus1
+    u_diff2 = u_nMinus1 - u_nMinus2; h_diff2 = h_nMinus1 - h_nMinus2
+
+    if (abs(u_diff1 - u_diff2) < epsilonCheck .and. abs(h_diff1 - h_diff2) < epsilonCheck) then
+      check_convergence = .true.
+    else
+      check_convergence = .false.
+    end if
+  end function check_convergence
 
 end module LABSWE

@@ -1,10 +1,16 @@
-2025-06-18
+2025-06-20
 
 Behaviour is still not physical. Non-physical depth at entrance seems to cause negative populations and depth never settles to 2 m.
+Bump does not create a dip: it's almost as if the bump had no impact on the depth, i.e. surface profile varies very little with x.
+Simulation is conservative (q is constant at every node).
 
 modifications:
-- calculated space-averaged force in collision_streaming subroutine for centered force scheme
+- added iteration tracker variable (current_iteration)
 
-- commented negative population detector lines
+- modified write_csv to add simulation parameters above header and added column for q (m^2/s)
 
-- reduced espilon (convergence criterion)
+- moved check_convergence function to end of LABSWE module
+
+
+potential next steps:
+- verify outlet condition to impose depth at outlet and compare results
