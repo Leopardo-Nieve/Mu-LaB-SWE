@@ -35,28 +35,28 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     epsilon = 1.0d-23
+    consCriter = 1.0d0
     
     current_iteration = 0
-    itera_no = 2
+    itera_no = 2e+5
 
     ! constants for boundary conditions
     h_out = 2.0d0
 
+    ! assign a value for the inlet discharge
+    qZhou = 4.42d0 ! m^2/s
+    q_in=qZhou ! to replicate Zhou's results
+
     ! constants for initializing flow field. 
     ho = 2.0d0
-    uo = 0.0d0
+    uo = q_in/ho
     vo = 0.0d0
 
     ! assign a value for Zhou's relaxation time
     tauZhou = 1.5d0 
 
     ! assign a value for Zhou's lattice speed
-    eZhou = 15.0d0 ! m/s
-
-    ! assign a value for the inlet discharge
-    qZhou = 4.42d0 ! m^2/s
-
-    
+    eZhou = 15.0d0 ! m/s 
 
     ! assign a value of dx and dy
     dx = 1.0d-1 ! m
@@ -81,7 +81,6 @@ program main
 
     ! calculate equivalent inlet discharge
     ! q_in = ReZhou*nu
-    q_in=qZhou ! to replicate Zhou's results
     print*, "q inlet =", q_in, "m^2/s"
     
     ! calculate the minimum possible value of e such that the stationary population is positive
@@ -130,7 +129,7 @@ program main
 
 
     !define initial velocity profile
-    u(1,:) = q_in/h(1,:) 
+    ! u(1,:) = q_in/h(1,:) 
 
     ! do y=1,Ly! debug
     !     print*, "u(1,",y,")=", u(1,y), "u(2,",y,")=", u(2,y)! debug
@@ -243,7 +242,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        ! write(6,'(ES26.16,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
+        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9

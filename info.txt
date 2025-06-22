@@ -1,18 +1,16 @@
-2025-06-20
+2025-06-21
 
-Behaviour is still not physical. 
-Outlet condition is now better enforced, but the issue at the inlet is amplified. 
-The inlet depth increases until it reaches infinity. Note that the consistency condition is not respected at the inlet. The definite cause remains to be determined.
+Behaviour is still not physical. Bump still does not create a dip.
+Outlet depth tends towards 0 within 300 timesteps. The consistency test fails early.
+There is a slight dip before the bump.
+
+Unsure what criteria to use to enforce consistency condition.
 ---
 
 Modifications since last version:
-- added consistency check for inlet and outlet boundary conditions. If the consistency condition is verified, then the inlet or outlet equations are valid. Otherwise, the solutions are incorrect.
+- Added a consistency check criterion
 
-- used h_out instead of past timestep h to enforce depth at outlet
-
-- added depth to convergence criteria
-
-- added a is_nan verification for ftemp before solution subroutine is called
+- defined global initial velocity as inlet velocity, i.e., q_in/ho
 ---
 
 Potential next step(s):

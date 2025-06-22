@@ -37,7 +37,7 @@ module LABSWE
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter
         double precision, dimension(9):: ex,ey, eMax
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -291,8 +291,7 @@ subroutine Inflow_Outflow_BC
     end do
     consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)
     do j = 1, Ly
-        print*,consInLft(1,j),"=", consInRgt(1,j)
-        if ( consInLft(1,j) /= consInRgt(1,j) ) then
+        if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
             print*, "consistency fails at node",1,j
             print*,consInLft(1,j),"/=", consInRgt(1,j)
             stopSim = .true.
@@ -324,8 +323,7 @@ subroutine Inflow_Outflow_BC
     end do
     consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
     do j = 1, Ly
-        print*,consOutLft(1,j),"=", consOutRgt(1,j)
-        if ( consOutLft(1,j) /= consOutRgt(1,j) ) then
+        if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
             print*, "consistence fails at node",Lx,j
             print*,consOutLft(1,j),"/=", consOutRgt(1,j)
             stopSim = .true.
