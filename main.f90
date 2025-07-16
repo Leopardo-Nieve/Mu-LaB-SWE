@@ -35,7 +35,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     epsilon = 1.0d-23
-    consCriter = 1.0d0
+    consCriter = 1.0d-8
     
     current_iteration = 0
     itera_no = 2e+5
@@ -49,7 +49,7 @@ program main
 
     ! constants for initializing flow field. 
     ho = 2.0d0
-    uo = q_in/ho
+    uo = 0.0d0
     vo = 0.0d0
 
     ! assign a value for Zhou's relaxation time

@@ -102,6 +102,50 @@ subroutine setup
     ! Set the initial distribution function to feq 
     f = feq
 
+    print*, "starting consistence check during setup" !debug
+
+    ! Inlet condition
+    ! consistence check
+    consInLft(1,:) = h(1,:)-f(9,1,:) ! left side of the consistence equation
+    do a = 3, 7
+        consInLft(1,:) = consInLft(1,:) - f(a,1,:)
+    end do
+    consInRgt(1,:) = h(1,:)*u(1,:)/e + f(4,1,:) + f(5,1,:) + f(6,1,:) ! right side of the consistence equation
+    do j = 1, Ly
+        print*,consInLft(1,j),"=", consInRgt(1,j) !debug
+        
+        
+        if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+            print*, "consistency fails at node",1,j
+            print*,consInLft(1,j),"/=", consInRgt(1,j)
+            stopSim = .true.
+        end if
+    end do
+    
+    if ( .not. stopSim ) then
+        ! Following lines implement inflow BC (Zhou, p.59)
+        f(1,1,:) = f(5,1,:) + 2.0d0*q_in/(3.0d0*e)
+        f(2,1,:) = q_in/(6.0d0*e) + f(6,1,:) + 0.5d0*(f(7,1,:) - f(3,1,:))
+        f(8,1,:) = q_in/(6.0d0*e) + f(4,1,:) + 0.5d0*(f(3,1,:) - f(7,1,:))
+
+        print*, "Initial macroscopic values:"
+        ! compute the velocity and depth
+        h = 0.0d0
+        u = 0.0d0
+        v = 0.0d0
+        do a = 1, 9
+            h(:,:) = h(:,:) + f(a,:,:)
+            u(:,:) = u(:,:) + ex(a)*f(a,:,:)
+            v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
+        end do
+        u = u/h
+        v = v/h        
+        print*, "h(1,Ly/2)=",h(1,Ly/2)
+        print*, "u(1,Ly/2)=",u(1,Ly/2)
+        print*, "v(1,Ly/2)=",v(1,Ly/2)
+    end if
+
+
     return
 end subroutine setup
 
@@ -285,11 +329,11 @@ end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
     ! consistence check
-    consInLft(1,:) = h(1,:)-ftemp(9,1,:)
+    consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
         consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
     end do
-    consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)
+    consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
     do j = 1, Ly
         if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
             print*, "consistency fails at node",1,j

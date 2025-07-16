@@ -1,4 +1,4 @@
-2025-06-21
+2025-07-16
 
 Behaviour is still not physical. Bump still does not create a dip.
 Outlet depth tends towards 0 within 300 timesteps. The consistency test fails early.
@@ -8,10 +8,13 @@ Unsure what criteria to use to enforce consistency condition.
 ---
 
 Modifications since last version:
-- Added a consistency check criterion
+- Added a consistency check criterion to the setup module
 
-- defined global initial velocity as inlet velocity, i.e., q_in/ho
+- Made global initial velocity null again
 ---
 
 Potential next step(s):
-- Assign values to initial mesoscopic populations as well as macroscopic values for inlet and outlet boundary conditions. It may enforce the consistency equation and thus create a physical depth at the inlet.
+- Create 2 new branches: 
+1. Removing inflow and outflow boundaries and replacing with periodic boundaries and a body force
+2. Removing the bed geometry
+3. (Maybe) using a case with liquid flowing down an incline without body force
