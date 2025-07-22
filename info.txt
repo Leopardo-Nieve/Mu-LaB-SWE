@@ -8,21 +8,8 @@ Unsure what criteria to use to enforce consistency condition.
 ---
 
 Modifications since last version:
-- Removed call to Inflow_Outflow_BC subroutine
+- Modified launch.json so that it used relative filepaths
 
-- Applied periodic boundary conditions
-
-- Commented the consistency check during setup
-
-- Corrected force term in collide_stream subroutine (instead of 0.5d0, the term written was 0.05d0)
-
-- Corrected the sign of the slope force (should be negative)
-
-- Added an artificial body force of 0.66 m^2/s^2 to reach a velocity of approximately 2.2 m/s 
-
-- Updated the launch.json file so that the debugger works in the file location
-
-- Updated the task.json file so that the build task launches by default with the "ctrl + shift + B" hotkey
 ---
 
 Potential next step(s):
