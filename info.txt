@@ -1,18 +1,27 @@
 2025-07-22
 
-Behaviour is still not physical. Bump still does not create a dip.
-Outlet depth tends towards 0 within 300 timesteps. The consistency test fails early.
-There is a slight dip before the bump.
-
-Unsure what criteria to use to enforce consistency condition.
+Behaviour is finally physical. Bump creates a dip after enough timesteps.
+Inlet consistency check fails after 1 timestep. populations 3 and/or 9 seem responsible
+Outlet condition seems to work perfectly.
 ---
 
 Modifications since last version:
-- Modified launch.json so that it used relative filepaths
+- Added u_out variable for the outlet velocity
+
+- Activated Inflow-Outflow lines
+
+- Commented periodic boundaries in x-direction
+
+- Modified ouflow consistency check to use assigned variables (h_out and u_out)
+
+- Removed artificial body force
+
+- Activated call Inflow-Outflow line
 
 ---
 
 Potential next step(s):
-- Modify launch.json so that the debugger works using relative filepaths and not absolutes to find the program
 
-- Debug the inlet-outlet boundary conditions
+-  Merge branch back onto periodic-y-bc branch
+
+- Find the origin of the variation of populations 3 and 9 after timestep 1

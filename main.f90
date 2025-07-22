@@ -35,10 +35,10 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     epsilon = 1.0d-23
-    consCriter = 1.0d-5
+    consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 1.0d3
+    itera_no = 150
 
     ! constants for boundary conditions
     h_out = 2.0d0
@@ -137,7 +137,7 @@ program main
 
     ! Set constant force
     force_x = -h*gacl*dzbdx ! bed slope force m^2/s^2
-    force_x = force_x + 6.6d-1 !artificial body force m^2/s^2
+    ! force_x = force_x + 6.6d-1 !artificial body force m^2/s^2
     force_y = 0.0d0 ! m^2/s^2
     ! print*, itera_no
     ! print*, ho
@@ -190,7 +190,7 @@ program main
         ! end do !debug
 
         ! Apply Inflow and Outflow BC
-        ! call Inflow_Outflow_BC
+        call Inflow_Outflow_BC
 
         ! Apply BCs to corners
         ! call Four_Corners_BC

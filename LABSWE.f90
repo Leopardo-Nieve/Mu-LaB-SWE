@@ -35,7 +35,7 @@ module LABSWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
+        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter
         double precision, dimension(9):: ex,ey, eMax
@@ -166,8 +166,8 @@ subroutine collide_stream
 
             ! print*, x, y !debug
             ! Following 4 lines Implement periodic BCs 
-            if (xf > Lx) xf = xf - Lx
-            if (xb < 1) xb = Lx + xb 
+            ! if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
+            ! if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
@@ -328,6 +328,19 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
+    print*, "testing consistency check:"
+    print*, 2.0d0-(ftemp(9,1,Ly/2)+ftemp(3,1,Ly/2)+ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2)+ftemp(7,1,Ly/2)),"=",&
+    & 4.41d0+(ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2))
+    print*, "ftemp 1=", ftemp(1,1,Ly/2), "f1=", f(1,1,Ly/2)
+    print*, "ftemp 2=", ftemp(2,1,Ly/2), "f2=", f(2,1,Ly/2)
+    print*, "ftemp 3=", ftemp(3,1,Ly/2), "f3=", f(3,1,Ly/2)
+    print*, "ftemp 4=", ftemp(4,1,Ly/2), "f4=", f(4,1,Ly/2)
+    print*, "ftemp 5=", ftemp(5,1,Ly/2), "f5=", f(5,1,Ly/2)
+    print*, "ftemp 6=", ftemp(6,1,Ly/2), "f6=", f(6,1,Ly/2)
+    print*, "ftemp 7=", ftemp(7,1,Ly/2), "f7=", f(7,1,Ly/2)
+    print*, "ftemp 8=", ftemp(8,1,Ly/2), "f8=", f(8,1,Ly/2)
+    print*, "ftemp 9=", ftemp(9,1,Ly/2), "f9=", f(9,1,Ly/2)
+    
     ! consistence check
     consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
@@ -359,13 +372,22 @@ subroutine Inflow_Outflow_BC
     ! ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
     ! ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
 
+    ! macroscopic outflow values
+    u_out = 0.0d0
+    do a = 1, 9
+        u_out = u_out + ex(a)*ftemp(a,Lx-1,Ly/2)
+    end do
+    u_out = u_out/h_out
+
+    
+    
     ! consistence check
-    consOutLft(1,:) = h(Lx,:)
+    consOutLft(1,:) = h_out
     do a = 1, 9
         if (a >= 4 .and. a <=6 ) cycle
         consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
     end do
-    consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+    consOutRgt(1,:) = -h_out*u_out/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
     do j = 1, Ly
         if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
             print*, "consistence fails at node",Lx,j
@@ -374,10 +396,10 @@ subroutine Inflow_Outflow_BC
         end if
     end do
     if ( .not. stopSim ) then
-        ! replace h(Lx,:) with h_out
-        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h_out*u(Lx-1,:)/(3.0d0*e)
-        ftemp(4,Lx,:) = -h_out*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-        ftemp(6,Lx,:) = -h_out*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
+        ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
+        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h_out*u_out/(3.0d0*e)
+        ftemp(4,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+        ftemp(6,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
     end if
     
 
