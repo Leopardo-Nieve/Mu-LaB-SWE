@@ -102,48 +102,48 @@ subroutine setup
     ! Set the initial distribution function to feq 
     f = feq
 
-    print*, "starting consistence check during setup" !debug
+    ! print*, "starting consistence check during setup" !debug
 
-    ! Inlet condition
-    ! consistence check
-    consInLft(1,:) = h(1,:)-f(9,1,:) ! left side of the consistence equation
-    do a = 3, 7
-        consInLft(1,:) = consInLft(1,:) - f(a,1,:)
-    end do
-    consInRgt(1,:) = h(1,:)*u(1,:)/e + f(4,1,:) + f(5,1,:) + f(6,1,:) ! right side of the consistence equation
-    do j = 1, Ly
-        print*,consInLft(1,j),"=", consInRgt(1,j) !debug
+    ! ! Inlet condition
+    ! ! consistence check
+    ! consInLft(1,:) = h(1,:)-f(9,1,:) ! left side of the consistence equation
+    ! do a = 3, 7
+    !     consInLft(1,:) = consInLft(1,:) - f(a,1,:)
+    ! end do
+    ! consInRgt(1,:) = h(1,:)*u(1,:)/e + f(4,1,:) + f(5,1,:) + f(6,1,:) ! right side of the consistence equation
+    ! do j = 1, Ly
+    !     print*,consInLft(1,j),"=", consInRgt(1,j) !debug
         
         
-        if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-            print*, "consistency fails at node",1,j
-            print*,consInLft(1,j),"/=", consInRgt(1,j)
-            stopSim = .true.
-        end if
-    end do
+    !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+    !         print*, "consistency fails at node",1,j
+    !         print*,consInLft(1,j),"/=", consInRgt(1,j)
+    !         stopSim = .true.
+    !     end if
+    ! end do
     
-    if ( .not. stopSim ) then
-        ! Following lines implement inflow BC (Zhou, p.59)
-        f(1,1,:) = f(5,1,:) + 2.0d0*q_in/(3.0d0*e)
-        f(2,1,:) = q_in/(6.0d0*e) + f(6,1,:) + 0.5d0*(f(7,1,:) - f(3,1,:))
-        f(8,1,:) = q_in/(6.0d0*e) + f(4,1,:) + 0.5d0*(f(3,1,:) - f(7,1,:))
+    ! if ( .not. stopSim ) then
+    !     ! Following lines implement inflow BC (Zhou, p.59)
+    !     f(1,1,:) = f(5,1,:) + 2.0d0*q_in/(3.0d0*e)
+    !     f(2,1,:) = q_in/(6.0d0*e) + f(6,1,:) + 0.5d0*(f(7,1,:) - f(3,1,:))
+    !     f(8,1,:) = q_in/(6.0d0*e) + f(4,1,:) + 0.5d0*(f(3,1,:) - f(7,1,:))
 
-        print*, "Initial macroscopic values:"
-        ! compute the velocity and depth
-        h = 0.0d0
-        u = 0.0d0
-        v = 0.0d0
-        do a = 1, 9
-            h(:,:) = h(:,:) + f(a,:,:)
-            u(:,:) = u(:,:) + ex(a)*f(a,:,:)
-            v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
-        end do
-        u = u/h
-        v = v/h        
-        print*, "h(1,Ly/2)=",h(1,Ly/2)
-        print*, "u(1,Ly/2)=",u(1,Ly/2)
-        print*, "v(1,Ly/2)=",v(1,Ly/2)
-    end if
+    !     print*, "Initial macroscopic values:"
+    !     ! compute the velocity and depth
+    !     h = 0.0d0
+    !     u = 0.0d0
+    !     v = 0.0d0
+    !     do a = 1, 9
+    !         h(:,:) = h(:,:) + f(a,:,:)
+    !         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
+    !         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
+    !     end do
+    !     u = u/h
+    !     v = v/h        
+    !     print*, "h(1,Ly/2)=",h(1,Ly/2)
+    !     print*, "u(1,Ly/2)=",u(1,Ly/2)
+    !     print*, "v(1,Ly/2)=",v(1,Ly/2)
+    ! end if
 
 
     return
@@ -166,39 +166,39 @@ subroutine collide_stream
 
             ! print*, x, y !debug
             ! Following 4 lines Implement periodic BCs 
-            ! if (xf > Lx) xf = xf - Lx
-            ! if (xb < 1) xb = Lx + xb 
+            if (xf > Lx) xf = xf - Lx
+            if (xb < 1) xb = Lx + xb 
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
             ! start streaming and collision 
             if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*0.05d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.05d0*(force_y(x,y)+force_y(xf,y)))
+                & + dt_6e2*(ex(1)*0.5d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.5d0*(force_y(x,y)+force_y(xf,y)))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
             ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*0.05d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.05d0*(force_y(x,y)+force_y(xf,yf)))
+                & + dt_6e2*(ex(2)*0.5d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.5d0*(force_y(x,y)+force_y(xf,yf)))
             end if
             ! if (yf<=Ly) 
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*0.05d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.05d0*(force_y(x,y)+force_y(x,yf)))
+                & + dt_6e2*(ex(3)*0.5d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.5d0*(force_y(x,y)+force_y(x,yf)))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*0.05d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.05d0*(force_y(x,y)+force_y(xb,yf)))
+                & + dt_6e2*(ex(4)*0.5d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.5d0*(force_y(x,y)+force_y(xb,yf)))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*0.05d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.05d0*(force_y(x,y)+force_y(xb,y)))
+                & + dt_6e2*(ex(5)*0.5d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.5d0*(force_y(x,y)+force_y(xb,y)))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) 
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*0.05d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.05d0*(force_y(x,y)+force_y(xb,yb)))
+                & + dt_6e2*(ex(6)*0.5d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.5d0*(force_y(x,y)+force_y(xb,yb)))
             end if
             ! if (yb>=1) 
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*0.05d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.05d0*(force_y(x,y)+force_y(x,yb)))
+                & + dt_6e2*(ex(7)*0.5d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.5d0*(force_y(x,y)+force_y(x,yb)))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*0.05d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.05d0*(force_y(x,y)+force_y(xf,yb)))
+                & + dt_6e2*(ex(8)*0.5d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.5d0*(force_y(x,y)+force_y(xf,yb)))
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             

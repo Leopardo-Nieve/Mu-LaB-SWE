@@ -8,13 +8,24 @@ Unsure what criteria to use to enforce consistency condition.
 ---
 
 Modifications since last version:
-- Added a consistency check criterion to the setup module
+- Removed call to Inflow_Outflow_BC subroutine
 
-- Made global initial velocity null again
+- Applied periodic boundary conditions
+
+- Commented the consistency check during setup
+
+- Corrected force term in collide_stream subroutine (instead of 0.5d0, the term written was 0.05d0)
+
+- Corrected the sign of the slope force (should be negative)
+
+- Added an artificial body force of 0.66 m^2/s^2 to reach a velocity of approximately 2.2 m/s 
+
+- Updated the launch.json file so that the debugger works in the file location
+
+- Updated the task.json file so that the build task launches by default with the "ctrl + shift + B" hotkey
 ---
 
 Potential next step(s):
-- Create 2 new branches: 
-1. Removing inflow and outflow boundaries and replacing with periodic boundaries and a body force
-2. Removing the bed geometry
-3. (Maybe) using a case with liquid flowing down an incline without body force
+- Modify launch.json so that the debugger works using relative filepaths and not absolutes to find the program
+
+- Debug the inlet-outlet boundary conditions
