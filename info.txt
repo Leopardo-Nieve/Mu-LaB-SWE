@@ -1,4 +1,4 @@
-2025-07-16
+2025-07-22
 
 Behaviour is still not physical. Bump still does not create a dip.
 Outlet depth tends towards 0 within 300 timesteps. The consistency test fails early.
