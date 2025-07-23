@@ -10,7 +10,7 @@
             "args": [
                     "-Wall",
                     "-o",
-                    "steady_flow_over_bump",
+                    "Mu-LaB-SWE",
                     ".\\LABSWE.f90",
                     ".\\main.f90"
             ],

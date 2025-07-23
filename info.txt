@@ -1,27 +1,20 @@
 2025-07-23
 
-The simulation visually replicates the results expected.
-Inlet and outlet consistency checks succed until convergence.
-Code is cleaned up.
+New case: Tidal Flow over a Regular Bed
 ---
 
 Modifications since last version:
-- Removed Zhou's variables
 
-- Uncommented lines that prevented values from being printed
+- Renamed LABSWE.f90 to Mu-LaB-SWE
 
-- Uncommented `call end_simulation` line
-
-- Removed commented lines of Zhou's initial way to define populations' directions using trigonometry
-
-- Deleted Four_Corners_BC subroutine
-
-- Deleted debugging lines
-
-- Updated code summaries
+- modified launch.json and tasks.json to have the program named Mu-LaB-SWE.exe
 
 ---
 
 Potential next step(s):
 
-- When the analytical solution is available, compare the results in post-processing.
+- Update bed geometry
+
+- Update BC'simulation
+
+- Make main code more dynamic (inputs define BC's, for example)
