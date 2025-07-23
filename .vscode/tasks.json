@@ -14,7 +14,10 @@
                     ".\\LABSWE.f90",
                     ".\\main.f90"
             ],
-            "group": "build",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

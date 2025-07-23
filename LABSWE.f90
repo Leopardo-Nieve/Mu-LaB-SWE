@@ -32,14 +32,14 @@ module LABSWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a,b,i,j !b,i,j for debug
+        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
+        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma 
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter
         double precision, dimension(9):: ex,ey, eMax
-        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx
+        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -80,7 +80,7 @@ subroutine setup
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
-    print*, "eMax = ", eMax
+    ! print*, "eMax = ", eMax
 
 
     ! constants to limit random error
@@ -102,6 +102,50 @@ subroutine setup
     ! Set the initial distribution function to feq 
     f = feq
 
+    ! print*, "starting consistence check during setup" !debug
+
+    ! ! Inlet condition
+    ! ! consistence check
+    ! consInLft(1,:) = h(1,:)-f(9,1,:) ! left side of the consistence equation
+    ! do a = 3, 7
+    !     consInLft(1,:) = consInLft(1,:) - f(a,1,:)
+    ! end do
+    ! consInRgt(1,:) = h(1,:)*u(1,:)/e + f(4,1,:) + f(5,1,:) + f(6,1,:) ! right side of the consistence equation
+    ! do j = 1, Ly
+    !     print*,consInLft(1,j),"=", consInRgt(1,j) !debug
+        
+        
+    !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+    !         print*, "consistency fails at node",1,j
+    !         print*,consInLft(1,j),"/=", consInRgt(1,j)
+    !         stopSim = .true.
+    !     end if
+    ! end do
+    
+    ! if ( .not. stopSim ) then
+    !     ! Following lines implement inflow BC (Zhou, p.59)
+    !     f(1,1,:) = f(5,1,:) + 2.0d0*q_in/(3.0d0*e)
+    !     f(2,1,:) = q_in/(6.0d0*e) + f(6,1,:) + 0.5d0*(f(7,1,:) - f(3,1,:))
+    !     f(8,1,:) = q_in/(6.0d0*e) + f(4,1,:) + 0.5d0*(f(3,1,:) - f(7,1,:))
+
+    !     print*, "Initial macroscopic values:"
+    !     ! compute the velocity and depth
+    !     h = 0.0d0
+    !     u = 0.0d0
+    !     v = 0.0d0
+    !     do a = 1, 9
+    !         h(:,:) = h(:,:) + f(a,:,:)
+    !         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
+    !         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
+    !     end do
+    !     u = u/h
+    !     v = v/h        
+    !     print*, "h(1,Ly/2)=",h(1,Ly/2)
+    !     print*, "u(1,Ly/2)=",u(1,Ly/2)
+    !     print*, "v(1,Ly/2)=",v(1,Ly/2)
+    ! end if
+
+
     return
 end subroutine setup
 
@@ -122,39 +166,39 @@ subroutine collide_stream
 
             ! print*, x, y !debug
             ! Following 4 lines Implement periodic BCs 
-            ! if (xf > Lx) xf = xf - Lx
-            ! if (xb < 1) xb = Lx + xb 
+            ! if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
+            ! if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
             ! start streaming and collision 
             if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
+                & + dt_6e2*(ex(1)*0.5d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.5d0*(force_y(x,y)+force_y(xf,y)))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
             ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1)) 
+                & + dt_6e2*(ex(2)*0.5d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.5d0*(force_y(x,y)+force_y(xf,yf)))
             end if
             ! if (yf<=Ly) 
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1)) 
+                & + dt_6e2*(ex(3)*0.5d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.5d0*(force_y(x,y)+force_y(x,yf)))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1)) 
+                & + dt_6e2*(ex(4)*0.5d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.5d0*(force_y(x,y)+force_y(xb,yf)))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y)) 
+                & + dt_6e2*(ex(5)*0.5d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.5d0*(force_y(x,y)+force_y(xb,y)))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) 
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1)) 
+                & + dt_6e2*(ex(6)*0.5d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.5d0*(force_y(x,y)+force_y(xb,yb)))
             end if
             ! if (yb>=1) 
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1)) 
+                & + dt_6e2*(ex(7)*0.5d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.5d0*(force_y(x,y)+force_y(x,yb)))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1)) 
+                & + dt_6e2*(ex(8)*0.5d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.5d0*(force_y(x,y)+force_y(xf,yb)))
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
@@ -176,7 +220,6 @@ subroutine solution
     u = 0.0d0
     v = 0.0d0
     do a = 1, 9
-        print*, a,"ex = ",ex(a), "f_a =",f(a,1,1)
         h(:,:) = h(:,:) + f(a,:,:)
         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
@@ -285,11 +328,39 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
-    ! Following lines implement inflow BC (Zhou, p.59)
-    ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*q_in/(3.0d0*e)
-    ftemp(2,1,:) = q_in/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-    ftemp(8,1,:) = q_in/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
-
+    print*, "testing consistency check:"
+    print*, 2.0d0-(ftemp(9,1,Ly/2)+ftemp(3,1,Ly/2)+ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2)+ftemp(7,1,Ly/2)),"=",&
+    & 4.41d0+(ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2))
+    print*, "ftemp 1=", ftemp(1,1,Ly/2), "f1=", f(1,1,Ly/2)
+    print*, "ftemp 2=", ftemp(2,1,Ly/2), "f2=", f(2,1,Ly/2)
+    print*, "ftemp 3=", ftemp(3,1,Ly/2), "f3=", f(3,1,Ly/2)
+    print*, "ftemp 4=", ftemp(4,1,Ly/2), "f4=", f(4,1,Ly/2)
+    print*, "ftemp 5=", ftemp(5,1,Ly/2), "f5=", f(5,1,Ly/2)
+    print*, "ftemp 6=", ftemp(6,1,Ly/2), "f6=", f(6,1,Ly/2)
+    print*, "ftemp 7=", ftemp(7,1,Ly/2), "f7=", f(7,1,Ly/2)
+    print*, "ftemp 8=", ftemp(8,1,Ly/2), "f8=", f(8,1,Ly/2)
+    print*, "ftemp 9=", ftemp(9,1,Ly/2), "f9=", f(9,1,Ly/2)
+    
+    ! consistence check
+    consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+    do a = 3, 7
+        consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
+    end do
+    consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+    do j = 1, Ly
+        if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+            print*, "consistency fails at node",1,j
+            print*,consInLft(1,j),"/=", consInRgt(1,j)
+            stopSim = .true.
+        end if
+    end do
+    
+    if ( .not. stopSim ) then
+        ! Following lines implement inflow BC (Zhou, p.59)
+        ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*q_in/(3.0d0*e)
+        ftemp(2,1,:) = q_in/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+        ftemp(8,1,:) = q_in/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))    
+    end if
 
     ! do a=1,9 !debug
     !     print*, "f after inflow", a, "=", ftemp(a,1,1)
@@ -297,9 +368,40 @@ subroutine Inflow_Outflow_BC
 
     ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
     ! h(Lx,:) = h_out
-    ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx-1,:)/(3.0d0*e)
-    ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-    ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+    ! ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx-1,:)/(3.0d0*e)
+    ! ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+    ! ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+
+    ! macroscopic outflow values
+    u_out = 0.0d0
+    do a = 1, 9
+        u_out = u_out + ex(a)*ftemp(a,Lx-1,Ly/2)
+    end do
+    u_out = u_out/h_out
+
+    
+    
+    ! consistence check
+    consOutLft(1,:) = h_out
+    do a = 1, 9
+        if (a >= 4 .and. a <=6 ) cycle
+        consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
+    end do
+    consOutRgt(1,:) = -h_out*u_out/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+    do j = 1, Ly
+        if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
+            print*, "consistence fails at node",Lx,j
+            print*,consOutLft(1,j),"/=", consOutRgt(1,j)
+            stopSim = .true.
+        end if
+    end do
+    if ( .not. stopSim ) then
+        ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
+        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h_out*u_out/(3.0d0*e)
+        ftemp(4,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+        ftemp(6,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
+    end if
+    
 
     ! do a=1,9 !debug
     !     print*, "f final", a, "=", ftemp(a,1,1)
@@ -335,52 +437,29 @@ subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
     open(67, file='../results_7.2.1/result.csv', status='unknown')
     
+    ! write simulation parameters
+    write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
+    write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+
+
+    
     ! Write CSV header
-    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s)'
+    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),3(F12.4,","),F12.4)') &
                 x, y, &
                 x * dx, y * dy, &
                 h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                u(x,y), v(x,y)
+                u(x,y), v(x,y), h(x,y)*u(x,y)
         end do
     end do
     
     close(67)
 end subroutine write_csv
-
-logical function check_convergence(uCheck, epsilonCheck)
-    implicit none
-    real(8), intent(in)  :: uCheck(:,:)
-    real(8), intent(in)  :: epsilonCheck
-    real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0
-    real(8)              :: current_avg, diff1, diff2
-
-    current_avg = sum(uCheck) / size(uCheck)
-
-    ! Shift average history
-    u_nMinus2 = u_nMinus1
-    u_nMinus1 = u_n
-    u_n = current_avg
-
-    ! Avoid check on first 2 calls
-    if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
-      check_convergence = .false.
-      return
-    end if
-
-    diff1 = u_n - u_nMinus1
-    diff2 = u_nMinus1 - u_nMinus2
-
-    if (abs(diff1 - diff2) < epsilonCheck) then
-      check_convergence = .true.
-    else
-      check_convergence = .false.
-    end if
-  end function check_convergence
 
 subroutine end_simulation
     tauOk = .false.
@@ -440,5 +519,36 @@ subroutine end_simulation
         print*, "Mach NOT OKAY!!"
     end if
 end subroutine end_simulation
+
+logical function check_convergence(uCheck, hCheck, epsilonCheck)
+    implicit none
+    real(8), intent(in)  :: uCheck(:,:), hCheck(:,:)
+    real(8), intent(in)  :: epsilonCheck
+    real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0, h_nMinus2 = 0.0d0, h_nMinus1 = 0.0d0, h_n = 0.0d0
+    real(8)              :: u_avg, h_avg, u_diff1, u_diff2, h_diff1, h_diff2
+
+    u_avg = sum(uCheck) / size(uCheck); h_avg = sum(hCheck)/size(hCheck)
+
+    ! Shift average history
+    u_nMinus2 = u_nMinus1; h_nMinus2 = h_nMinus1
+    u_nMinus1 = u_n;       h_nMinus1 = h_n
+    u_n     = u_avg;       h_n = h_avg
+
+    ! Avoid check on first 2 calls
+    if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
+      check_convergence = .false.
+      return
+    end if
+
+    u_diff1 = u_n       - u_nMinus1;    h_diff1 = h_n       - h_nMinus1
+    u_diff2 = u_nMinus1 - u_nMinus2;    h_diff2 = h_nMinus1 - h_nMinus2
+
+    if (abs(u_diff1 - u_diff2) < epsilonCheck .and. abs(h_diff1 - h_diff2) < epsilonCheck) then
+        print*, "Solution converges."
+        check_convergence = .true.
+    else
+        check_convergence = .false.
+    end if
+  end function check_convergence
 
 end module LABSWE

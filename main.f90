@@ -32,9 +32,20 @@ program main
     double precision :: ho, uo, vo, time, epsilon!, simTime
     character:: fdate*24, td*24 ! get date for output
 
-    ! initialize stopSim to let the simulation run
+    ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-7
+    epsilon = 1.0d-23
+    consCriter = 1.0d-3
+    
+    current_iteration = 0
+    itera_no = 150
+
+    ! constants for boundary conditions
+    h_out = 2.0d0
+
+    ! assign a value for the inlet discharge
+    qZhou = 4.42d0 ! m^2/s
+    q_in=qZhou ! to replicate Zhou's results
 
     ! constants for initializing flow field. 
     ho = 2.0d0
@@ -45,12 +56,7 @@ program main
     tauZhou = 1.5d0 
 
     ! assign a value for Zhou's lattice speed
-    eZhou = 15.0d0 ! m/s
-
-    ! assign a value for the inlet discharge
-    qZhou = 4.42d0 ! m^2/s
-
-    
+    eZhou = 15.0d0 ! m/s 
 
     ! assign a value of dx and dy
     dx = 1.0d-1 ! m
@@ -75,7 +81,6 @@ program main
 
     ! calculate equivalent inlet discharge
     ! q_in = ReZhou*nu
-    q_in=qZhou ! to replicate Zhou's results
     print*, "q inlet =", q_in, "m^2/s"
     
     ! calculate the minimum possible value of e such that the stationary population is positive
@@ -97,14 +102,11 @@ program main
     tau =tauZhou ! to replicate Zhou's results
     nu = (tau-0.5d0)*e*dx/3.0d0
 
-    ! Total simulation time
-    ! itera_no = 1
-    ! itera_no = NINT(200/dt) 
-    ! simTime = 200 ! assuming steady state after 200 s
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(2*Lx-1,2*Ly-1),force_y(2*Lx-1,2*Ly-1),u(Lx,Ly),v(Lx,Ly),zb(2*Lx-1,2*Ly-1),dzbdx(2*Lx-1,2*Ly-1)) 
+        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly)) 
     
     ! initialize the depth and velocities 
     h = ho 
@@ -113,42 +115,30 @@ program main
 
     !define bed geometry
     zb = 0
-    do x = 1, 2*Lx-1
-        if (x*dx/2 > 8 .and. x*dx/2 < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx/2.0d0 - 10.0d0)**2.0d0 ! bump function
+    do x = 1, Lx
+        if (x*dx > 8 .and. x*dx < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2.0d0 ! bump function
     end do
 
-    ! 2nd order difference scheme for derivative in space
-    dzbdx(2:2*Lx-2,:) = (zb(3:2*Lx-1,:) - zb(1:2*Lx-3,:)) / (2.0d0 * dx/2.d0)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx/2.0d0)
-    dzbdx(2*Lx-1,:) = (3.0d0 * zb(2*Lx-1,:) - 4.0d0 * zb(2*Lx-2,:) + zb(2*Lx-3,:)) / (2.0d0 * dx/2.0d0)
-    
+    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
+    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
+
 
     !apply geometry
     h = h - zb
 
 
     !define initial velocity profile
-    u(1,:) = q_in/h(1,:) 
+    ! u(1,:) = q_in/h(1,:) 
 
     ! do y=1,Ly! debug
     !     print*, "u(1,",y,")=", u(1,y), "u(2,",y,")=", u(2,y)! debug
     ! end do! debug
 
     ! Set constant force
-    
-    force_x(1,:) = h(1,:)*gacl*dzbdx(1,:) ! slope force
-    force_x(2*Lx-1,:) = h(Lx,:)*gacl*dzbdx(2*Lx-1,:) ! slope force
-    do x=2,2*Lx-2
-        if (mod(x,2)==1) then
-            force_x(x,:) = h((x+1)/2,:)*gacl*dzbdx(x,:)
-        else
-            force_x(x,:) = 0.5d0*(h(x/2,:)+h(x/2+1,:))*gacl*dzbdx(x,:)
-            
-        end if
-    end do
-    ! force_x = 1.0d1*h*gacl*dzbdx ! debug
-    ! force_x = 2.4d-6 ! original book example
-    force_y = 0.0d0
+    force_x = -h*gacl*dzbdx ! bed slope force m^2/s^2
+    ! force_x = force_x + 6.6d-1 !artificial body force m^2/s^2
+    force_y = 0.0d0 ! m^2/s^2
     ! print*, itera_no
     ! print*, ho
     ! print*, uo
@@ -163,6 +153,7 @@ program main
     timStep: do
 
         time = time+dt
+        current_iteration = current_iteration + 1
 
         ! Streaming and collision steps
         call collide_stream
@@ -243,13 +234,27 @@ program main
         !     end do
         ! end do
 
+        ! make sure no populations are NaN
+        do i = 1, Lx
+            do j = 1, Ly
+                do a = 1, 9
+                    if ( ieee_is_nan(ftemp(a,i,j)) ) then
+                        print*, "ftemp",a,x,y,"is not a number"
+                        stopSim = .true.
+                    end if
+                end do
+            end do
+        end do
+
         ! Calculate h, u & v
-        call solution
+        if (.not. stopSim) call solution
+        ! print*,current_iteration,"Inflow: h=", h(1,3),"u=", u(1,3), "v=", v(1,3)
+        ! print*,current_iteration,"Outflow: h=", h(Lx,3),"u=", u(Lx,3), "v=", v(Lx,3)
 
         ! Update the feq
         call compute_feq
 
-        write(6,'(ES26.16,A2,3(ES26.16,A2))') time,'   ', h(100, Ly/2)
+        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
 
         ! if (time == 488 .or. time == 489) then
         !     do a = 1, 9
@@ -276,16 +281,16 @@ program main
                     ! stop
                 end if
 
-                ! Vérifier si h est un NaN
-                if (ieee_is_nan(h(i,j))) then
-                    print *, "La variable h est un NaN.", i,j
-                    ! stop
-                end if
+        !         ! Vérifier si h est un NaN
+        !         if (ieee_is_nan(h(i,j))) then
+        !             print *, "La variable h est un NaN.", i,j
+        !             stop
+        !         end if
             end do
         end do
-        
+        if (current_iteration >=itera_no) stopSim = .true. ! stop simulation after certain no timesteps
         ! if (time >= simTime) exit
-        if (stopSim .or. check_convergence(u,epsilon)) then
+        if (stopSim .or. check_convergence(u,h,epsilon)) then
             call end_simulation
             exit
         end if
@@ -299,7 +304,7 @@ program main
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 
     write(66,*) '# tau =',tau,', uO =',uo 
-    write(66,*) '# Iteration No.: ',itera_no 
+    write(66,*) '# Iteration No.: ',current_iteration 
     write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly 
     write(66,*) '#      Results of the computations' 
     write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',& 
