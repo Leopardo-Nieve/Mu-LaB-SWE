@@ -251,6 +251,15 @@ subroutine compute_feq
     end do
     feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
              & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+    ! debug
+    ! print*, "feq 9 =", feq(9,1,Ly/2)
+    ! print*, "feq 9 1st term:", h(1,Ly/2)
+    ! print*, "feq 9 2nd term:", five_6th_g_e2*h(1,Ly/2)*h(1,Ly/2)
+    ! print*, "feq 9 3rd term:", two_3rd_e2*h(1,Ly/2)*(u(1,Ly/2)*u(1,Ly/2) + v(1,Ly/2)*v(1,Ly/2))
+    ! print*, "h:", h(1,Ly/2)
+    ! print*, "u:", u(1,Ly/2)
+    ! print*, "v:", v(1,Ly/2)
+
     ! do a=1,9
     !     ! i=1+1
     !     ! if (a==4) then
@@ -330,7 +339,7 @@ end subroutine Slip_BC
 subroutine Inflow_Outflow_BC
     print*, "testing consistency check:"
     print*, 2.0d0-(ftemp(9,1,Ly/2)+ftemp(3,1,Ly/2)+ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2)+ftemp(7,1,Ly/2)),"=",&
-    & 4.41d0+(ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2))
+    & 4.42d0/e+(ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2))
     print*, "ftemp 1=", ftemp(1,1,Ly/2), "f1=", f(1,1,Ly/2)
     print*, "ftemp 2=", ftemp(2,1,Ly/2), "f2=", f(2,1,Ly/2)
     print*, "ftemp 3=", ftemp(3,1,Ly/2), "f3=", f(3,1,Ly/2)
@@ -349,11 +358,17 @@ subroutine Inflow_Outflow_BC
     consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
     do j = 1, Ly
         if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-            print*, "consistency fails at node",1,j
-            print*,consInLft(1,j),"/=", consInRgt(1,j)
+            ! debug to reduce printing
+            ! print*, "consistency fails at node",1,j
+            ! print*,consInLft(1,j),"/=", consInRgt(1,j)
             stopSim = .true.
         end if
     end do
+    print*, "left side:", consInLft(1,Ly/2), "=", consInRgt(1,Ly/2), "right side"
+    print*, "1st term", q_in/e, "=", h(1,Ly/2)*u(1,Ly/2)/e
+    print*, "2nd term (f4)", f(4,1,Ly/2), "=", ftemp(4,1,Ly/2)
+    print*, "3rd term (f5)", f(5,1,Ly/2), "=", ftemp(5,1,Ly/2)
+    print*, "4th term (f6)", f(6,1,Ly/2), "=", ftemp(6,1,Ly/2)
     
     if ( .not. stopSim ) then
         ! Following lines implement inflow BC (Zhou, p.59)

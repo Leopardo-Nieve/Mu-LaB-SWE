@@ -35,7 +35,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     epsilon = 1.0d-23
-    consCriter = 1.0d-3
+    consCriter = 1.0d-5
     
     current_iteration = 0
     itera_no = 150
@@ -70,32 +70,33 @@ program main
 
         ! calculate molecular viscosity 
     nuZhou = (tauZhou-0.5d0)*eZhou*dx/3.0d0
-    print*, "nu Zhou =", nuZhou, "m^2/s"
 
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
     ! calculate the Reynolds number in Zhou's case
     ReZhou = qZhou/nuZhou
-    print*, "ReZhou =", ReZhou
 
     ! calculate equivalent inlet discharge
     ! q_in = ReZhou*nu
-    print*, "q inlet =", q_in, "m^2/s"
     
     ! calculate the minimum possible value of e such that the stationary population is positive
     eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
-    print*, "e min =", eMin, "m/s"
 
     ! calculate the lattice velocity
     ! e = 2.0d0*eMin
     ! e=eZhou ! to replicate Zhou's results
     e=15.0d0 ! test to see if eMax is a valid stability condition
-    print*, "e =", e, "m/s"
 
     ! define timestep dt
     dt = dx/e !s
-    print*, "dt =", dt, "s"
+    ! print value
+    ! print*, "nu Zhou =", nuZhou, "m^2/s"
+    ! print*, "ReZhou =", ReZhou
+    ! print*, "q inlet =", q_in, "m^2/s"
+    ! print*, "e min =", eMin, "m/s"
+    ! print*, "e =", e, "m/s"
+    ! print*, "dt =", dt, "s"
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
@@ -291,7 +292,8 @@ program main
         if (current_iteration >=itera_no) stopSim = .true. ! stop simulation after certain no timesteps
         ! if (time >= simTime) exit
         if (stopSim .or. check_convergence(u,h,epsilon)) then
-            call end_simulation
+            ! debug to reduce prints
+            ! call end_simulation 
             exit
         end if
 

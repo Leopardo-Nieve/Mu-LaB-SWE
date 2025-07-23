@@ -1,27 +1,24 @@
-2025-07-22
+2025-07-23
 
-Behaviour is finally physical. Bump creates a dip after enough timesteps.
-Inlet consistency check fails after 1 timestep. populations 3 and/or 9 seem responsible
+Inlet consistency check fails after 1 timestep. Before fluid is in motion, consistency succeeds. 
+The left side of the equation seems responsible because it decreases rapidly whereas the right side takes the expected value.
+Perhaps the streaming coming from the still nodes impacts consistency.
 Outlet condition seems to work perfectly.
 ---
 
 Modifications since last version:
-- Added u_out variable for the outlet velocity
+- Merged branch 'periodic-BC-&-artif-body-force' into periodic-y-bc
 
-- Activated Inflow-Outflow lines
+- Moved all initial property prints into a bloc to make it easier to comment or uncomment them all
 
-- Commented periodic boundaries in x-direction
+- To reduce the amount of prints in terminal: commented the: 
+1. "call end_simulation" line 
+2.  printing when consistency fails 
 
-- Modified ouflow consistency check to use assigned variables (h_out and u_out)
-
-- Removed artificial body force
-
-- Activated call Inflow-Outflow line
+- Added debugging prints
 
 ---
 
 Potential next step(s):
 
--  Merge branch back onto periodic-y-bc branch
-
-- Find the origin of the variation of populations 3 and 9 after timestep 1
+- Apply a global initial velocity such that uo = q_in/ho, i.e., the discharge is constant throughout, but the velocity will decrease with depth. 
