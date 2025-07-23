@@ -337,19 +337,6 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
-    print*, "testing consistency check:"
-    print*, 2.0d0-(ftemp(9,1,Ly/2)+ftemp(3,1,Ly/2)+ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2)+ftemp(7,1,Ly/2)),"=",&
-    & 4.42d0/e+(ftemp(4,1,Ly/2)+ftemp(5,1,Ly/2)+ftemp(6,1,Ly/2))
-    print*, "ftemp 1=", ftemp(1,1,Ly/2), "f1=", f(1,1,Ly/2)
-    print*, "ftemp 2=", ftemp(2,1,Ly/2), "f2=", f(2,1,Ly/2)
-    print*, "ftemp 3=", ftemp(3,1,Ly/2), "f3=", f(3,1,Ly/2)
-    print*, "ftemp 4=", ftemp(4,1,Ly/2), "f4=", f(4,1,Ly/2)
-    print*, "ftemp 5=", ftemp(5,1,Ly/2), "f5=", f(5,1,Ly/2)
-    print*, "ftemp 6=", ftemp(6,1,Ly/2), "f6=", f(6,1,Ly/2)
-    print*, "ftemp 7=", ftemp(7,1,Ly/2), "f7=", f(7,1,Ly/2)
-    print*, "ftemp 8=", ftemp(8,1,Ly/2), "f8=", f(8,1,Ly/2)
-    print*, "ftemp 9=", ftemp(9,1,Ly/2), "f9=", f(9,1,Ly/2)
-    
     ! consistence check
     consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
@@ -359,16 +346,11 @@ subroutine Inflow_Outflow_BC
     do j = 1, Ly
         if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
             ! debug to reduce printing
-            ! print*, "consistency fails at node",1,j
-            ! print*,consInLft(1,j),"/=", consInRgt(1,j)
+            print*, "consistency fails at node",1,j
+            print*,consInLft(1,j),"/=", consInRgt(1,j)
             stopSim = .true.
         end if
     end do
-    print*, "left side:", consInLft(1,Ly/2), "=", consInRgt(1,Ly/2), "right side"
-    print*, "1st term", q_in/e, "=", h(1,Ly/2)*u(1,Ly/2)/e
-    print*, "2nd term (f4)", f(4,1,Ly/2), "=", ftemp(4,1,Ly/2)
-    print*, "3rd term (f5)", f(5,1,Ly/2), "=", ftemp(5,1,Ly/2)
-    print*, "4th term (f6)", f(6,1,Ly/2), "=", ftemp(6,1,Ly/2)
     
     if ( .not. stopSim ) then
         ! Following lines implement inflow BC (Zhou, p.59)
@@ -393,8 +375,6 @@ subroutine Inflow_Outflow_BC
         u_out = u_out + ex(a)*ftemp(a,Lx-1,Ly/2)
     end do
     u_out = u_out/h_out
-
-    
     
     ! consistence check
     consOutLft(1,:) = h_out

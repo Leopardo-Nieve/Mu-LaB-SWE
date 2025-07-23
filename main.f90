@@ -34,11 +34,11 @@ program main
 
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-23
-    consCriter = 1.0d-5
+    epsilon = 1.0d-10
+    consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 150
+    itera_no = 1.0d5
 
     ! constants for boundary conditions
     h_out = 2.0d0
@@ -109,12 +109,10 @@ program main
         & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly)) 
     
-    ! initialize the depth and velocities 
+    ! initialize the depth 
     h = ho 
-    u = uo 
-    v = vo
 
-    !define bed geometry
+    ! define bed geometry
     zb = 0
     do x = 1, Lx
         if (x*dx > 8 .and. x*dx < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2.0d0 ! bump function
@@ -125,12 +123,13 @@ program main
     dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
 
 
-    !apply geometry
+    ! apply geometry
     h = h - zb
 
 
-    !define initial velocity profile
-    ! u(1,:) = q_in/h(1,:) 
+    ! initialize the velocities
+    u = q_in/h
+    v = vo
 
     ! do y=1,Ly! debug
     !     print*, "u(1,",y,")=", u(1,y), "u(2,",y,")=", u(2,y)! debug
