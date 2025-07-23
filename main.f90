@@ -1,24 +1,25 @@
 !----------------------------------------------------------! 
 ! main.f90 
-! The file main.f90 in FORTRAN 90 is included in the book 
-! to show how to use the module LABSWE.f90. Any FORTRAN-90 
-! compiler may be used to compile, e.g. 
+! The file main.f90 in FORTRAN 90 is adapted from the book 
+! to use the module LABSWE.f90 to solve basic test 
+! 7.2.1: Steady Flow over a Bump. Any FORTRAN-90 compiler
+! may be used to compile, e.g. 
 ! "f90 LABSWE.f90 main.f90 -o labswe". 
-! It simulates a flow in straight channel under constant 
-! force with the periodic boundary conditions in the x 
-! direction and no-slip boundary condition in y direction. 
-! Consequently, a steady solution is obtained after 9000th 
-! time steps, showing a typical laminar flow where a 
-! parabolic distribution in velocity across the channel is 
-! well developed. 
-! J.G. Zhou, Peterborough, 2003 
+! It simulates a steady flow in straight channel with a 
+! defined inflow discharge and outflow depth boundary  
+! conditions in the x direction and periodic boundary 
+! condition in y direction. 
+! Consequently, a steady solution is obtained after 11332 
+! time steps, showing a the expected dip in the surface level profile 
+! above the bump. 
+! S. Fiset, Montreal, 2025
 !----------------------------------------------------------! 
 ! List of Major Variables 
-! Fr - Froude number
 ! ho  - Initial water depth 
-! itera no - Total iteration number or time steps 
-! time - Time step or iteration counter 
-! uo, vo - initial velocities 
+! epsilon - Convergence criterion
+! itera_no - Total iteration number or time steps 
+! time - Amount of time elapsed since start of simulation
+! uo, vo - Initial velocities 
 !----------------------------------------------------------!
 program main 
     
@@ -29,7 +30,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo, time, epsilon!, simTime
+    double precision :: ho, uo, vo, time, epsilon
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim and epsilon to let the simulation run

@@ -2,32 +2,41 @@
 !                       LABSWE.f90 
 ! This module written in FORTRAN 90 implements the lattice 
 ! Boltzmann method for shallow water equations (LABSWE), 
-! based on the 9-speed square lattices. It is included as 
-! a sample code in the book and hence only highlights the 
-! major procedure in the LABSWE under conditions that time 
-! step and lattice spacing are taken as units. Also the 
-! module provides periodic boundary conditions and no-slip 
-! boundary conditions in y direction boundaries. It should 
-! be pointed that the module can easily be adapted into a 
-! practical code by changing these settings or adding more 
-! boundary conditions. A sample file main.f90 is also 
-! included to show how to use the module. 
-! J.G. Zhou, Peterborough, 2003 
+! based on the 9-speed square lattices. It is adapted from 
+! the sample code presented in appendix B of
+! Zhou, J. G. (2004). Lattice Boltzmann methods for shallow 
+! water flows. Springer. 
+! https://doi.org/10.1007/978-3-662-08276-8
+! Contrary to the sample code, the time step and lattice
+! spacing do not have to be taken as units. Also the 
+! module provides periodic boundary conditions, 
+! inflow-outflow boundary conditions in the x direction 
+! boundaries and no-slip boundary conditions in y direction 
+! boundaries. 
+! S. Fiset, Montreal, 2025 
 ! ----------------------------------------------------------!
 !                   List of Major Variables
-! a, x, y - Loop integers
+! a, x, y, b, i, j - Loop integers
+! domainX, domainY - Domain's size in x and y directions [m]
+! dt - time step [s]
+! dx, dy - lattice spacing in x and y directions [m]
+! e - lattice velocity [m/s]
 ! ex, ey - x and y components of particles' velocities
-! f  - Distribution function
-! feq  - local equilibrium distribution function
-! force_x - x-direction component of force term
-! force_y - y-direction component of force term
-! ftemp - Temple distribution function
-! gael - Gravitational acceleration
-! h - water depth
-! Lx, Ly - Total lattice numbers in x and y directions
-! nu - Molecular viscosity  
-! tau - Relaxation time
-! u, v - x and y components of flow velocity 
+! f  - Distribution function [m]
+! feq  - local equilibrium distribution function [m]
+! force_x - x-direction component of force term [m^2/s^2]
+! force_y - y-direction component of force term [m^2/s^2]
+! ftemp - Temple distribution function [m^2/s^2]
+! gacl - Gravitational acceleration [m/s^2]
+! h - depth [m]
+! h_out - fixed depth at outflow [m]
+! Lx, Ly - Total lattice numbers in x and y directions [-]
+! nu - Molecular viscosity  [m^2/s]
+! q_in - Inflow discharge [m^2/s]
+! tau - Relaxation time [-]
+! u, v - x and y components of flow velocity [m/s]
+! u_out - fixed velocity at outflow [m/s]
+! zb - bed geometry
 module LABSWE 
 
         implicit none 
