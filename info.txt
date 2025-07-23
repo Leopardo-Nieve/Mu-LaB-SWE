@@ -2,22 +2,25 @@
 
 The simulation visually replicates the results expected.
 Inlet and outlet consistency checks succed until convergence.
+Code is cleaned up.
 ---
 
 Modifications since last version:
-- Reduced the consistency criterion
+- Removed Zhou's variables
 
-- Increased the convergence criterion
+- Uncommented lines that prevented values from being printed
 
-- Initialized the velocities after the bed was defined
+- Uncommented `call end_simulation` line
 
-- Made the initial velocity global and equal to the discharge over the depth at that node (i.e. u = q_in/h)
+- Removed commented lines of Zhou's initial way to define populations' directions using trigonometry
+
+- Deleted Four_Corners_BC subroutine
+
+- Deleted debugging lines
 
 ---
 
 Potential next step(s):
-
-- Make code clean (no more debugging lines)
 
 - Update code summary
 

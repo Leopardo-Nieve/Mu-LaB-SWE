@@ -35,7 +35,7 @@ module LABSWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,eZhou,tau,tauZhou,nu,nuZhou,qZhou,ReZhou,&
+        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,tau,nu,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter
         double precision, dimension(9):: ex,ey, eMax
@@ -45,25 +45,6 @@ module LABSWE
 contains 
 
 subroutine setup 
-    ! declare a local double precision for the quarter of PI 
-    ! double precision:: quarter_pi 
-
-    ! ! set constant PI 
-    ! quarter_pi = datan(1.0d0) 
-
-    ! ! compute the particle velocities 
-    ! do a = 1, 8 
-    !     if (mod(a,2) == 0) then 
-    !         ex(a) = dsqrt(2.0d0)*dcos(quarter_pi*dble(a-1)) 
-    !         ey(a) = dsqrt(2.0d0)*dsin(quarter_pi*dble(a-1)) 
-    !     else
-    !         ex(a) = dcos(quarter_pi*dble(a-1)) 
-    !         ey(a) = dsin(quarter_pi*dble(a-1))
-
-    !     end if 
-    ! end do
-     ! hard-code lattice velocities    
-
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
 
@@ -80,8 +61,6 @@ subroutine setup
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
-    ! print*, "eMax = ", eMax
-
 
     ! constants to limit random error
     one_24th_e2=1.0d0/(24.0d0*e*e)
@@ -94,58 +73,11 @@ subroutine setup
 
     dt_6e2=dt/(6.0d0*e*e)
 
-
-    ! print*, "particle velocities defined" !debug
     ! compute the equilibrium distribution function feq 
     call compute_feq
 
     ! Set the initial distribution function to feq 
     f = feq
-
-    ! print*, "starting consistence check during setup" !debug
-
-    ! ! Inlet condition
-    ! ! consistence check
-    ! consInLft(1,:) = h(1,:)-f(9,1,:) ! left side of the consistence equation
-    ! do a = 3, 7
-    !     consInLft(1,:) = consInLft(1,:) - f(a,1,:)
-    ! end do
-    ! consInRgt(1,:) = h(1,:)*u(1,:)/e + f(4,1,:) + f(5,1,:) + f(6,1,:) ! right side of the consistence equation
-    ! do j = 1, Ly
-    !     print*,consInLft(1,j),"=", consInRgt(1,j) !debug
-        
-        
-    !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-    !         print*, "consistency fails at node",1,j
-    !         print*,consInLft(1,j),"/=", consInRgt(1,j)
-    !         stopSim = .true.
-    !     end if
-    ! end do
-    
-    ! if ( .not. stopSim ) then
-    !     ! Following lines implement inflow BC (Zhou, p.59)
-    !     f(1,1,:) = f(5,1,:) + 2.0d0*q_in/(3.0d0*e)
-    !     f(2,1,:) = q_in/(6.0d0*e) + f(6,1,:) + 0.5d0*(f(7,1,:) - f(3,1,:))
-    !     f(8,1,:) = q_in/(6.0d0*e) + f(4,1,:) + 0.5d0*(f(3,1,:) - f(7,1,:))
-
-    !     print*, "Initial macroscopic values:"
-    !     ! compute the velocity and depth
-    !     h = 0.0d0
-    !     u = 0.0d0
-    !     v = 0.0d0
-    !     do a = 1, 9
-    !         h(:,:) = h(:,:) + f(a,:,:)
-    !         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
-    !         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
-    !     end do
-    !     u = u/h
-    !     v = v/h        
-    !     print*, "h(1,Ly/2)=",h(1,Ly/2)
-    !     print*, "u(1,Ly/2)=",u(1,Ly/2)
-    !     print*, "v(1,Ly/2)=",v(1,Ly/2)
-    ! end if
-
-
     return
 end subroutine setup
 
@@ -164,39 +96,38 @@ subroutine collide_stream
             xf = x + 1
             xb = x -1
 
-            ! print*, x, y !debug
-            ! Following 4 lines Implement periodic BCs 
+            ! Following 2 lines Implement periodic BCs in y-direction 
             ! if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
             ! if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
             ! start streaming and collision 
-            if (xf<=Lx) then
+            if (xf<=Lx) then ! periodic in y direction
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
                 & + dt_6e2*(ex(1)*0.5d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.5d0*(force_y(x,y)+force_y(xf,y)))
             end if
-            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) 
+            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
             ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
                 & + dt_6e2*(ex(2)*0.5d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.5d0*(force_y(x,y)+force_y(xf,yf)))
             end if
-            ! if (yf<=Ly) 
+            ! if (yf<=Ly) ! periodic in y direction
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
                 & + dt_6e2*(ex(3)*0.5d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.5d0*(force_y(x,y)+force_y(x,yf)))
-            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) 
+            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
                 & + dt_6e2*(ex(4)*0.5d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.5d0*(force_y(x,y)+force_y(xb,yf)))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
                 & + dt_6e2*(ex(5)*0.5d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.5d0*(force_y(x,y)+force_y(xb,y)))
-            if (xb>=1) then !if (xb>=1 .and. yb>=1) 
+            if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
                 & + dt_6e2*(ex(6)*0.5d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.5d0*(force_y(x,y)+force_y(xb,yb)))
             end if
-            ! if (yb>=1) 
+            ! if (yb>=1) ! periodic in y direction
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
                 & + dt_6e2*(ex(7)*0.5d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.5d0*(force_y(x,y)+force_y(x,yb)))
-            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) 
+            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
                 & + dt_6e2*(ex(8)*0.5d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.5d0*(force_y(x,y)+force_y(xf,yb)))
             end if
@@ -234,7 +165,6 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
-    ! print*, "beginning equilibrium populations" !debug
     do a = 1, 8 
         ! if (mod(a,2) == 0) then 
         feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +& 
@@ -251,54 +181,6 @@ subroutine compute_feq
     end do
     feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
              & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
-    ! debug
-    ! print*, "feq 9 =", feq(9,1,Ly/2)
-    ! print*, "feq 9 1st term:", h(1,Ly/2)
-    ! print*, "feq 9 2nd term:", five_6th_g_e2*h(1,Ly/2)*h(1,Ly/2)
-    ! print*, "feq 9 3rd term:", two_3rd_e2*h(1,Ly/2)*(u(1,Ly/2)*u(1,Ly/2) + v(1,Ly/2)*v(1,Ly/2))
-    ! print*, "h:", h(1,Ly/2)
-    ! print*, "u:", u(1,Ly/2)
-    ! print*, "v:", v(1,Ly/2)
-
-    ! do a=1,9
-    !     ! i=1+1
-    !     ! if (a==4) then
-    !     !     j=3-1
-    !     ! elseif(a==5) then
-    !     !     j=3
-    !     ! else
-    !     !     j=3+1
-    !     ! end if
-    !     i=1
-    !     j=3
-    !     print*, "Population:",a
-    !     print*, "ex(",a,") =",ex(a)
-    !     print*, "1st term", gacl*h(i,j)*h(i,j)*one_24th_e2
-    !     print*, "2nd term", h(i,j)*one_12th_e2*(ex(a)*u(i,j)+ ey(a)*v(i,j))
-    !     print*, "3rd term",h(i,j)*one_8th_e4& 
-    !         & *(ex(a)*u(i,j)*ex(a)*u(i,j)+& 
-    !         & 2.0d0*ex(a)*u(i,j)*ey(a)*v(i,j)+& 
-    !         & ey(a)*v(i,j)*ey(a)*v(i,j))
-    !     print*, "4th term",- h(i,j)*one_24th_e2*(u(i,j)*u(i,j)+ v(i,j)*v(i,j)) 
-    !     print*,"feq",a,feq(a,i,j)
-    !     print*, "Please press enter to continue"
-    ! read(*,*)
-    ! end do
-
-    ! do a=1,9
-    !     print*, "f(",a,",1,3) =",f(a,1,3)
-    ! end do
-    ! read(*,*)
-
-             ! print*, "feq_0 = ",feq(9,1,1) !debug
-    ! if (feq(a,Lx/2,Ly/2) < -1.0d-23) then !debug
-    !     print*, "feq", a, "=", feq(a,Lx/2,Ly/2) !debug
-    !     if (a == 9) then !debug
-    !         print*, "term 1 =", h(Lx/2,Ly/2) !debug
-    !         print*, "term 2 =", - 5.0d0*gacl*h(Lx/2,Ly/2)*h(Lx/2,Ly/2)/(6.0d0*e**2) !debug
-    !         print*, "term 3 =", - 2.0d0*h(Lx/2,Ly/2)/(3.0d0*e**2)*(u(Lx/2,Ly/2)**2 + v(Lx/2,Ly/2)**2.0d0) !debug
-    !     end if !debug
-    ! end if !debug
     return
 end subroutine compute_feq
 
@@ -345,7 +227,6 @@ subroutine Inflow_Outflow_BC
     consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
     do j = 1, Ly
         if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-            ! debug to reduce printing
             print*, "consistency fails at node",1,j
             print*,consInLft(1,j),"/=", consInRgt(1,j)
             stopSim = .true.
@@ -358,16 +239,6 @@ subroutine Inflow_Outflow_BC
         ftemp(2,1,:) = q_in/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
         ftemp(8,1,:) = q_in/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))    
     end if
-
-    ! do a=1,9 !debug
-    !     print*, "f after inflow", a, "=", ftemp(a,1,1)
-    ! end do ! debug
-
-    ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
-    ! h(Lx,:) = h_out
-    ! ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx-1,:)/(3.0d0*e)
-    ! ftemp(4,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-    ! ftemp(6,Lx,:) = -h(Lx,:)*u(Lx-1,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
 
     ! macroscopic outflow values
     u_out = 0.0d0
@@ -396,36 +267,7 @@ subroutine Inflow_Outflow_BC
         ftemp(4,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
         ftemp(6,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
     end if
-    
-
-    ! do a=1,9 !debug
-    !     print*, "f final", a, "=", ftemp(a,1,1)
-    ! end do ! debug
 end subroutine Inflow_Outflow_BC
-
-subroutine Four_Corners_BC
-    ! node (1,1)
-    ! ftemp(3,1,1) = ftemp(7,1,1) !slip (should be already done)
-    ! ftemp(4,1,1) = ftemp(6,1,1) !slip (should be already done)
-    ! ftemp(2,1,1) = q_in/(6*e) + ftemp(6,1,1) + 0.5*(ftemp(7,1,1) - ftemp(3,1,1)) !inflow
-    ftemp(8,1,1) = ftemp(2,1,1) !slip
-
-    ! node (1,Ly)
-    ! ftemp(6,1,Ly) = ftemp(4,1,Ly) !slip (should be already done)
-    ! ftemp(7,1,Ly) = ftemp(3,1,Ly) !slip (should be already done)
-    ! ftemp(8,1,Ly) = q_in/(6*e) + ftemp(4,1,Ly) + 0.5*(ftemp(3,1,Ly) - ftemp(7,1,Ly)) !inflow
-    ftemp(2,1,Ly) = ftemp(8,1,Ly) !slip
-
-    ! node (Lx,1)
-    ! ftemp(2,1,1) = ftemp(8,1,1) !slip (should be already done)
-    ! ftemp(3,1,1) = ftemp(7,1,1) !slip (should be already done)
-    ! ftemp(4,Lx,1) = -h(Lx,1)*u(Lx-1,1)/(6*e) + ftemp(8,Lx,1) + 0.5*(ftemp(7,Lx,1) - ftemp(3,Lx,1))
-    ftemp(6,Lx,1) = ftemp(4,Lx,1)
-
-    ! node (Lx,Ly)
-    ftemp(4,Lx,Ly) = ftemp(6,Lx,Ly)
-
-end subroutine Four_Corners_BC
 
 
 subroutine write_csv

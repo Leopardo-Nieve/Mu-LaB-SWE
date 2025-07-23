@@ -44,19 +44,12 @@ program main
     h_out = 2.0d0
 
     ! assign a value for the inlet discharge
-    qZhou = 4.42d0 ! m^2/s
-    q_in=qZhou ! to replicate Zhou's results
+    q_in = 4.42d0 ! m^2/s
 
     ! constants for initializing flow field. 
     ho = 2.0d0
     uo = 0.0d0
     vo = 0.0d0
-
-    ! assign a value for Zhou's relaxation time
-    tauZhou = 1.5d0 
-
-    ! assign a value for Zhou's lattice speed
-    eZhou = 15.0d0 ! m/s 
 
     ! assign a value of dx and dy
     dx = 1.0d-1 ! m
@@ -68,39 +61,28 @@ program main
 
     
 
-        ! calculate molecular viscosity 
-    nuZhou = (tauZhou-0.5d0)*eZhou*dx/3.0d0
-
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
-    ! calculate the Reynolds number in Zhou's case
-    ReZhou = qZhou/nuZhou
-
-    ! calculate equivalent inlet discharge
-    ! q_in = ReZhou*nu
     
     ! calculate the minimum possible value of e such that the stationary population is positive
     eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! calculate the lattice velocity
-    ! e = 2.0d0*eMin
-    ! e=eZhou ! to replicate Zhou's results
-    e=15.0d0 ! test to see if eMax is a valid stability condition
+    ! define the lattice velocity
+    e = 15.0d0
 
     ! define timestep dt
     dt = dx/e !s
-    ! print value
-    ! print*, "nu Zhou =", nuZhou, "m^2/s"
-    ! print*, "ReZhou =", ReZhou
-    ! print*, "q inlet =", q_in, "m^2/s"
-    ! print*, "e min =", eMin, "m/s"
-    ! print*, "e =", e, "m/s"
-    ! print*, "dt =", dt, "s"
+    ! print values
+    print*, "q inlet =", q_in, "m^2/s"
+    print*, "e =", e, "m/s"
+    print*, "dt =", dt, "s"
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau =tauZhou ! to replicate Zhou's results
+    tau = 1.5d0 
+
+    ! calculate molecular viscosity 
     nu = (tau-0.5d0)*e*dx/3.0d0
 
 
@@ -131,23 +113,12 @@ program main
     u = q_in/h
     v = vo
 
-    ! do y=1,Ly! debug
-    !     print*, "u(1,",y,")=", u(1,y), "u(2,",y,")=", u(2,y)! debug
-    ! end do! debug
-
     ! Set constant force
     force_x = -h*gacl*dzbdx ! bed slope force m^2/s^2
-    ! force_x = force_x + 6.6d-1 !artificial body force m^2/s^2
     force_y = 0.0d0 ! m^2/s^2
-    ! print*, itera_no
-    ! print*, ho
-    ! print*, uo
-    ! print*, vo
-    ! print*, force_x, force_y
     ! prepare the calculations
-    ! print*, "starting setup" !debugging
     call setup
-    ! print*, "setup done" !debugging
+    
     ! main loop for time marching
     time = 0
     timStep: do
@@ -162,79 +133,17 @@ program main
             do j=1,Ly
                 do a=1,9
                     if (ieee_is_nan(ftemp(a,i,j))) then
-                        print *, "La variable ftemp est un NaN.", a,i,j
-                        
-                        ! stop
+                        print*, "ftemp",a,x,y,"is not a number"
+                        stopSim = .true.
                     end if
                 end do
             end do
         end do
-        ! debug first node negative populations
-        ! do a=4,6
-        !     if (ftemp(a,1,3)<0) then
-        !         print*, "NEGATIVE population",a
-        !         print*, "previous timestep: ",a,f(4,1+1,3-1)
-        !         print*, "feq                ",a,feq(4,1+1,3-1)
-        !         print*, "force term         ",a,dt_6e2*(ex(4)*force_x(1+1,3-1)+ey(4)*force_y(1+1,3-1))
-        !     end if
-        !     print*, "ftemp(",a,"1,3)=",ftemp(a,1,3)
-        ! end do
-        ! print*, "Please press enter to continue"
-        ! read(*,*)
-
-        ! Apply Slip BC
-        ! call Slip_BC
-        ! do a=1,9
-        !     if (ftemp(a,1,2)/=ftemp(a,1,4)) then
-        !         if (.not. stopSim) print*, "populations diverge after slip bc"
-        !         print*, "ftemp(",a,"1,2)=", ftemp(a,1,2),"ftemp(",a,"1,4)=", ftemp(a,1,4)
-        !         stopSim = .true.
-        !     end if
-        !     if (stopSim) stop
-        ! end do
-        ! print*, "after Slip_BC" !debug
-        ! print*, "feq",3,"=", feq(3,1,3) !debug
-        ! print*, "feq",7,"=", feq(7,1,3) !debug
-        ! print*, "--------After Slip_BC---------" !debug
-        ! do a=1,9 !debug
-        !     print*,"f",a,"(1,3) =",ftemp(a,1,3) !debug
-        ! end do !debug
 
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC
 
-        ! Apply BCs to corners
-        ! call Four_Corners_BC
-        ! do a=1,9
-        !     if (ftemp(a,1,2)/=ftemp(a,1,4)) then
-        !         if (.not. stopSim) print*, "populations diverge after 4 corners"
-        !         print*, "ftemp(",a,"1,2)=", ftemp(a,1,2),"ftemp(",a,"1,4)=", ftemp(a,1,4)
-        !         stopSim = .true.
-        !     end if
-        !     if (stopSim) stop
-        ! end do
-        ! print*, "after Four_Corners_BC" !debug
-        ! print*, "feq",3,"=", feq(3,1,3) !debug
-        ! print*, "feq",7,"=", feq(7,1,3) !debug
-        ! print*, "-----After Four_Corners_BC----" !debug
-        ! do a=1,9 !debug
-        !     print*,"f",a,"(1,3) =",ftemp(a,1,3) !debug
-        ! end do !debug
-
-        ! debug to determine which populations are negative
-        ! do x=1,Lx
-        !     do y=1,Ly
-        !         do a=1,9
-        !             if (ftemp(a,x,y) < -1.0d-23) then
-        !                 if (.not. stopSim) print*, "Error: negative population"
-        !                 print*, "ftemp", a,x,y, "=", ftemp(a,x,y)
-        !                 stopSim=.true.
-        !             end if
-        !         end do
-        !     end do
-        ! end do
-
-        ! make sure no populations are NaN
+        ! make sure no population is NaN
         do i = 1, Lx
             do j = 1, Ly
                 do a = 1, 9
@@ -248,51 +157,37 @@ program main
 
         ! Calculate h, u & v
         if (.not. stopSim) call solution
-        ! print*,current_iteration,"Inflow: h=", h(1,3),"u=", u(1,3), "v=", v(1,3)
-        ! print*,current_iteration,"Outflow: h=", h(Lx,3),"u=", u(Lx,3), "v=", v(Lx,3)
 
         ! Update the feq
         call compute_feq
 
         write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
 
-        ! if (time == 488 .or. time == 489) then
-        !     do a = 1, 9
-        !         print*, a, u(1,24), f(a,1,24), ex(a), ey(a)
-        !         ! h(:,:) = h(:,:) + f(a,:,:)
-        !         ! u(:,:) = u(:,:) + ex(a)*f(a,:,:)
-        !         ! v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
-        !     end do
-        ! end if
-
         do i=1,Lx 
             do j = 1, Ly
                 
-                ! Vérifier si u est un NaN
+                ! make sure no u is NaN
                 if (ieee_is_nan(u(i,j))) then
-                    print *, "La variable u est un NaN.", i,j
-                    
-                    stop
+                    print*, "u",x,y,"is not a number"
+                    stopSim = .true.
                 end if
                 
-                ! Vérifier si v est un NaN
+                ! make sure no v is NaN
                 if (ieee_is_nan(v(i,j))) then
-                    print *, "La variable v est un NaN.", i,j
-                    ! stop
+                    print*, "v",x,y,"is not a number"
+                    stopSim = .true.
                 end if
 
-        !         ! Vérifier si h est un NaN
-        !         if (ieee_is_nan(h(i,j))) then
-        !             print *, "La variable h est un NaN.", i,j
-        !             stop
-        !         end if
+                ! make sure no h is NaN
+                if (ieee_is_nan(h(i,j))) then
+                    print*, "h",x,y,"is not a number"
+                    stopSim = .true.
+                end if
             end do
         end do
-        if (current_iteration >=itera_no) stopSim = .true. ! stop simulation after certain no timesteps
-        ! if (time >= simTime) exit
+        if (current_iteration >= itera_no) stopSim = .true. ! stop simulation after certain number of timesteps
         if (stopSim .or. check_convergence(u,h,epsilon)) then
-            ! debug to reduce prints
-            ! call end_simulation 
+            call end_simulation 
             exit
         end if
 
