@@ -18,10 +18,10 @@ Modifications since last version:
 
 - Deleted debugging lines
 
+- Updated code summaries
+
 ---
 
 Potential next step(s):
-
-- Update code summary
 
 - When the analytical solution is available, compare the results in post-processing.
