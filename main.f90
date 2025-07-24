@@ -25,7 +25,7 @@ program main
     
     ! call the module LABSWE 
     use ieee_arithmetic  ! Module for IEEE functions
-    use LABSWE
+    use Mu_LaB_SWE
     implicit none ! had to write in a second line because VSCode was signaling an error
     
     ! declare local working variables 

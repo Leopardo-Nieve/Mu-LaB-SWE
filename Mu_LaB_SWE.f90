@@ -37,7 +37,7 @@
 ! u, v - x and y components of flow velocity [m/s]
 ! u_out - fixed velocity at outflow [m/s]
 ! zb - bed geometry
-module LABSWE 
+module Mu_LaB_SWE
 
         implicit none 
 
@@ -397,4 +397,4 @@ logical function check_convergence(uCheck, hCheck, epsilonCheck)
     end if
   end function check_convergence
 
-end module LABSWE
+end module Mu_LaB_SWE

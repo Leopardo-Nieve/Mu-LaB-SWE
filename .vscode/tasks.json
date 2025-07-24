@@ -10,8 +10,8 @@
             "args": [
                     "-Wall",
                     "-o",
-                    "steady_flow_over_bump",
-                    ".\\LABSWE.f90",
+                    "run",
+                    ".\\Mu_LaB_SWE.f90",
                     ".\\main.f90"
             ],
             "group": {

@@ -1,27 +1,19 @@
-2025-07-23
+2025-07-24
 
-The simulation visually replicates the results expected.
-Inlet and outlet consistency checks succed until convergence.
-Code is cleaned up.
+New case naming runs older simulation nicely. 
 ---
 
 Modifications since last version:
-- Removed Zhou's variables
+- Renamed LABSWE.F90 to Mu_LaB_SWE.f90
 
-- Uncommented lines that prevented values from being printed
+- Renamed program to run.exe in tasks.json and launch.json
 
-- Uncommented `call end_simulation` line
+- Deleted steady_flow_over_bump.exe and labswe.mod
 
-- Removed commented lines of Zhou's initial way to define populations' directions using trigonometry
-
-- Deleted Four_Corners_BC subroutine
-
-- Deleted debugging lines
-
-- Updated code summaries
+- Used Mu_LaB_SWE in main instead of LABSWE
 
 ---
 
 Potential next step(s):
 
-- When the analytical solution is available, compare the results in post-processing.
+- Compare with yesterday's files and incorporate edits to introduce new case.
