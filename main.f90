@@ -32,19 +32,25 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo,simTime, epsilon
+    double precision :: uo, vo,simTime, epsilon
     character:: fdate*24, td*24 ! get date for output
+    logical:: steadyFlow
 
+    ! define pi
+    pi = dacos(-1.0d0)
+
+    steadyFlow = .false. ! if steady define `.true.`, if tidal define `.false.`
+    
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-10
-    consCriter = 1.0d-3
+    if ( steadyFlow ) then
+        epsilon = 1.0d-10
+    else
+        epsilon = 0.0d0
+    end if
+    consCriter = 1.0d-1
     
     current_iteration = 0
-    itera_no = 105.0d3
-        
-    time = 0
-    simTime = 9117.5d0
     itera_no = 105.0d3
         
     time = 0
@@ -54,7 +60,6 @@ program main
     ! q_in = 4.42d0 ! m^2/s
 
     ! constants for initializing flow field. 
-    ho = 2.0d0
     uo = 0.0d0
     vo = 0.0d0
 
@@ -70,7 +75,7 @@ program main
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
         & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),H_part(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly))     
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly), hIn(Ly), uIn(Ly))
 
     do x = 1, Lx
         H_part(x,:) = 50.5d0 - 40.0d0*x*dx/domainX - 10.0d0*dsin(pi*(4.0d0*x*dx/domainX - 0.5d0))
@@ -79,10 +84,18 @@ program main
     ! initialize the depth 
     h = H_part
 
+    ! define bed geometry
+    zb = H_part(1,Ly/2) - H_part
+
+
+    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
+    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
+
     ! constants for boundary conditions
     h(1,:) = h_in(time)
-    ! h_out = 2.0d0
-    u_out = 0.0d0
+    ! hOut = 2.0d0
+    uOut = 0.0d0
     
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
@@ -159,7 +172,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(100, Ly/2)
+        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', hIn(Ly/2)
 
         do i=1,Lx 
             do j = 1, Ly
@@ -183,7 +196,10 @@ program main
                 end if
             end do
         end do
-        if (current_iteration >= itera_no .or. time >= simTime) stopSim = .true. ! stop simulation after desired time reached
+        if (current_iteration >= itera_no .or. time >= simTime) then
+            print*, "Maximum simulation time reached."
+            stopSim = .true. ! stop simulation after desired time reached
+        end if
         if (stopSim .or. check_convergence(u,h,epsilon)) then
             call end_simulation 
             exit

@@ -29,7 +29,7 @@
 ! ftemp - Temple distribution function [m^2/s^2]
 ! gacl - Gravitational acceleration [m/s^2]
 ! h - depth [m]
-! h_out - fixed depth at outflow [m]
+! hOut - fixed depth at outflow [m]
 ! H_part - partial depth [m]
 ! Lx, Ly - Total lattice numbers in x and y directions [-]
 ! nu - Molecular viscosity  [m^2/s]
@@ -37,7 +37,7 @@
 ! tau - Relaxation time [-]
 ! time - Amount of time elapsed since start of simulation [s]
 ! u, v - x and y components of flow velocity [m/s]
-! u_out - fixed velocity at outflow [m/s]
+! uOut - fixed velocity at outflow [m/s]
 ! zb - bed geometry
 module Mu_LaB_SWE
 
@@ -46,10 +46,11 @@ module Mu_LaB_SWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&
+        double precision:: q_in,hOut,uOut,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi 
         double precision, dimension(9):: ex,ey, eMax
+        double precision, allocatable, dimension(:):: hIn,uIn
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,&
         &consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -232,14 +233,21 @@ end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
     ! macroscopic inflow values
-    h(1,:) = h_in(time)
+    hIn = h_in(time)
+
+    ! Neumann BC on u at the inflow
+    uIn = 0.0d0
+    do a = 1, 9
+        uIn = uIn + ex(a)*ftemp(a,1+1,:) ! neighbouring cell's populations
+    end do
+    uIn = uIn/hIn
 
     ! consistence check
-    consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+    consInLft(1,:) = hIn-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
         consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
     end do
-    consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+    consInRgt(1,:) = hIn*uIn/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
     do j = 1, Ly
         if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
             print*, "consistency fails at node",1,j
@@ -250,25 +258,28 @@ subroutine Inflow_Outflow_BC
     
     if ( .not. stopSim ) then
         ! Following lines implement inflow BC (Zhou, p.59)
-        ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*q_in/(3.0d0*e)
-        ftemp(2,1,:) = q_in/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-        ftemp(8,1,:) = q_in/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))    
+        ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*hIn*uIn/(3.0d0*e)
+        ftemp(2,1,:) = hIn*uIn/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+        ftemp(8,1,:) = hIn*uIn/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))    
     end if
 
     ! macroscopic outflow values
-    u_out = 0.0d0
+    ! Neumann BC
+    hOut = 0
+    ! uOut = 0.0d0
     do a = 1, 9
-        u_out = u_out + ex(a)*ftemp(a,Lx-1,Ly/2)
+        hOut = hOut+ ftemp(a,Lx-1,Ly/2) ! neighbouring cell's population
+        ! uOut = uOut + ex(a)*ftemp(a,Lx-1,Ly/2)
     end do
-    u_out = u_out/h_out
+    ! uOut = uOut/hOut
     
     ! consistence check
-    consOutLft(1,:) = h_out
+    consOutLft(1,:) = hOut
     do a = 1, 9
         if (a >= 4 .and. a <=6 ) cycle
         consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
     end do
-    consOutRgt(1,:) = -h_out*u_out/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+    consOutRgt(1,:) = -hOut*uOut/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
     do j = 1, Ly
         if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
             print*, "consistence fails at node",Lx,j
@@ -278,9 +289,9 @@ subroutine Inflow_Outflow_BC
     end do
     if ( .not. stopSim ) then
         ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
-        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h_out*u_out/(3.0d0*e)
-        ftemp(4,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-        ftemp(6,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
+        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*hOut*uOut/(3.0d0*e)
+        ftemp(4,Lx,:) = -hOut*uOut/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+        ftemp(6,Lx,:) = -hOut*uOut/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
     end if
 end subroutine Inflow_Outflow_BC
 
@@ -396,9 +407,7 @@ end subroutine end_simulation
 double precision function h_in(currentTime)
     implicit none
     double precision, intent(in)    :: currentTime
-    pi = dacos(-1.0d0)
-
-    h_in = H_part(0,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+    h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
 end function h_in
 
 logical function check_convergence(uCheck, hCheck, epsilonCheck)

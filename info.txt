@@ -1,13 +1,29 @@
 2025-07-24
 
-Seems to work.
+Consistency fails at first timestep, and only gets worse with time.
+Depth seems underestimated, i.e. the depth BC does not increase quickly enough.
+The velocity is quasi null, which is far from the analytical solution (~0.1 m/s at the timestep of failure).
 ---
 
 Modifications since last version:
-- Switched definition of dp allocatable (:,:) variables onto two lines to avoid exceeding character limit in line 53
+- Added pi variable
+
+- Added steadyFlow logical (boolean) variable to define if the simulation is steady (true) or tidal (false)
+
+- Deleted ho variable
+
+- Added hIn and uIn variables with dimensions (Ly)
+
+- Added uIn and hIn definition at each time step in Inflow_Outflow_BC subroutine
+
+- Added bed geometry definition
+
+- Renamed u_out and h_out to uOut and hOut
 
 ---
 
 Potential next step(s):
 
-- Add the edits done in the debugging branch to allow the ../results directory
+- Print the different values of the different consistency equations and determine sources of error
+
+- Investigate why depth is underestimated
