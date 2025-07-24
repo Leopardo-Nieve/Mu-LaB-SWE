@@ -18,6 +18,7 @@
 ! ho  - Initial water depth 
 ! epsilon - Convergence criterion
 ! itera_no - Total iteration number or time steps 
+! simTime - Maximum desired amount of simulation time
 ! time - Amount of time elapsed since start of simulation
 ! simTime - Maximum desired amount of simulation time
 ! uo, vo - Initial velocities 
@@ -40,6 +41,10 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
+    itera_no = 105.0d3
+        
+    time = 0
+    simTime = 9117.5d0
     itera_no = 105.0d3
         
     time = 0
@@ -186,9 +191,10 @@ program main
 
     end do timStep
 
+    call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 
-    open(66,file='../results_7.2.1/result.dat',status='unknown') 
+    open(66,file='../results/result.dat',status='unknown') 
     td=fdate() 
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 

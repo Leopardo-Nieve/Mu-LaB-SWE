@@ -284,10 +284,31 @@ subroutine Inflow_Outflow_BC
     end if
 end subroutine Inflow_Outflow_BC
 
+subroutine ensure_results_directory
+    implicit none
+    logical :: exists
+    integer :: ierr
+    character(len=100) :: cmd
+
+    inquire(file='../results', exist=exists)
+
+    if (.not. exists) then
+        cmd = 'mkdir "..\results"'
+        ierr = system(cmd)
+        if (ierr /= 0) then
+            print *, 'Error: Could not create the directory.'
+            stop
+        else
+            print *, 'Directory "..\results" created successfully.'
+        end if
+    else
+        print *, 'Directory "..\results" already exists.'
+    end if
+end subroutine ensure_results_directory
 
 subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
-    open(67, file='../results_7.2.1/result.csv', status='unknown')
+    open(67, file='../results/result.csv', status='unknown')
     
     ! write simulation parameters
     write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
@@ -412,3 +433,5 @@ logical function check_convergence(uCheck, hCheck, epsilonCheck)
   end function check_convergence
 
 end module Mu_LaB_SWE
+
+
