@@ -50,7 +50,8 @@ module Mu_LaB_SWE
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi 
         double precision, dimension(9):: ex,ey, eMax
-        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
+        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,&
+        &consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 

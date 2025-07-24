@@ -1,13 +1,13 @@
 2025-07-24
 
-.mod file being deleted for whatever reason. 
+Seems to work.
 ---
 
 Modifications since last version:
--
+- Switched definition of dp allocatable (:,:) variables onto two lines to avoid exceeding character limit in line 53
 
 ---
 
 Potential next step(s):
 
-- Remove all changes and try to run build command after each modification until culprit is found
+- Add the edits done in the debugging branch to allow the ../results directory
