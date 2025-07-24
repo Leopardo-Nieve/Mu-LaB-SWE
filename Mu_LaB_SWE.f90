@@ -30,10 +30,12 @@
 ! gacl - Gravitational acceleration [m/s^2]
 ! h - depth [m]
 ! h_out - fixed depth at outflow [m]
+! H_part - partial depth [m]
 ! Lx, Ly - Total lattice numbers in x and y directions [-]
 ! nu - Molecular viscosity  [m^2/s]
 ! q_in - Inflow discharge [m^2/s]
 ! tau - Relaxation time [-]
+! time - Amount of time elapsed since start of simulation [s]
 ! u, v - x and y components of flow velocity [m/s]
 ! u_out - fixed velocity at outflow [m/s]
 ! zb - bed geometry
@@ -44,11 +46,11 @@ module Mu_LaB_SWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,tau,nu,&
+        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi 
         double precision, dimension(9):: ex,ey, eMax
-        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
+        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -228,6 +230,9 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
+    ! macroscopic inflow values
+    h(1,:) = h_in(time)
+
     ! consistence check
     consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
@@ -365,6 +370,14 @@ subroutine end_simulation
         print*, "Mach NOT OKAY!!"
     end if
 end subroutine end_simulation
+
+double precision function h_in(currentTime)
+    implicit none
+    double precision, intent(in)    :: currentTime
+    pi = dacos(-1.0d0)
+
+    h_in = H_part(0,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+end function h_in
 
 logical function check_convergence(uCheck, hCheck, epsilonCheck)
     implicit none

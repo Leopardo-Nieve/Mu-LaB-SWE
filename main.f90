@@ -19,6 +19,7 @@
 ! epsilon - Convergence criterion
 ! itera_no - Total iteration number or time steps 
 ! time - Amount of time elapsed since start of simulation
+! simTime - Maximum desired amount of simulation time
 ! uo, vo - Initial velocities 
 !----------------------------------------------------------!
 program main 
@@ -30,7 +31,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo, time, epsilon
+    double precision :: ho, uo, vo,simTime, epsilon
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim and epsilon to let the simulation run
@@ -39,79 +40,71 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 1.0d5
-
-    ! constants for boundary conditions
-    h_out = 2.0d0
+    itera_no = 105.0d3
+        
+    time = 0
+    simTime = 9117.5d0
 
     ! assign a value for the inlet discharge
-    q_in = 4.42d0 ! m^2/s
+    ! q_in = 4.42d0 ! m^2/s
 
     ! constants for initializing flow field. 
     ho = 2.0d0
     uo = 0.0d0
     vo = 0.0d0
 
-    ! assign a value of dx and dy
-    dx = 1.0d-1 ! m
-    dy = dx
-
     ! define total lattice numbers in x and y directions
-    domainX = 25.0d0     ; domainY = 5.0d0*dx ! dimensions in metres
+    domainX = 14.0d3     
+    
+    ! assign a value of dx and dy
+    dx = domainX/800.0d0 ! m
+    dy = dx
+    domainY = 5.0d0*dx ! dimensions in metres
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
-    
+    ! allocate dimensions for dynamic arrays
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
+        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),H_part(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly))     
 
+    do x = 1, Lx
+        H_part(x,:) = 50.5d0 - 40.0d0*x*dx/domainX - 10.0d0*dsin(pi*(4.0d0*x*dx/domainX - 0.5d0))
+    end do
+
+    ! initialize the depth 
+    h = H_part
+
+    ! constants for boundary conditions
+    h(1,:) = h_in(time)
+    ! h_out = 2.0d0
+    u_out = 0.0d0
+    
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
     
     ! calculate the minimum possible value of e such that the stationary population is positive
-    eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
+    ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define the lattice velocity
-    e = 15.0d0
+    e = 200.0d0
 
     ! define timestep dt
     dt = dx/e !s
     ! print values
-    print*, "q inlet =", q_in, "m^2/s"
+    ! print*, "q inlet =", q_in, "m^2/s"
     print*, "e =", e, "m/s"
     print*, "dt =", dt, "s"
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 1.5d0 
+    tau = 0.6d0 
 
     ! calculate molecular viscosity 
     nu = (tau-0.5d0)*e*dx/3.0d0
 
-
-    ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly)) 
-    
-    ! initialize the depth 
-    h = ho 
-
-    ! define bed geometry
-    zb = 0
-    do x = 1, Lx
-        if (x*dx > 8 .and. x*dx < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2.0d0 ! bump function
-    end do
-
-    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
-    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
-
-
-    ! apply geometry
-    h = h - zb
-
-
     ! initialize the velocities
-    u = q_in/h
+    u = uo
     v = vo
 
     ! Set constant force
@@ -121,7 +114,6 @@ program main
     call setup
     
     ! main loop for time marching
-    time = 0
     timStep: do
 
         time = time+dt
@@ -186,7 +178,7 @@ program main
                 end if
             end do
         end do
-        if (current_iteration >= itera_no) stopSim = .true. ! stop simulation after certain number of timesteps
+        if (current_iteration >= itera_no .or. time >= simTime) stopSim = .true. ! stop simulation after desired time reached
         if (stopSim .or. check_convergence(u,h,epsilon)) then
             call end_simulation 
             exit

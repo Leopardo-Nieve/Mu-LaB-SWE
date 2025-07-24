@@ -1,19 +1,13 @@
 2025-07-24
 
-New case naming runs older simulation nicely. 
+.mod file being deleted for whatever reason. 
 ---
 
 Modifications since last version:
-- Renamed LABSWE.F90 to Mu_LaB_SWE.f90
-
-- Renamed program to run.exe in tasks.json and launch.json
-
-- Deleted steady_flow_over_bump.exe and labswe.mod
-
-- Used Mu_LaB_SWE in main instead of LABSWE
+-
 
 ---
 
 Potential next step(s):
 
-- Compare with yesterday's files and incorporate edits to introduce new case.
+- Remove all changes and try to run build command after each modification until culprit is found
