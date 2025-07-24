@@ -18,6 +18,7 @@
 ! ho  - Initial water depth 
 ! epsilon - Convergence criterion
 ! itera_no - Total iteration number or time steps 
+! simTime - Maximum desired amount of simulation time
 ! time - Amount of time elapsed since start of simulation
 ! uo, vo - Initial velocities 
 !----------------------------------------------------------!
@@ -30,7 +31,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo, time, epsilon
+    double precision :: ho, uo, vo, epsilon, simTime
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim and epsilon to let the simulation run
@@ -39,25 +40,27 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 1.0d5
-
-    ! constants for boundary conditions
-    h_out = 2.0d0
+    itera_no = 105.0d3
+        
+    time = 0
+    simTime = 9117.5d0
 
     ! assign a value for the inlet discharge
-    q_in = 4.42d0 ! m^2/s
+    q_in = 4.42d0 ! m^2/s ! comment before final version of code
+    h_out = 2.0d0
 
     ! constants for initializing flow field. 
     ho = 2.0d0
     uo = 0.0d0
     vo = 0.0d0
 
-    ! assign a value of dx and dy
-    dx = 1.0d-1 ! m
-    dy = dx
-
     ! define total lattice numbers in x and y directions
-    domainX = 25.0d0     ; domainY = 5.0d0*dx ! dimensions in metres
+    domainX = 14.0d3     
+    
+    ! assign a value of dx and dy
+    dx = domainX/800.0d0 ! m
+    dy = dx
+    domainY = 5.0d0*dx ! dimensions in metres
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     
@@ -194,9 +197,10 @@ program main
 
     end do timStep
 
+    call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
     write(6,*)' Writing results in file: result.dat ... ' 
-    open(66,file='../results_7.2.1/result.dat',status='unknown') 
+    open(66,file='../results/result.dat',status='unknown') 
     td=fdate() 
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 

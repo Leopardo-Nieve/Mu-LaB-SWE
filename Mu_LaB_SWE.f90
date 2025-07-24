@@ -30,10 +30,12 @@
 ! gacl - Gravitational acceleration [m/s^2]
 ! h - depth [m]
 ! h_out - fixed depth at outflow [m]
+! H_part - partial depth [m]
 ! Lx, Ly - Total lattice numbers in x and y directions [-]
 ! nu - Molecular viscosity  [m^2/s]
 ! q_in - Inflow discharge [m^2/s]
 ! tau - Relaxation time [-]
+! time - Amount of time elapsed since start of simulation [s]
 ! u, v - x and y components of flow velocity [m/s]
 ! u_out - fixed velocity at outflow [m/s]
 ! zb - bed geometry
@@ -44,9 +46,9 @@ module Mu_LaB_SWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,dt,eMin,e,tau,nu,&
+        double precision:: q_in,h_out,u_out, dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi
         double precision, dimension(9):: ex,ey, eMax
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -278,10 +280,31 @@ subroutine Inflow_Outflow_BC
     end if
 end subroutine Inflow_Outflow_BC
 
+subroutine ensure_results_directory
+    implicit none
+    logical :: exists
+    integer :: ierr
+    character(len=100) :: cmd
+
+    inquire(file='../results', exist=exists)
+
+    if (.not. exists) then
+        cmd = 'mkdir "..\results"'
+        ierr = system(cmd)
+        if (ierr /= 0) then
+            print *, 'Error: Could not create the directory.'
+            stop
+        else
+            print *, 'Directory "..\results" created successfully.'
+        end if
+    else
+        print *, 'Directory "..\results" already exists.'
+    end if
+end subroutine ensure_results_directory
 
 subroutine write_csv
     ! Write simulation results to a CSV file for ParaView visualization
-    open(67, file='../results_7.2.1/result.csv', status='unknown')
+    open(67, file='../results/result.csv', status='unknown')
     
     ! write simulation parameters
     write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
@@ -398,3 +421,5 @@ logical function check_convergence(uCheck, hCheck, epsilonCheck)
   end function check_convergence
 
 end module Mu_LaB_SWE
+
+
