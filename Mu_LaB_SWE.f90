@@ -46,11 +46,12 @@ module Mu_LaB_SWE
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
-        double precision:: q_in,hOut,uOut,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&
+        character:: BCInflow, BCOutflow
+        double precision:: q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&!,hOut,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi 
         double precision, dimension(9):: ex,ey, eMax
-        double precision, allocatable, dimension(:):: hIn,uIn
+        ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,&
         &consInLft,consInRgt,consOutLft,consOutRgt
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
@@ -232,66 +233,77 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
-    ! macroscopic inflow values
-    hIn = h_in(time)
+    ! macroscopic values
+    h(1,:) = h_in(time)
+    u(Lx,:) = 0.0d0  
 
-    ! Neumann BC on u at the inflow
-    uIn = 0.0d0
-    do a = 1, 9
-        uIn = uIn + ex(a)*ftemp(a,1+1,:) ! neighbouring cell's populations
-    end do
-    uIn = uIn/hIn
+    if ( BCInflow == "i" ) then
+        ! consistence check
+        consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+        do a = 3, 7
+            consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
+        end do
+        consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+        do j = 1, Ly
+            if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+                print*, "consistency fails at node",1,j
+                print*,consInLft(1,j),"/=", consInRgt(1,j)
+                stopSim = .true.
+            end if
+        end do
 
-    ! consistence check
-    consInLft(1,:) = hIn-ftemp(9,1,:) ! left side of the consistence equation
-    do a = 3, 7
-        consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-    end do
-    consInRgt(1,:) = hIn*uIn/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-    do j = 1, Ly
-        if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-            print*, "consistency fails at node",1,j
-            print*,consInLft(1,j),"/=", consInRgt(1,j)
-            stopSim = .true.
+        if ( .not. stopSim ) then
+            ! Following lines implement inflow BC (Zhou, p.59)
+            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
+            ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+            ftemp(8,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
         end if
-    end do
-    
-    if ( .not. stopSim ) then
-        ! Following lines implement inflow BC (Zhou, p.59)
-        ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*hIn*uIn/(3.0d0*e)
-        ftemp(2,1,:) = hIn*uIn/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-        ftemp(8,1,:) = hIn*uIn/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))    
+    elseif (BCInflow == "n") then
+            ! Neumann BC at the inflow (p. 58)
+            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
+            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
+            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
+    else
+        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
+        print*, "***Hint: the condition must be written all in lower case.***"
     end if
 
-    ! macroscopic outflow values
-    ! Neumann BC
-    hOut = 0
-    ! uOut = 0.0d0
-    do a = 1, 9
-        hOut = hOut+ ftemp(a,Lx-1,Ly/2) ! neighbouring cell's population
-        ! uOut = uOut + ex(a)*ftemp(a,Lx-1,Ly/2)
-    end do
-    ! uOut = uOut/hOut
-    
-    ! consistence check
-    consOutLft(1,:) = hOut
-    do a = 1, 9
-        if (a >= 4 .and. a <=6 ) cycle
-        consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
-    end do
-    consOutRgt(1,:) = -hOut*uOut/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
-    do j = 1, Ly
-        if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-            print*, "consistence fails at node",Lx,j
-            print*,consOutLft(1,j),"/=", consOutRgt(1,j)
-            stopSim = .true.
+    ! print*, "test inflow consistency" !debug
+    ! print*, consInLft(1,Ly/2),"=",consInRgt(1,Ly/2)
+
+    ! print*, "test outflow consistency" !debug
+    ! print*, consOutLft(1,Ly/2),"=",consOutRgt(1,Ly/2)
+
+    if ( BCOutflow == "o" ) then
+        ! consistence check
+        consOutLft(1,:) = h(Lx,:)
+        do a = 1, 9
+            if (a >= 4 .and. a <=6 ) cycle
+            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
+        end do
+        consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+        do j = 1, Ly
+            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
+                print*, "consistence fails at node",Lx,j
+                print*,consOutLft(1,j),"/=", consOutRgt(1,j)
+                stopSim = .true.
+            end if
+        end do
+
+        if ( .not. stopSim ) then
+            ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
+            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
+            ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+            ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
         end if
-    end do
-    if ( .not. stopSim ) then
-        ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
-        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*hOut*uOut/(3.0d0*e)
-        ftemp(4,Lx,:) = -hOut*uOut/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-        ftemp(6,Lx,:) = -hOut*uOut/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))    
+    elseif (BCInflow == "n") then
+        ! Neumann BC at thoutinflow (p. 58)
+        ftemp(4,1,:) = ftemp(4,2,:) ! neigbouring population
+        ftemp(5,1,:) = ftemp(5,2,:) ! neigbouring population
+        ftemp(6,1,:) = ftemp(6,2,:) ! neigbouring population
+    else
+        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
+        print*, "***Hint: the condition must be written all in lower case.***"
     end if
 end subroutine Inflow_Outflow_BC
 

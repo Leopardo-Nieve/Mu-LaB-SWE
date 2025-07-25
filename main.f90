@@ -40,6 +40,10 @@ program main
     pi = dacos(-1.0d0)
 
     steadyFlow = .false. ! if steady define `.true.`, if tidal define `.false.`
+
+    ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
+    BCInflow  = "n" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+    BCOutflow = "n" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
@@ -48,7 +52,7 @@ program main
     else
         epsilon = 0.0d0
     end if
-    consCriter = 1.0d-1
+    consCriter = 1.0d-3
     
     current_iteration = 0
     itera_no = 105.0d3
@@ -75,7 +79,7 @@ program main
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
         & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),H_part(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly), hIn(Ly), uIn(Ly))
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly))!, hIn(Ly), uIn(Ly))
 
     do x = 1, Lx
         H_part(x,:) = 50.5d0 - 40.0d0*x*dx/domainX - 10.0d0*dsin(pi*(4.0d0*x*dx/domainX - 0.5d0))
@@ -95,7 +99,7 @@ program main
     ! constants for boundary conditions
     h(1,:) = h_in(time)
     ! hOut = 2.0d0
-    uOut = 0.0d0
+    u(Lx,:) = 0.0d0
     
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
@@ -172,7 +176,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', hIn(Ly/2)
+        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
         do i=1,Lx 
             do j = 1, Ly

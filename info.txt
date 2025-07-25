@@ -1,29 +1,25 @@
-2025-07-24
+2025-07-25
 
-Consistency fails at first timestep, and only gets worse with time.
-Depth seems underestimated, i.e. the depth BC does not increase quickly enough.
-The velocity is quasi null, which is far from the analytical solution (~0.1 m/s at the timestep of failure).
+Simulation fails at timestep 9731 because some value reaches infinity. 
 ---
 
 Modifications since last version:
-- Added pi variable
+- Created BCInflow and BCOutflow character variables (equivalent to strings) and left them at 1 character to make conditional statements more cohesive
 
-- Added steadyFlow logical (boolean) variable to define if the simulation is steady (true) or tidal (false)
+- Removed the hIn, uIn, hOut, uOut variables to favour directly defining the macroscopic variables (thus affecting feq calculations) as recommended by Zhou (p.58)
 
-- Deleted ho variable
+- Restructured Inflow_Outflow_BC subroutine to allow different conditions
 
-- Added hIn and uIn variables with dimensions (Ly)
+- Rewrote Neumann condition integration to only apply to unkown populations perpendicular to boundary as recommended by Zhou (p.58)
 
-- Added uIn and hIn definition at each time step in Inflow_Outflow_BC subroutine
-
-- Added bed geometry definition
-
-- Renamed u_out and h_out to uOut and hOut
+- Stopped using the consistency equations because a simple zero gradient and Dirichlet conditions combination were used
 
 ---
 
 Potential next step(s):
 
-- Print the different values of the different consistency equations and determine sources of error
+- Compare values at the inlet to verify Dirichlet boundary is correctly applied
 
-- Investigate why depth is underestimated
+- Validate that Neumann condition is correctly applied
+
+- Trace profiles with time to see which value first diverges from the analytical solution
