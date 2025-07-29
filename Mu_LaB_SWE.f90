@@ -53,7 +53,7 @@ module Mu_LaB_SWE
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,&
-        &consInLft,consInRgt,consOutLft,consOutRgt
+        &consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -235,7 +235,9 @@ end subroutine Slip_BC
 subroutine Inflow_Outflow_BC
     ! macroscopic values
     h(1,:) = h_in(time)
-    u(Lx,:) = 0.0d0  
+    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+
+    u(Lx,:) = 0.0d0
 
     if ( BCInflow == "i" ) then
         ! consistence check
@@ -330,32 +332,63 @@ subroutine ensure_results_directory
 end subroutine ensure_results_directory
 
 subroutine write_csv
-    ! Write simulation results to a CSV file for ParaView visualization
-    open(67, file='../results/result.csv', status='unknown')
-    
-    ! write simulation parameters
+    implicit none
+    integer :: io, try
+    integer, parameter :: max_tries = 2
+    character(len=100) :: fpath
+
+    fpath = '../results/result.csv'
+
+    try = 1
+    do
+        ! Try to open file explicitly for writing
+        open(67, file=fpath, status='unknown', action='write', iostat=io)
+
+        if (io == 0) exit  ! File opened successfully
+
+        if (try >= max_tries) then
+            print *, "ERROR: Cannot open file: ", trim(fpath)
+            print *, "The file may be open in another program like Excel."
+            stop
+        end if
+
+        print *, "WARNING: File is locked. Please close it (e.g. in Excel)."
+        print *, "Retrying in 15 seconds..."
+        call sleep_seconds(15)
+        try = try + 1
+    end do
+
+    ! Write simulation parameters
     write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
-    write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
-     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+    write(67, '(A,",",I10,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+        trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
 
-
-    
     ! Write CSV header
-    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)'
+    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
+    &, h analytical (m), u analytical (m/s), h analytical + zb (m)'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),3(F12.4,","),F12.4)') &
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),6(F12.4,","),F12.4)') &
                 x, y, &
                 x * dx, y * dy, &
                 h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                u(x,y), v(x,y), h(x,y)*u(x,y)
+                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(x,y)
         end do
     end do
-    
     close(67)
 end subroutine write_csv
+
+
+subroutine sleep_seconds(n)
+    integer, intent(in) :: n
+    character(len=20) :: command
+    write(command, '(A,I0,A)') 'timeout /T ', n, ' >nul'
+    call system(command)
+end subroutine sleep_seconds
+
+
 
 subroutine end_simulation
     tauOk = .false.
@@ -421,6 +454,26 @@ double precision function h_in(currentTime)
     double precision, intent(in)    :: currentTime
     h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
 end function h_in
+
+function h_analytical(currentTime, dimX, dimY) result(h_a)
+    implicit none
+    integer,          intent(in)    :: dimX, dimY
+    double precision, intent(in)    :: currentTime
+    double precision                :: h_a(dimX,dimY)
+    h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
+end function h_analytical
+
+function u_analytical(currentTime, dimX, dimY) result(u_a)
+    implicit none
+    integer,          intent(in)    :: dimX, dimY
+    double precision, intent(in)    :: currentTime
+    double precision                :: u_a(dimX,dimY)
+
+    hAnal = h_analytical(currentTime, Lx, Ly)
+    do i = 1, Lx
+        u_a(i,:) = (i*dx - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+    end do
+end function u_analytical
 
 logical function check_convergence(uCheck, hCheck, epsilonCheck)
     implicit none

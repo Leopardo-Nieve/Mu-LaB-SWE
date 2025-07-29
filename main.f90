@@ -42,8 +42,8 @@ program main
     steadyFlow = .false. ! if steady define `.true.`, if tidal define `.false.`
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
-    BCInflow  = "n" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-    BCOutflow = "n" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+    BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+    BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
@@ -55,7 +55,9 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 105.0d3
+    ! itera_no = 1000 !debug
+    ! itera_no = nint(14.0e3) !debug
+    itera_no = NINT(105.0d3)
         
     time = 0
     simTime = 9117.5d0
@@ -79,7 +81,7 @@ program main
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
         & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),H_part(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly))!, hIn(Ly), uIn(Ly))
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),hAnal(Lx,Ly),uAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
 
     do x = 1, Lx
         H_part(x,:) = 50.5d0 - 40.0d0*x*dx/domainX - 10.0d0*dsin(pi*(4.0d0*x*dx/domainX - 0.5d0))
@@ -148,7 +150,7 @@ program main
             do j=1,Ly
                 do a=1,9
                     if (ieee_is_nan(ftemp(a,i,j))) then
-                        print*, "ftemp",a,x,y,"is not a number"
+                        print*, "ftemp",a,i,j,"is not a number"
                         stopSim = .true.
                     end if
                 end do
@@ -163,7 +165,7 @@ program main
             do j = 1, Ly
                 do a = 1, 9
                     if ( ieee_is_nan(ftemp(a,i,j)) ) then
-                        print*, "ftemp",a,x,y,"is not a number"
+                        print*, "ftemp",a,i,j,"is not a number"
                         stopSim = .true.
                     end if
                 end do
@@ -176,6 +178,7 @@ program main
         ! Update the feq
         call compute_feq
 
+        uAnal = u_analytical(time, Lx, Ly)
         write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
         do i=1,Lx 
@@ -183,19 +186,19 @@ program main
                 
                 ! make sure no u is NaN
                 if (ieee_is_nan(u(i,j))) then
-                    print*, "u",x,y,"is not a number"
+                    print*, "u",i,j,"is not a number"
                     stopSim = .true.
                 end if
                 
                 ! make sure no v is NaN
                 if (ieee_is_nan(v(i,j))) then
-                    print*, "v",x,y,"is not a number"
+                    print*, "v",i,j,"is not a number"
                     stopSim = .true.
                 end if
 
                 ! make sure no h is NaN
                 if (ieee_is_nan(h(i,j))) then
-                    print*, "h",x,y,"is not a number"
+                    print*, "h",i,j,"is not a number"
                     stopSim = .true.
                 end if
             end do
@@ -205,6 +208,7 @@ program main
             stopSim = .true. ! stop simulation after desired time reached
         end if
         if (stopSim .or. check_convergence(u,h,epsilon)) then
+            uAnal = u_analytical(time,Lx,Ly) ! calculates analytical solution at current timestep
             call end_simulation 
             exit
         end if
@@ -236,5 +240,6 @@ program main
     ! Add after the existing result.dat write
     write(6,*) ' Writing CSV results in file: result.csv ... '
     call write_csv
+    write(6,*) ' CSV results written! ... '
     
 end program main 
