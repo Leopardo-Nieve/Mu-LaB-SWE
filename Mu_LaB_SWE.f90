@@ -238,6 +238,7 @@ subroutine Inflow_Outflow_BC
     u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
 
     u(Lx,:) = 0.0d0
+    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
 
     if ( BCInflow == "i" ) then
         ! consistence check

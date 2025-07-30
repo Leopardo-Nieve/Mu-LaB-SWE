@@ -55,7 +55,7 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    ! itera_no = 1000 !debug
+    ! itera_no = 1 !debug
     ! itera_no = nint(14.0e3) !debug
     itera_no = NINT(105.0d3)
         

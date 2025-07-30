@@ -5,18 +5,7 @@ Velocity seems to generally follow the analytical solution's behaviour, but over
 ---
 
 Modifications since last version:
-- Changed BCInflow and BCOutflow to "i" and "o" respectively to apply the inflow and outflow conditions instead of zero gradient.
-
-- Added analytical values with their variables and functions
-
-- Added calculation of u at the inlet if only h at the inlet is known
-
-- Updated write_csv to pause and retry if the .csv file is already open
-
-- Added analytical values in .csv file
-
-- Added sleep_seconds subroutine to wait for the desired amount of seconds before retrying an operation
-
+- Defined outlet condition for h by isolating it in the consistence equation
 ---
 
 Potential next step(s):
