@@ -235,10 +235,13 @@ end subroutine Slip_BC
 subroutine Inflow_Outflow_BC
     ! macroscopic values
     h(1,:) = h_in(time)
-    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    ! u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    uAnal = u_analytical(time, Lx, Ly)
+    u(1,:) = uAnal(1,:)
 
     u(Lx,:) = 0.0d0
-    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    h(Lx,:) = hAnal(Lx,:)
 
     if ( BCInflow == "i" ) then
         ! consistence check
