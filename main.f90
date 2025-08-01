@@ -30,15 +30,16 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo, time, epsilon
+    double precision :: ho, uo, vo, time, position
     character:: fdate*24, td*24 ! get date for output
 
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    epsilon = 1.0d-10
+    epsilon = 5.0d-6
     consCriter = 1.0d-3
     
     current_iteration = 0
+    ! itera_no = 0
     itera_no = 1.0d5
 
     ! constants for boundary conditions
@@ -59,8 +60,6 @@ program main
     ! define total lattice numbers in x and y directions
     domainX = 25.0d0     ; domainY = 5.0d0*dx ! dimensions in metres
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
-
-    
 
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
@@ -88,8 +87,8 @@ program main
 
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),& 
+        & hCentered(2*Lx+1,2*Ly+1),force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly)) 
     
     ! initialize the depth 
@@ -97,26 +96,31 @@ program main
 
     ! define bed geometry
     zb = 0
-    do x = 1, Lx
-        if (x*dx > 8 .and. x*dx < 12) zb(x,:) = 0.2d0 - 0.05d0 * (x*dx - 10.0d0)**2.0d0 ! bump function
+    do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
+        position = dx*(DBLE(x-1)*0.5d0)
+        if ( position > 8 .and. position < 12) then
+            zb(x,:) = 0.2d0 - 0.05d0 * (position - 10.0d0)**2.0d0 ! bump function
+        end if
     end do
 
-    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
-    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
+    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
+    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
 
     ! apply geometry
-    h = h - zb
+    do x = 1, Lx
+        h(x,:) = h(x,:) - zb(2*x,:)
+        ! if ( x>90 .AND. x<110 ) then !debug
+        !     print*, "x =",x,"h(x) =",h(x,Ly/2) !debug
+        ! end if!debug
+    end do
 
 
     ! initialize the velocities
     u = q_in/h
     v = vo
 
-    ! Set constant force
-    force_x = -h*gacl*dzbdx ! bed slope force m^2/s^2
-    force_y = 0.0d0 ! m^2/s^2
     ! prepare the calculations
     call setup
     
@@ -127,6 +131,15 @@ program main
         time = time+dt
         current_iteration = current_iteration + 1
 
+
+        ! Update the body force with the current h
+        call update_body_force
+        ! print*, "zb","dzdbx","force x"!debug
+        ! do i = 160, 240!debug
+        !     print*,dx*(i-1)/2,zb(i,Ly/2),dzbdx(i,Ly/2), force_x(i,Ly/2) !debug
+        ! print*, ""!debug
+        ! end do!debug
+
         ! Streaming and collision steps
         call collide_stream
 
@@ -134,7 +147,7 @@ program main
             do j=1,Ly
                 do a=1,9
                     if (ieee_is_nan(ftemp(a,i,j))) then
-                        print*, "ftemp",a,x,y,"is not a number"
+                        print*, "ftemp",a,i,j,"is not a number"
                         stopSim = .true.
                     end if
                 end do
@@ -149,7 +162,7 @@ program main
             do j = 1, Ly
                 do a = 1, 9
                     if ( ieee_is_nan(ftemp(a,i,j)) ) then
-                        print*, "ftemp",a,x,y,"is not a number"
+                        print*, "ftemp",a,i,j,"is not a number"
                         stopSim = .true.
                     end if
                 end do
@@ -169,25 +182,25 @@ program main
                 
                 ! make sure no u is NaN
                 if (ieee_is_nan(u(i,j))) then
-                    print*, "u",x,y,"is not a number"
+                    print*, "u",i,j,"is not a number"
                     stopSim = .true.
                 end if
                 
                 ! make sure no v is NaN
                 if (ieee_is_nan(v(i,j))) then
-                    print*, "v",x,y,"is not a number"
+                    print*, "v",i,j,"is not a number"
                     stopSim = .true.
                 end if
 
                 ! make sure no h is NaN
                 if (ieee_is_nan(h(i,j))) then
-                    print*, "h",x,y,"is not a number"
+                    print*, "h",i,j,"is not a number"
                     stopSim = .true.
                 end if
             end do
         end do
         if (current_iteration >= itera_no) stopSim = .true. ! stop simulation after certain number of timesteps
-        if (stopSim .or. check_convergence(u,h,epsilon)) then
+        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
             call end_simulation 
             exit
         end if

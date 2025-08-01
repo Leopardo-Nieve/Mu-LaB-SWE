@@ -10,8 +10,8 @@
             "args": [
                     "-Wall",
                     "-o",
-                    "Mu-LaB-SWE",
-                    ".\\LABSWE.f90",
+                    "run",
+                    ".\\Mu-LaB-SWE.f90",
                     ".\\main.f90"
             ],
             "group": {
