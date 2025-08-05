@@ -138,31 +138,31 @@ subroutine collide_stream
             ! start streaming and collision 
             if (xf<=Lx) then ! periodic in y direction
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(2*x,2*y-1)+ey(1)*force_y(2*x,2*y-1))
+                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
                 ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(2*x,2*y)+ey(2)*force_y(2*x,2*y))
+                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
             end if
             ! if (yf<=Ly) ! periodic in y direction
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(2*x-1,2*y)+ey(3)*force_y(2*x-1,2*y))
+                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(2*x-2,2*y)+ey(4)*force_y(2*x-2,2*y))
+                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(2*x-2,2*y-1)+ey(5)*force_y(2*x-2,2*y-1))
+                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(2*x-2,2*y-2)+ey(6)*force_y(2*x-2,2*y-2))
+                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
             end if
             ! if (yb>=1) ! periodic in y direction
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(2*x-1,2*y-2)+ey(7)*force_y(2*x-1,2*y-2))
+                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(2*x,2*y-2)+ey(8)*force_y(2*x,2*y-2))
+                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
@@ -334,6 +334,33 @@ subroutine write_csv
                 dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                 h(x,y) + zb(x*2,y*2), zb(x*2,y*2), h(x,y), &
                 u(x,y), v(x,y), h(x,y)*u(x,y)
+        end do
+    end do
+    
+    close(67)
+
+
+    ! Write boody force results to a CSV file for debugging
+    open(67, file='../results_7.2.1/BF.csv', status='unknown')
+    
+    ! write simulation parameters
+    write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
+    write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+
+
+    
+    ! Write CSV header
+    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),zb (m),dzb/dx (m/m),h centred (m),force x (m^2/s^2), force y (m^2/s^2)'
+
+    ! Write data points
+    do x = 1, 2*Lx+1
+        do y = 1, 2*Ly+1
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
+                x, y, &
+                x * dx/2, y * dy/2, &
+                zb(x,y), dzbdx(x,y), hCentered(x,y), &
+                force_x(x,y), force_y(x,y)
         end do
     end do
     

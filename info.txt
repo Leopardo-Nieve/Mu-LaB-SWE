@@ -1,32 +1,16 @@
-2025-08-01
+2025-08-05
 
 Results opf depth are way overestimated, but boundary conditions are properly enforced. Likely an issue with the new way body forces are defined and assigned.
 ---
 
 Modifications since last version:
 
-- created position variable to make geometry easier to create
+- modified collide_stream subroutine to call force indices correctly (positive offset by one node)
 
-- created hCentered variable to allow body force to be defined between nodes
-
-- created hLast variable to be able to use convergence criterion Zhou used (2002)
-
-- changed epsilon's definition and use in check_convergence to match Zhou's definition (2002)
-
-- changed dimensions of all arrays involved in body force calculation to have double the refinement
-
-- adapted bathymetry and slope definitions to adjust for new array dimensions
-
-- created update_body_force subroutine to update the body force at each timestep (depth varies)
-
-- modified collide_stream subroutine to use centred body force scheme [LIKELY WHERE ERROR WAS COMMITTED]
-
-- modified Inflow_Outflow_BC to accurately outflow BC (defined u from consistency check equation)
-
-- modified task.json to call Mu-LaB-SWE.f90 as an argument and create run.exe
+- added lines to write_csv to create a new file that stores all the body force and its constituents' values
 
 ---
 
 Potential next step(s):
 
-- test case where body force is not continuously updated to see if error is amplified or reduced
+- compare state after one timestep with 2nd order body force term case

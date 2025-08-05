@@ -39,8 +39,8 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    ! itera_no = 0
-    itera_no = 1.0d5
+    itera_no = 0
+    ! itera_no = 1.0d5
 
     ! constants for boundary conditions
     h_out = 2.0d0
