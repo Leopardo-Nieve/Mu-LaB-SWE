@@ -1,16 +1,18 @@
-2025-08-05
+2025-08-06
 
-Results opf depth are way overestimated, but boundary conditions are properly enforced. Likely an issue with the new way body forces are defined and assigned.
+Results visually replicate the analytical solution.
 ---
 
 Modifications since last version:
 
-- modified collide_stream subroutine to call force indices correctly (positive offset by one node)
+- Fixed the hCentred interpolation scheme at boundaries
 
-- added lines to write_csv to create a new file that stores all the body force and its constituents' values
+- Correctly assigned the macroscopic values at the inflow and outflow instead of directly using the h_in, u_in, q_in, h_out, u_out variables
+
+- Commented the lines in write_csv that create the body force information file
 
 ---
 
 Potential next step(s):
 
-- compare state after one timestep with 2nd order body force term case
+- Merge with main branch

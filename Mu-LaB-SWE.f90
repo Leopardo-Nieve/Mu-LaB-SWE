@@ -105,8 +105,8 @@ subroutine update_body_force
         ! end if!debug
     end do
 
-    hCentered(1,:)    = (3.0d0*h(1,Ly/2) - 4.0d0*h(2,Ly/2) + h(3,Ly/2))/2.0d0 
-    hCentered(2*Lx+1,:) = (3.0d0*h(Lx,Ly/2) - 4.0d0*h(Lx-1,Ly/2) + h(Lx-2,Ly/2))/2.0d0 
+    hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
+    hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
 
     ! print*, hCentered(180:220,Ly/2)
     ! Set body force
@@ -256,6 +256,10 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
+    ! macroscopic inflow values
+    h(1,:) = q_in/e + ftemp(9,1,:) + ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:))
+    u(1,:) = q_in/h(1,:)
+    
     ! consistence check
     consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
     do a = 3, 7
@@ -305,9 +309,9 @@ subroutine Inflow_Outflow_BC
         ! ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
         
         ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
-        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h_out*u_out/(3.0d0*e)
-        ftemp(4,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-        ftemp(6,Lx,:) = -h_out*u_out/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
+        ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+        ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
     end if
 end subroutine Inflow_Outflow_BC
 
@@ -340,31 +344,31 @@ subroutine write_csv
     close(67)
 
 
-    ! Write boody force results to a CSV file for debugging
-    open(67, file='../results_7.2.1/BF.csv', status='unknown')
+    ! ! Write boody force results to a CSV file for debugging
+    ! open(67, file='../results_7.2.1/BF.csv', status='unknown')
     
-    ! write simulation parameters
-    write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
-    write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
-     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+    ! ! write simulation parameters
+    ! write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
+    ! write(67, '(A,",",I5,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+    !  trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
 
 
     
-    ! Write CSV header
-    write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),zb (m),dzb/dx (m/m),h centred (m),force x (m^2/s^2), force y (m^2/s^2)'
+    ! ! Write CSV header
+    ! write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),zb (m),dzb/dx (m/m),h centred (m),force x (m^2/s^2), force y (m^2/s^2)'
 
-    ! Write data points
-    do x = 1, 2*Lx+1
-        do y = 1, 2*Ly+1
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
-                x, y, &
-                x * dx/2, y * dy/2, &
-                zb(x,y), dzbdx(x,y), hCentered(x,y), &
-                force_x(x,y), force_y(x,y)
-        end do
-    end do
+    ! ! Write data points
+    ! do x = 1, 2*Lx+1
+    !     do y = 1, 2*Ly+1
+    !         write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),2(F12.4,","),F12.4)') &
+    !             x, y, &
+    !             dx*(x-1)/2, dy * (y-1)/2, &
+    !             zb(x,y), dzbdx(x,y), hCentered(x,y), &
+    !             force_x(x,y), force_y(x,y)
+    !     end do
+    ! end do
     
-    close(67)
+    ! close(67)
 end subroutine write_csv
 
 subroutine end_simulation
