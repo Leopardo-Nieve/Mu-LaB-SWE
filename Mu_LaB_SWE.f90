@@ -302,11 +302,11 @@ subroutine Inflow_Outflow_BC
             ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
             ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
         end if
-    elseif (BCInflow == "n") then
-        ! Neumann BC at thoutinflow (p. 58)
-        ftemp(4,1,:) = ftemp(4,2,:) ! neigbouring population
-        ftemp(5,1,:) = ftemp(5,2,:) ! neigbouring population
-        ftemp(6,1,:) = ftemp(6,2,:) ! neigbouring population
+    elseif (BCOutflow == "n") then
+        ! Neumann BC at outflow (p. 58)
+        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
+        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
+        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
     else
         print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
         print*, "***Hint: the condition must be written all in lower case.***"
