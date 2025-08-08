@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime, epsilon
+    double precision :: uo, vo,simTime,position
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -70,33 +70,41 @@ program main
     vo = 0.0d0
 
     ! define total lattice numbers in x and y directions
-    domainX = 14.0d3     
+    domainX = 14.0d3
     
+    ! define total number of nodes in x and y directions
+    Lx = 800    ;Ly = 5
+
     ! assign a value of dx and dy
-    dx = domainX/800.0d0 ! m
+    dx = domainX/DBLE(Lx) ! m
     dy = dx
-    domainY = 5.0d0*dx ! dimensions in metres
-    Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
+    ! domainY = 5.0d0*dx ! dimensions in metres
+    ! Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),& 
-        & force_x(Lx,Ly),force_y(Lx,Ly),u(Lx,Ly),v(Lx,Ly),H_part(Lx,Ly),zb(Lx,Ly),dzbdx(Lx,Ly), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),hAnal(Lx,Ly),uAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),& 
+        & hCentered(2*Lx+1,2*Ly+1), force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
+        & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
+        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
+        & hAnal(Lx,Ly),uAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
 
-    do x = 1, Lx
-        H_part(x,:) = 50.5d0 - 40.0d0*x*dx/domainX - 10.0d0*dsin(pi*(4.0d0*x*dx/domainX - 0.5d0))
+    do x = 1, 2*Lx+1
+        position = dx*(DBLE(x-1)*0.5d0)
+        H_part(x,:) = 50.5d0 - 40.0d0*position/domainX - 10.0d0*dsin(pi*(4.0d0*position/domainX - 0.5d0))
     end do
 
     ! initialize the depth 
-    h = H_part
+    do x = 1, Lx
+        h(x,:) = H_part(2*x,Ly/2) ! different array dimension
+    end do
 
     ! define bed geometry
     zb = H_part(1,Ly/2) - H_part
 
 
-    dzbdx(2:Lx-1,:) = (zb(3:Lx,:) - zb(1:Lx-2,:)) / (2.0d0 * dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (2.0d0 * dx)
-    dzbdx(Lx,:) = (3.0d0 * zb(Lx,:) - 4.0d0 * zb(Lx-1,:) + zb(Lx-2,:)) / (2.0d0 * dx)
+    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
+    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
     h(1,:) = h_in(time)
@@ -142,6 +150,9 @@ program main
 
         time = time+dt
         current_iteration = current_iteration + 1
+
+        ! Update the body force with the current h
+        call update_body_force
 
         ! Streaming and collision steps
         call collide_stream

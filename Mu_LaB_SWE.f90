@@ -49,10 +49,10 @@ module Mu_LaB_SWE
         character:: BCInflow, BCOutflow
         double precision:: q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&!,hOut,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi 
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, epsilon
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,force_x,force_y,H_part,zb,dzbdx,&
+        double precision, allocatable, dimension(:,:):: u,v,h,hCentered,force_x,force_y,H_part,zb,dzbdx,&
         &consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
@@ -95,6 +95,29 @@ subroutine setup
     return
 end subroutine setup
 
+subroutine update_body_force
+    ! interpolate values of h centred between each nodes to evaluate centred slope body force
+    do x = 2, 2*Lx
+        if (mod(x,2) == 0) then
+            hCentered(x,:) = h(x/2,Ly/2)
+        else
+            hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
+        end if
+
+        ! if ( x>190 .AND. x<210 ) then !debug
+        !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
+        ! end if!debug
+    end do
+
+    hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
+    hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
+
+    ! print*, hCentered(180:220,Ly/2)
+    ! Set body force
+    force_x = -hCentered*gacl*dzbdx ! bed slope force m^2/s^2
+    force_y = 0.0d0 ! m^2/s^2
+end subroutine update_body_force
+
 subroutine collide_stream
 
     ! This calculates distribution function with the LABSWE 
@@ -119,31 +142,31 @@ subroutine collide_stream
             ! start streaming and collision 
             if (xf<=Lx) then ! periodic in y direction
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*0.5d0*(force_x(x,y)+force_x(xf,y))+ey(1)*0.5d0*(force_y(x,y)+force_y(xf,y)))
+                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
-            ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*0.5d0*(force_x(x,y)+force_x(xf,yf))+ey(2)*0.5d0*(force_y(x,y)+force_y(xf,yf)))
+                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
+                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
             end if
             ! if (yf<=Ly) ! periodic in y direction
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*0.5d0*(force_x(x,y)+force_x(x,yf))+ey(3)*0.5d0*(force_y(x,y)+force_y(x,yf)))
+                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*0.5d0*(force_x(x,y)+force_x(xb,yf))+ey(4)*0.5d0*(force_y(x,y)+force_y(xb,yf)))
+                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*0.5d0*(force_x(x,y)+force_x(xb,y))+ey(5)*0.5d0*(force_y(x,y)+force_y(xb,y)))
+                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*0.5d0*(force_x(x,y)+force_x(xb,yb))+ey(6)*0.5d0*(force_y(x,y)+force_y(xb,yb)))
+                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
             end if
             ! if (yb>=1) ! periodic in y direction
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*0.5d0*(force_x(x,y)+force_x(x,yb))+ey(7)*0.5d0*(force_y(x,y)+force_y(x,yb)))
+                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*0.5d0*(force_x(x,y)+force_x(xf,yb))+ey(8)*0.5d0*(force_y(x,y)+force_y(xf,yb)))
+                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
             
@@ -235,13 +258,13 @@ end subroutine Slip_BC
 subroutine Inflow_Outflow_BC
     ! macroscopic values
     h(1,:) = h_in(time)
-    ! u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     uAnal = u_analytical(time, Lx, Ly)
-    u(1,:) = uAnal(1,:)
+    ! u(1,:) = uAnal(1,:)
 
     u(Lx,:) = 0.0d0
-    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
-    h(Lx,:) = hAnal(Lx,:)
+    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    ! h(Lx,:) = hAnal(Lx,:)
 
     if ( BCInflow == "i" ) then
         ! consistence check
@@ -330,8 +353,8 @@ subroutine ensure_results_directory
         else
             print *, 'Directory "..\results" created successfully.'
         end if
-    else
-        print *, 'Directory "..\results" already exists.'
+    ! else
+    !     print *, 'Directory "..\results" already exists.'
     end if
 end subroutine ensure_results_directory
 
@@ -376,9 +399,9 @@ subroutine write_csv
         do y = 1, Ly
             write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),6(F12.4,","),F12.4)') &
                 x, y, &
-                x * dx, y * dy, &
-                h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(x,y)
+                dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
+                h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
+                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y)
         end do
     end do
     close(67)
