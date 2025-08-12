@@ -32,14 +32,17 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime,position
+    double precision :: ho, uo, vo,simTime,position_x, position_y, x_r, y_r, r
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
+    ! define Manning's coefficient
+    nb = 0.012d0
+    
     ! define pi
     pi = dacos(-1.0d0)
 
-    steadyFlow = .false. ! if steady define `.true.`, if tidal define `.false.`
+    steadyFlow = .TRUE. ! if steady define `.true.`, if tidal define `.false.`
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
@@ -55,61 +58,101 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    ! itera_no = 1 !debug
+    itera_no = 1 !debug
     ! itera_no = nint(14.0e3) !debug
-    itera_no = NINT(105.0d3)
+    ! itera_no = NINT(40e3)
         
     time = 0
-    simTime = 9117.5d0
+    simTime = 9.0d20 ! s, maximum simulation time, set to a large value for steady flow
 
     ! assign a value for the inlet discharge
     ! q_in = 4.42d0 ! m^2/s
 
     ! constants for initializing flow field. 
+    ho = 0.185d0 ! m, initial water depth
     uo = 0.0d0
     vo = 0.0d0
 
     ! define total lattice numbers in x and y directions
-    domainX = 14.0d3
+    domainX = 4.0d0 ! m
+    domainY = 2.0d0*0.5d0 ! m, symetric domain
+    
+    ! assign a value of dx and dy
+    dx = 0.00667 ! m, lattice spacing
+    dy = dx ! m, lattice spacing
     
     ! define total number of nodes in x and y directions
-    Lx = 800    ;Ly = 5
-
-    ! assign a value of dx and dy
-    dx = domainX/DBLE(Lx) ! m
-    dy = dx
-    ! domainY = 5.0d0*dx ! dimensions in metres
-    ! Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
+    Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),& 
-        & hCentered(2*Lx+1,2*Ly+1), force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),C(Lx,Ly),& 
+        & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
+        & Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
+        & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
 
+    dzbdx = -6.25d-4 ! m/m, slope of the bed
+    
+    ! define bathymetry and node state array
+    C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
+    x_r = 2.0d0 ! m, position of the cylinder in x direction
+    y_r = 0.0d0 ! m, position of the cylinder in y
+    r = 0.11d0 ! m, radius of the cylinder
+
     do x = 1, 2*Lx+1
-        position = dx*(DBLE(x-1)*0.5d0)
-        H_part(x,:) = 50.5d0 - 40.0d0*position/domainX - 10.0d0*dsin(pi*(4.0d0*position/domainX - 0.5d0))
+        position_x = dx*(DBLE(x-1)*0.5d0)
+        zb(x,:) = dzbdx(x,:)*(position_x - domainX) ! m, bed geometry
+        do y = 1, 2*Ly+1
+            position_y = dy*(DBLE(y-1)*0.5d0)
+            if ( dsqrt((position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r)) <= r) then
+                C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
+            end if
+        end do
+    end do
+
+    ! determine boundary nodes
+    do x = 1, Lx
+        xf = x + 1
+        xb = x - 1
+        do y = 1, Ly
+            if ( C(x,y) == 1 .OR. C(x,y) == 0.5) then
+                cycle ! skip solid and boundary nodes
+            end if
+
+            yf = y + 1
+            yb = y - 1
+            
+            if (C(xf,y) == 1 .OR. &
+             & C(xf,yf) == 1 .OR. &
+             & C(x,yf)  == 1 .OR. &
+             & C(xb,yf) == 1 .OR. &
+             & C(xb,y)  == 1 .OR. &
+             & C(xb,yb) == 1 .OR. &
+             & C(x,yb)  == 1 .OR. &
+             & C(xf,yb) == 1) then
+                C(x,y) = 0.5 ! m^2/s, boundary node
+            end if
+        end do
     end do
 
     ! initialize the depth 
     do x = 1, Lx
-        h(x,:) = H_part(2*x,Ly/2) ! different array dimension
+        h(x,:) = ho - zb(2*x,Ly/2) ! different array dimension
     end do
 
-    ! define bed geometry
-    zb = H_part(1,Ly/2) - H_part
-
-
-    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
-    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
+    ! dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
+    ! dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
+    ! dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
-    h(1,:) = h_in(time)
-    ! hOut = 2.0d0
-    u(Lx,:) = 0.0d0
+    q_in = 0.248 ! m^3/s, inlet discharge
+    ! h()
+    u(1,:) = q_in/(h(1,:)*domainY) ! m/s, inlet velocity
+    hOut = 0.185d0 ! m, outflow depth
+    h(Lx,:) = hOut ! set outflow depth
+    ! u(Lx,:) = 0.0d0
     
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
@@ -118,11 +161,12 @@ program main
     ! calculate the minimum possible value of e such that the stationary population is positive
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! define the lattice velocity
-    e = 200.0d0
-
     ! define timestep dt
-    dt = dx/e !s
+    dt = 0.00145d0 !s
+
+    ! define the lattice velocity
+    e = dx/dt ! m/s, lattice velocity
+
     ! print values
     ! print*, "q inlet =", q_in, "m^2/s"
     print*, "e =", e, "m/s"
@@ -130,7 +174,7 @@ program main
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 0.6d0 
+    tau = 1.982d0 
 
     ! calculate molecular viscosity 
     nu = (tau-0.5d0)*e*dx/3.0d0
@@ -139,9 +183,6 @@ program main
     u = uo
     v = vo
 
-    ! Set constant force
-    force_x = -h*gacl*dzbdx ! bed slope force m^2/s^2
-    force_y = 0.0d0 ! m^2/s^2
     ! prepare the calculations
     call setup
     
@@ -168,6 +209,9 @@ program main
             end do
         end do
 
+        ! Apply no slip at solid boundary nodes
+        call Noslip_BC
+        
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC
 
@@ -189,7 +233,6 @@ program main
         ! Update the feq
         call compute_feq
 
-        uAnal = u_analytical(time, Lx, Ly)
         write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
         do i=1,Lx 
@@ -219,7 +262,6 @@ program main
             stopSim = .true. ! stop simulation after desired time reached
         end if
         if (stopSim .or. check_convergence(u,h,epsilon)) then
-            uAnal = u_analytical(time,Lx,Ly) ! calculates analytical solution at current timestep
             call end_simulation 
             exit
         end if

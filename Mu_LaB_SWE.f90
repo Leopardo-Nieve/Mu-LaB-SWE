@@ -43,17 +43,17 @@ module Mu_LaB_SWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j
+        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,xf,yf,xb,yb
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,&!,hOut,uOut & !necessary?
+        double precision:: q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, epsilon
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, epsilon, nb
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,hCentered,force_x,force_y,H_part,zb,dzbdx,&
-        &consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal
+        double precision, allocatable, dimension(:,:):: u,v,h,C,hCentered,uCentered,vCentered,Cz,Cb,tau_bx,tau_by,&
+        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -95,35 +95,41 @@ subroutine setup
     return
 end subroutine setup
 
-subroutine update_body_force
+subroutine update_body_force   
     ! interpolate values of h centred between each nodes to evaluate centred slope body force
-    do x = 2, 2*Lx
-        if (mod(x,2) == 0) then
-            hCentered(x,:) = h(x/2,Ly/2)
-        else
-            hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
-        end if
+    ! do x = 2, 2*Lx
+    !     if (mod(x,2) == 0) then
+    !         hCentered(x,:) = h(x/2,Ly/2)
+    !     else
+    !         hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
+    !     end if
 
-        ! if ( x>190 .AND. x<210 ) then !debug
-        !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
-        ! end if!debug
-    end do
+    !     ! if ( x>190 .AND. x<210 ) then !debug
+    !     !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
+    !     ! end if!debug
+    ! end do
 
-    hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
-    hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
+    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
+    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
 
-    ! print*, hCentered(180:220,Ly/2)
+    hCentered = centred_interpolation(h,Lx,Ly)
+    uCentered = centred_interpolation(u,Lx,Ly)
+    vCentered = centred_interpolation(v,Lx,Ly)
+
+    ! bed shear stress    
+    Cz = hCentered**(1.0d0/6.0d0)/nb ! Chezy coefficient
+    Cb = gacl/(Cz*Cz) ! bed friction coefficient
+    tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
+    tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
+
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx ! bed slope force m^2/s^2
-    force_y = 0.0d0 ! m^2/s^2
+    force_x = -hCentered*gacl*dzbdx - tau_bx ! m^2/s^2, bed slope force and bed shear stress
+    force_y = -tau_by ! m^2/s^2, bed shear stress
 end subroutine update_body_force
 
 subroutine collide_stream
 
     ! This calculates distribution function with the LABSWE 
-
-    ! local working integers 
-    integer:: xf,yf,xb,yb
 
     do y = 1, Ly 
         yf = y + 1
@@ -132,6 +138,7 @@ subroutine collide_stream
         do x = 1, Lx
             xf = x + 1
             xb = x -1
+            if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
             ! Following 2 lines Implement periodic BCs in y-direction 
             ! if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
@@ -225,14 +232,36 @@ subroutine Noslip_BC
 
     ! this is for noslip boundary with Bounce back scheme
 
-    ! for lower boundary
-    do a = 2, 4 
-        ftemp(a,:,1) = ftemp(a+4,:,1) 
-    end do
+    ! ! for lower boundary
+    ! do a = 2, 4 
+    !     ftemp(a,:,1) = ftemp(a+4,:,1) 
+    ! end do
     
-    ! for upper boundary
-    do a = 6, 8 
-        ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
+    ! ! for upper boundary
+    ! do a = 6, 8 
+    !     ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
+    ! end do
+
+    ! for cylinder boundary
+    do x = 1, Lx
+        do y = 1, Ly
+            if (C(x,y) == 0.5) then ! boundary node
+                xf = x + 1
+                xb = x - 1
+                yf = y + 1
+                yb = y - 1
+
+                ! apply bounce back scheme
+                if (C(xf,y)  == 1) ftemp(5,x,y) = ftemp(1,x,y) ! E
+                if (C(xf,yf) == 1) ftemp(6,x,y) = ftemp(2,x,y) ! NE
+                if (C(x,yf)  == 1) ftemp(7,x,y) = ftemp(3,x,y) ! N
+                if (C(xb,yf) == 1) ftemp(8,x,y) = ftemp(4,x,y) ! NW
+                if (C(xb,y)  == 1) ftemp(1,x,y) = ftemp(5,x,y) ! W
+                if (C(xb,yb) == 1) ftemp(2,x,y) = ftemp(6,x,y) ! SW
+                if (C(x,yb)  == 1) ftemp(3,x,y) = ftemp(7,x,y) ! S
+                if (C(xf,yb) == 1) ftemp(4,x,y) = ftemp(8,x,y) ! SE
+            end if
+        end do
     end do
 
     return 
@@ -257,13 +286,16 @@ end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
     ! macroscopic values
-    h(1,:) = h_in(time)
-    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
-    uAnal = u_analytical(time, Lx, Ly)
+    h(1,:) = h(2,:)
+    u(1,:) = q_in/(h(1,:)*domainY) ! m/s, inflow velocity
+    ! u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    ! uAnal = u_analytical(time, Lx, Ly)
     ! u(1,:) = uAnal(1,:)
 
-    u(Lx,:) = 0.0d0
-    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    h(Lx,:) = hOut ! m, fixed depth at outflow
+    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
+        &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
     ! h(Lx,:) = hAnal(Lx,:)
 
     if ( BCInflow == "i" ) then
@@ -296,12 +328,6 @@ subroutine Inflow_Outflow_BC
         print*, "`BCInflow` variable incorrectly defined as:", BCInflow
         print*, "***Hint: the condition must be written all in lower case.***"
     end if
-
-    ! print*, "test inflow consistency" !debug
-    ! print*, consInLft(1,Ly/2),"=",consInRgt(1,Ly/2)
-
-    ! print*, "test outflow consistency" !debug
-    ! print*, consOutLft(1,Ly/2),"=",consOutRgt(1,Ly/2)
 
     if ( BCOutflow == "o" ) then
         ! consistence check
@@ -386,9 +412,9 @@ subroutine write_csv
     end do
 
     ! Write simulation parameters
-    write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
-    write(67, '(A,",",I10,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
-        trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
+    ! write(67, '(A)') 'Date,Iteration No.,tau,ujuj/e^2,gh/e^2,Fr'
+    ! write(67, '(A,",",I10,",",F10.5,",",F10.5,",",F10.5,",",F10.5)') &
+    !     trim(fdate()), current_iteration, tau, uMax2/(e*e), gacl*hMax/(e*e), FrMax
 
     ! Write CSV header
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
@@ -407,15 +433,12 @@ subroutine write_csv
     close(67)
 end subroutine write_csv
 
-
 subroutine sleep_seconds(n)
     integer, intent(in) :: n
     character(len=20) :: command
     write(command, '(A,I0,A)') 'timeout /T ', n, ' >nul'
     call system(command)
 end subroutine sleep_seconds
-
-
 
 subroutine end_simulation
     tauOk = .false.
@@ -476,31 +499,52 @@ subroutine end_simulation
     end if
 end subroutine end_simulation
 
-double precision function h_in(currentTime)
-    implicit none
-    double precision, intent(in)    :: currentTime
-    h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-end function h_in
+! double precision function h_in(currentTime)
+!     implicit none
+!     double precision, intent(in)    :: currentTime
+!     h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+! end function h_in
 
-function h_analytical(currentTime, dimX, dimY) result(h_a)
+function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
-    integer,          intent(in)    :: dimX, dimY
-    double precision, intent(in)    :: currentTime
-    double precision                :: h_a(dimX,dimY)
-    h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
-end function h_analytical
+    integer,          intent(in)    :: dimX, dimY ! dimesions of the original array (Lx, Ly)
+    double precision, intent(in)    :: originalArray(:,:)
+    double precision                :: outputArray(2*dimX+1, 2*dimY+1)
 
-function u_analytical(currentTime, dimX, dimY) result(u_a)
-    implicit none
-    integer,          intent(in)    :: dimX, dimY
-    double precision, intent(in)    :: currentTime
-    double precision                :: u_a(dimX,dimY)
-
-    hAnal = h_analytical(currentTime, Lx, Ly)
-    do i = 1, Lx
-        u_a(i,:) = (i*dx - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+    do i = 2, 2*dimX
+        if (mod(i,2) == 0) then
+            outputArray(i,:) = originalArray(i/2,:)
+        else
+            outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
+             + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
+        end if
     end do
-end function u_analytical
+
+    outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
+        & + 3.0d0*originalArray(3,dimY/2))/8.0d0 
+    outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
+         + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
+end function centred_interpolation
+
+! function h_analytical(currentTime, dimX, dimY) result(h_a)
+!     implicit none
+!     integer,          intent(in)    :: dimX, dimY
+!     double precision, intent(in)    :: currentTime
+!     double precision                :: h_a(dimX,dimY)
+!     h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
+! end function h_analytical
+
+! function u_analytical(currentTime, dimX, dimY) result(u_a)
+!     implicit none
+!     integer,          intent(in)    :: dimX, dimY
+!     double precision, intent(in)    :: currentTime
+!     double precision                :: u_a(dimX,dimY)
+
+!     hAnal = h_analytical(currentTime, Lx, Ly)
+!     do i = 1, Lx
+!         u_a(i,:) = (i*dx - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+!     end do
+! end function u_analytical
 
 logical function check_convergence(uCheck, hCheck, epsilonCheck)
     implicit none

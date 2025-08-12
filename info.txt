@@ -1,31 +1,55 @@
-2025-08-08
+2025-08-12
 
-Visually replicates the analytical solution with expected error. 
+Stability conditions not respected :velocity and Froude too high at exit. Negative velocity at exit seems to cause error.
+Consistency not respected at inlet. 
+
 ---
 
 Modifications since last version:
-- Deleted fvm Python code
+- Defined Manning coefficient variable and others related to bed shear stress
 
-- Added position variable to help define the bed geometry correctly
+- Added bed shear stress calculation to update_body_force subroutine
 
-- Defined dx with reference to the number of nodes
+- Defined large simulation time so that convergence has time to be reached
 
-- Shifted the cells by dx/2 to allow the centred force scheme to be used
+- Defined new domain size
 
-- Added hCentered variable which stores h values and interpolated h values for centred force scheme
+- Defined new dx value 
 
-- Allocated arrays used in body force definition (H_part, zb, dzbdzx, hCentered, force_x, force_y) with dimensions 2*Lx+1,2*Ly+1 instead of Lx,Ly
+- Defined constant bed slope
 
-- Created update_body_force subroutine to calculate the current body force at each time step and no only the initial one
+- Created position_y variable to build 2D domain
 
-- Used centered body force scheme in collide_stream subroutine
+- Created C array variable to define which nodes are fluid, solid and boundary
 
-- Modified the way the positions are written in write_csv
+- Defined new initial and boundary conditions
 
-- Defined the unknown macroscopic values at inflow and outflow using consistency check equation
+- Defined new timestep, lattice velocity and tau
+
+- Called Noslip_BC subroutine in main time loop
+
+- Made xb,xf,yb,yf global variables so they can be used to apply Noslip_BC to boundary nodes
+
+- Created centred_interpolation function to interpolate the midpoint values of macroscopic variables with 2nd order accuracy in space
+
+- Commented h_in function
+
+- Added C verification condition in collide_stream subroutine
+
+- Added cylinder boundary condition to Noslip_BC 
+
+- Defined inlet condition: zero gradient on h, u = qu_in/h where q_in is the defined discharge
+
+- Defined outlet condition: h = hOut where hOut is the defined outlet depth, u determined through consistency equation
+
+- Commented lines that write first rows of .csv file in write_csv to allow paraview to read the proper table headings
 
 ---
 
 Potential next step(s):
 
-- Adapt the code to run the next case: Flow Around a Cylinder
+- Create an iterative process to determine the correct inlet depth such that the consistency equation is respected
+
+- Determine why the outlet condition causes instability
+
+- Determine way to display solid nodes so they have no value on paraview
