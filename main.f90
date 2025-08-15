@@ -32,15 +32,12 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: ho, uo, vo,simTime,position_x, position_y, x_r, y_r, r
+    double precision :: uo, vo,simTime,position_x, position_y, x_r, y_r, r
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
     ! define Manning's coefficient
     nb = 0.012d0
-    
-    ! define pi
-    pi = dacos(-1.0d0)
 
     steadyFlow = .TRUE. ! if steady define `.true.`, if tidal define `.false.`
 
@@ -58,8 +55,8 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    itera_no = 1 !debug
-    ! itera_no = nint(14.0e3) !debug
+    ! itera_no = 1 !debug
+    itera_no = 100 !debug
     ! itera_no = NINT(40e3)
         
     time = 0
@@ -67,11 +64,6 @@ program main
 
     ! assign a value for the inlet discharge
     ! q_in = 4.42d0 ! m^2/s
-
-    ! constants for initializing flow field. 
-    ho = 0.185d0 ! m, initial water depth
-    uo = 0.0d0
-    vo = 0.0d0
 
     ! define total lattice numbers in x and y directions
     domainX = 4.0d0 ! m
@@ -137,6 +129,12 @@ program main
         end do
     end do
 
+
+    ! constants for initializing flow field. 
+    ho = 0.185d0 ! m, initial water depth
+    ! uo = 0.0d0
+    vo = 0.0d0
+
     ! initialize the depth 
     do x = 1, Lx
         h(x,:) = ho - zb(2*x,Ly/2) ! different array dimension
@@ -180,7 +178,7 @@ program main
     nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! initialize the velocities
-    u = uo
+    u = q_in/(h*domainY) ! m/s, inlet velocity
     v = vo
 
     ! prepare the calculations

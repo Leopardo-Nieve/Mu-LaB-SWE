@@ -47,7 +47,7 @@ module Mu_LaB_SWE
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
+        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, epsilon, nb
         double precision, dimension(9):: ex,ey, eMax
@@ -59,6 +59,9 @@ module Mu_LaB_SWE
 contains 
 
 subroutine setup 
+    ! define pi
+    pi = dacos(-1.0d0)
+
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
 
@@ -299,21 +302,23 @@ subroutine Inflow_Outflow_BC
     ! h(Lx,:) = hAnal(Lx,:)
 
     if ( BCInflow == "i" ) then
-        ! consistence check
-        consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
-        do a = 3, 7
-            consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-        end do
-        consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-        do j = 1, Ly
-            if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-                print*, "consistency fails at node",1,j
-                print*,consInLft(1,j),"/=", consInRgt(1,j)
-                stopSim = .true.
-            end if
-        end do
+        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+        ! do a = 3, 7
+        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
+        ! end do
+        ! consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+        ! do j = 1, Ly
+        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+        !         print*, "consistency fails at node",1,j
+        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
+        !         stopSim = .true.
+        !     end if
+        ! end do
 
-        if ( .not. stopSim ) then
+        ! if ( .not. stopSim ) then
+        
+        ! consistence check
+        if ( check_consistency("east",h,u,e,consCriter,Ly)) then
             ! Following lines implement inflow BC (Zhou, p.59)
             ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
             ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
@@ -545,6 +550,55 @@ end function centred_interpolation
 !         u_a(i,:) = (i*dx - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
 !     end do
 ! end function u_analytical
+
+logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionCheck, dim, printErrors)
+    implicit none
+    character(len=*), intent(in) :: direction ! north, south, east, west
+    double precision, intent(in) :: hCheck(:,:), uCheck(:,:)
+    double precision, intent(in) :: eCheck, criterionCheck
+    integer, intent(in)          :: dim
+    logical, optional, intent(in):: printErrors
+    logical                      :: localPrintErrors
+    double precision             :: consLft(dim), consRgt(dim)
+
+    ! If printErrors not specified, default to TRUE
+    if (MOD(current_iteration,100) == 0) then
+        if (present(printErrors)) then ! print errors every 100 iterations if specified
+            localPrintErrors = printErrors
+        else
+            localPrintErrors = .true.
+        end if
+    else
+        localPrintErrors = .false.
+    end if
+    check_consistency = .false. ! Initialize to false
+
+    if (direction == "east") then
+        ! consistence check
+        consLft(:) = hCheck(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+        do a = 3, 7
+            consLft(:) = consLft(:) - ftemp(a,1,:)
+        end do
+        consRgt(:) = hCheck(1,:)*uCheck(1,:)/eCheck + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+
+        do i = 1, dim
+            if ( abs(consLft(i) - consRgt(i)) > criterionCheck ) then
+                ! stopSim = .true.
+                stopSim = .false. ! debug
+                if (localPrintErrors) then
+                    print*, "Inlet consistency check failed at node", i
+                    print*, consLft(i), "=/=", consRgt(i)
+                end if
+            end if
+        end do
+    end if
+
+    if (.NOT. stopSim) then
+        check_consistency = .true. ! If no inconsistency found, return true
+        ! print*, "Left side:", consLft(dim/2), "Right side:", consRgt(dim/2) !debug
+    end if
+    
+end function check_consistency
 
 logical function check_convergence(uCheck, hCheck, epsilonCheck)
     implicit none

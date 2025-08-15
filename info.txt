@@ -1,55 +1,30 @@
 2025-08-12
 
-Stability conditions not respected :velocity and Froude too high at exit. Negative velocity at exit seems to cause error.
-Consistency not respected at inlet. 
+Consistency not respected at inlet. If let run for 100 iterations anyway, inconsistency increases with time and depth inlet increases to non physical values.
 
 ---
 
 Modifications since last version:
-- Defined Manning coefficient variable and others related to bed shear stress
+- moved ho variable from main.f90 to to Mu_LaB_SWE.f90
 
-- Added bed shear stress calculation to update_body_force subroutine
+- defined pi in the setup subroutine
 
-- Defined large simulation time so that convergence has time to be reached
+- defined constants for initializing flow field later in code
 
-- Defined new domain size
+- defined initial u such that the discharge is continuous over the entire domain (u = q_in/(h*domainY))
 
-- Defined new dx value 
+- wrote a logical function check_consistency. can only computate east direction for the moment
 
-- Defined constant bed slope
-
-- Created position_y variable to build 2D domain
-
-- Created C array variable to define which nodes are fluid, solid and boundary
-
-- Defined new initial and boundary conditions
-
-- Defined new timestep, lattice velocity and tau
-
-- Called Noslip_BC subroutine in main time loop
-
-- Made xb,xf,yb,yf global variables so they can be used to apply Noslip_BC to boundary nodes
-
-- Created centred_interpolation function to interpolate the midpoint values of macroscopic variables with 2nd order accuracy in space
-
-- Commented h_in function
-
-- Added C verification condition in collide_stream subroutine
-
-- Added cylinder boundary condition to Noslip_BC 
-
-- Defined inlet condition: zero gradient on h, u = qu_in/h where q_in is the defined discharge
-
-- Defined outlet condition: h = hOut where hOut is the defined outlet depth, u determined through consistency equation
-
-- Commented lines that write first rows of .csv file in write_csv to allow paraview to read the proper table headings
+- replaced the inflow consistency check lines by a call to check_consistency function
 
 ---
 
 Potential next step(s):
 
-- Create an iterative process to determine the correct inlet depth such that the consistency equation is respected
+- remove complexities: cylinder geometry, shear stress term
 
-- Determine why the outlet condition causes instability
+- determine what causes instability in inlet condition (according to Ru (2023), the kinetic scheme currently used should still work)
+
+- Update iterative process to define initial depth over entire domain and avoid shocks
 
 - Determine way to display solid nodes so they have no value on paraview
