@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime,position_x, position_y, x_r, y_r, r
+    double precision :: uo, vo,simTime,position_x!, position_y, x_r, y_r, r !debug
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -48,7 +48,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 1.0d-10
+        epsilon = 1.0d-3
     else
         epsilon = 0.0d0
     end if
@@ -56,8 +56,8 @@ program main
     
     current_iteration = 0
     ! itera_no = 1 !debug
-    itera_no = 100 !debug
-    ! itera_no = NINT(40e3)
+    ! itera_no = 1e4 !debug
+    itera_no = NINT(4e8)
         
     time = 0
     simTime = 9.0d20 ! s, maximum simulation time, set to a large value for steady flow
@@ -77,9 +77,9 @@ program main
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),C(Lx,Ly),& 
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),& 
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
-        & Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
+        ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
@@ -88,46 +88,46 @@ program main
     dzbdx = -6.25d-4 ! m/m, slope of the bed
     
     ! define bathymetry and node state array
-    C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
-    x_r = 2.0d0 ! m, position of the cylinder in x direction
-    y_r = 0.0d0 ! m, position of the cylinder in y
-    r = 0.11d0 ! m, radius of the cylinder
+    ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
+    ! x_r = 2.0d0 ! m, position of the cylinder in x direction
+    ! y_r = 0.0d0 ! m, position of the cylinder in y
+    ! r = 0.11d0 ! m, radius of the cylinder
 
     do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
         zb(x,:) = dzbdx(x,:)*(position_x - domainX) ! m, bed geometry
-        do y = 1, 2*Ly+1
-            position_y = dy*(DBLE(y-1)*0.5d0)
-            if ( dsqrt((position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r)) <= r) then
-                C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
-            end if
-        end do
+        ! do y = 1, 2*Ly+1
+        !     position_y = dy*(DBLE(y-1)*0.5d0)
+        !     if ( dsqrt((position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r)) <= r) then
+        !         C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
+        !     end if
+        ! end do
     end do
 
     ! determine boundary nodes
-    do x = 1, Lx
-        xf = x + 1
-        xb = x - 1
-        do y = 1, Ly
-            if ( C(x,y) == 1 .OR. C(x,y) == 0.5) then
-                cycle ! skip solid and boundary nodes
-            end if
+    ! do x = 1, Lx
+    !     xf = x + 1
+    !     xb = x - 1
+    !     do y = 1, Ly
+    !         if ( C(x,y) == 1 .OR. C(x,y) == 0.5) then
+    !             cycle ! skip solid and boundary nodes
+    !         end if
 
-            yf = y + 1
-            yb = y - 1
+    !         yf = y + 1
+    !         yb = y - 1
             
-            if (C(xf,y) == 1 .OR. &
-             & C(xf,yf) == 1 .OR. &
-             & C(x,yf)  == 1 .OR. &
-             & C(xb,yf) == 1 .OR. &
-             & C(xb,y)  == 1 .OR. &
-             & C(xb,yb) == 1 .OR. &
-             & C(x,yb)  == 1 .OR. &
-             & C(xf,yb) == 1) then
-                C(x,y) = 0.5 ! m^2/s, boundary node
-            end if
-        end do
-    end do
+    !         if (C(xf,y) == 1 .OR. &
+    !          & C(xf,yf) == 1 .OR. &
+    !          & C(x,yf)  == 1 .OR. &
+    !          & C(xb,yf) == 1 .OR. &
+    !          & C(xb,y)  == 1 .OR. &
+    !          & C(xb,yb) == 1 .OR. &
+    !          & C(x,yb)  == 1 .OR. &
+    !          & C(xf,yb) == 1) then
+    !             C(x,y) = 0.5 ! m^2/s, boundary node
+    !         end if
+    !     end do
+    ! end do
 
 
     ! constants for initializing flow field. 
@@ -145,9 +145,9 @@ program main
     ! dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
-    q_in = 0.248 ! m^3/s, inlet discharge
+    q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
     ! h()
-    u(1,:) = q_in/(h(1,:)*domainY) ! m/s, inlet velocity
+    u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
     hOut = 0.185d0 ! m, outflow depth
     h(Lx,:) = hOut ! set outflow depth
     ! u(Lx,:) = 0.0d0
@@ -178,7 +178,7 @@ program main
     nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! initialize the velocities
-    u = q_in/(h*domainY) ! m/s, inlet velocity
+    u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
     v = vo
 
     ! prepare the calculations
@@ -259,7 +259,7 @@ program main
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
         end if
-        if (stopSim .or. check_convergence(u,h,epsilon)) then
+        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
             call end_simulation 
             exit
         end if
