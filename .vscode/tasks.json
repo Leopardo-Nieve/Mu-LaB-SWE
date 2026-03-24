@@ -11,8 +11,8 @@
                     "-Wall",
                     "-o",
                     "run",
-                    ".\\Mu_LaB_SWE.f90",
-                    ".\\main.f90"
+                    ".\\src\\main.f90",// ".\\Mu_LaB_SWE.f90",
+                    ".\\src\\Mu_LaB_SWE.f90"       // ".\\main.f90"
             ],
             "group": {
                 "kind": "build",

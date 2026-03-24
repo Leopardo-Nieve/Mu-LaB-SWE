@@ -400,16 +400,16 @@ subroutine ensure_results_directory
     integer :: ierr
     character(len=100) :: cmd
 
-    inquire(file='../results', exist=exists)
+    inquire(file='./results', exist=exists)
 
     if (.not. exists) then
-        cmd = 'mkdir "..\results"'
+        cmd = 'mkdir ".\results"'
         ierr = system(cmd)
         if (ierr /= 0) then
             print *, 'Error: Could not create the directory.'
             stop
         else
-            print *, 'Directory "..\results" created successfully.'
+            print *, 'Directory ".\results" created successfully.'
         end if
     ! else
     !     print *, 'Directory "..\results" already exists.'
@@ -422,7 +422,7 @@ subroutine write_csv
     integer, parameter :: max_tries = 2
     character(len=100) :: fpath
 
-    fpath = '../results/result.csv'
+    fpath = './results/result.csv'
 
     try = 1
     do
