@@ -10,7 +10,7 @@
             "args": [
                     "-Wall",
                     "-o",
-                    "run",
+                    ".\\bin\\run", // "run",
                     ".\\src\\main.f90",// ".\\Mu_LaB_SWE.f90",
                     ".\\src\\Mu_LaB_SWE.f90"       // ".\\main.f90"
             ],
