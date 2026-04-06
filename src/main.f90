@@ -268,7 +268,7 @@ program main
 
     call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
-    write(6,*)' Writing results in file: result.dat ... ' 
+    ! write(6,*)' Writing results in file: result.dat ... ' 
     open(66,file='../results/result.dat',status='unknown') 
     td=fdate() 
     write(66,*) '# Date: ',td 
@@ -289,7 +289,6 @@ program main
     close(66) 
 
     ! Add after the existing result.dat write
-    write(6,*) ' Writing CSV results in file: result.csv ... '
     call write_csv
     write(6,*) ' CSV results written! ... '
     

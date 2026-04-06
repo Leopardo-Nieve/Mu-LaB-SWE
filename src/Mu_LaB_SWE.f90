@@ -421,8 +421,21 @@ subroutine write_csv
     integer :: io, try
     integer, parameter :: max_tries = 2
     character(len=100) :: fpath
+    character(len=8)     :: date
+    character(len=10)    :: t ! time
+    character(len=5)     :: zone
+    ! integer, dimension(8) :: d
+    character(len=19) :: formatted_time
+    ! call date_and_time (values=d)
+    
+    
+    call date_and_time(DATE=date, TIME=t, ZONE=zone)
+    formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
+               & //'T'//                             &
+               & t(1:2)//'-'//t(3:4)//'-'//t(5:6)
 
-    fpath = './results/result.csv'
+    fpath = './results/'//formatted_time//'.csv'
+    write(6,*) ' Writing CSV results in file: '//fpath//" ... "
 
     try = 1
     do

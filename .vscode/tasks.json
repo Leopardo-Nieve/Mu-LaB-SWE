@@ -10,9 +10,10 @@
             "args": [
                     "-Wall",
                     "-o",
-                    ".\\bin\\run", // "run",
-                    ".\\src\\main.f90",// ".\\Mu_LaB_SWE.f90",
-                    ".\\src\\Mu_LaB_SWE.f90"       // ".\\main.f90"
+                    ".\\bin\\run",
+                    ".\\src\\main.f90",
+                    ".\\src\\Mu_LaB_SWE.f90"//,
+                    // ".src\\parameters.f90" // eventual addition for ease of use?
             ],
             "group": {
                 "kind": "build",
