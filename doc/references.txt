@@ -1,0 +1,3 @@
+Roy, C. J., Nelson, C. C., Smith, T. M., & Ober, C. C. (2004). Verification of Euler/Navier–Stokes codes using the method of manufactured solutions. International Journal for Numerical Methods in Fluids, 44(6), 599–620. https://doi.org/10.1002/fld.660
+Venturi, S. (2018). Lattice Boltzmann shallow water equations for large scale hydraulic analysis. https://flore.unifi.it/handle/2158/1145860
+Zhou, J. G. (2004). Lattice Boltzmann Methods for Shallow Water Flows. Springer Berlin Heidelberg. https://doi.org/10.1007/978-3-662-08276-8

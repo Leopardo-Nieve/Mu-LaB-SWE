@@ -49,11 +49,11 @@ module Mu_LaB_SWE
         character:: BCInflow, BCOutflow
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, R, epsilon, nb
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, R, epsilon, nb, position_x, position_y
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,hLast,hCentered,uCentered,vCentered,&!C,Cz,Cb,tau_bx,tau_by,& !debug
-        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal
+        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal, vAnal
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -679,6 +679,42 @@ logical function check_convergence(hCheck, hPrev, epsilonCheck)
         check_convergence = .false.
     end if
   end function check_convergence
+
+subroutine MMS_analytic_solution
+    ! double precision:: phi
+    double precision, dimension(3):: phi,phi_0,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy ! MMS constants
+    ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
+    phi_0 = [1.0d0, 70.0d0, 90.0d0]
+    phi_x = [0.1d0, 4.0d0, -20.0d0]
+    phi_y = [0.15d0, -12.0d0, 4.0d0]
+    phi_xy = [0.08d0, 7.0d0, -11.0d0]
+    a_phix = [0.75d0, 5.0d0/3.0d0, 1.5d0]
+    a_phiy = [1.0d0, 1.5d0, 1.0d0]
+    a_phixy = [1.25d0, 0.6d0, 0.9d0]
+
+    
+    do i = 1, Lx
+        position_x = dx*i
+        do j = 1, Ly
+            position_y = dy*j
+            phi(:) = phi_0(:) &
+            & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
+            & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
+            & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
+            ! do k = 1, 3 
+            !     phi = 
+            ! end do
+        if (phi(1) >= 0) then
+            hAnal(i,j) = phi(1)
+        else
+            print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
+            return
+        end if
+        uAnal(i,j) = phi(2)
+        vAnal(i,j) = phi(3)
+        end do
+    end do
+end subroutine MMS_analytic_solution
 
 end module Mu_LaB_SWE
 

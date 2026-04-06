@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime,position_x!, position_y, x_r, y_r, r !debug
+    double precision :: uo, vo,simTime!, x_r, y_r, r !debug
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -83,7 +83,7 @@ program main
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
-        & hAnal(Lx,Ly),uAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
+        & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
 
     dzbdx = -6.25d-4 ! m/m, slope of the bed
     
