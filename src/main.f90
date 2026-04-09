@@ -48,7 +48,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 1.0d-3
+        epsilon = 2.5d-3
     else
         epsilon = 0.0d0
     end if
@@ -66,18 +66,18 @@ program main
     ! q_in = 4.42d0 ! m^2/s
 
     ! define total lattice numbers in x and y directions
-    domainX = 4.0d0 ! m
-    domainY = 2.0d0*0.5d0 ! m, symetric domain
+    domainX = 5.0d0 ! m
+    domainY = 5.0d0 ! m
     
     ! assign a value of dx and dy
-    dx = 0.00667 ! m, lattice spacing
+    dx = 0.1 ! m, lattice spacing
     dy = dx ! m, lattice spacing
     
     ! define total number of nodes in x and y directions
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),& 
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),& 
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
@@ -259,7 +259,7 @@ program main
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
         end if
-        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
+        if (stopSim .or. check_convergence(u,uLast,epsilon)) then
             call end_simulation 
             exit
         end if

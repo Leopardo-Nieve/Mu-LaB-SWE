@@ -52,8 +52,9 @@ module Mu_LaB_SWE
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, R, epsilon, nb, position_x, position_y
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,hLast,hCentered,uCentered,vCentered,&!C,Cz,Cb,tau_bx,tau_by,& !debug
-        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt, hAnal, uAnal, vAnal
+        double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
+        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal!&
+        ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
@@ -214,6 +215,8 @@ subroutine solution
     
     ! save last timestep
     hLast = h
+    uLast = u
+    vLast = v
     
     ! compute physical variables h, u and v
 
@@ -619,7 +622,8 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
         do a = 3, 7
             consLft(:) = consLft(:) - ftemp(a,1,:)
         end do
-        consRgt(:) = hCheck(1,:)*uCheck(1,:)/eCheck + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+        consRgt(:) = hCheck(1,:)*uCheck(1,:)/eCheck &
+        & + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
 
         do i = 1, dim
             if ( abs(consLft(i) - consRgt(i)) > criterionCheck ) then
@@ -640,14 +644,14 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
     
 end function check_consistency
 
-logical function check_convergence(hCheck, hPrev, epsilonCheck)
+logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
     implicit none
-    real(8), intent(in)  :: hCheck(:,:), hPrev(:,:) !uCheck(:,:)
+    real(8), intent(in)  :: phiCheck(:,:), phiPrev(:,:) !uCheck(:,:)
     real(8), intent(in)  :: epsilonCheck
     ! real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0, h_nMinus2 = 0.0d0, h_nMinus1 = 0.0d0, h_n = 0.0d0
     ! real(8)              :: u_avg, h_avg, u_diff1, u_diff2, h_diff1, h_diff2
 
-    ! u_avg = sum(uCheck) / size(uCheck); h_avg = sum(hCheck)/size(hCheck)
+    ! u_avg = sum(uCheck) / size(uCheck); h_avg = sum(phiCheck)/size(phiCheck)
 
     ! ! Shift average history
     ! u_nMinus2 = u_nMinus1; h_nMinus2 = h_nMinus1
@@ -667,7 +671,7 @@ logical function check_convergence(hCheck, hPrev, epsilonCheck)
     R = 0
     do x = 1, Lx
         do y = 1, Ly
-            R = R + ((hCheck(x,y) - hPrev(x,y))/hCheck(x,y))*((hCheck(x,y) - hPrev(x,y))/hCheck(x,y))
+            R = R + ((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))*((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))
         end do
     end do
 
