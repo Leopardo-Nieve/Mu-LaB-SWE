@@ -682,9 +682,10 @@ logical function check_convergence(hCheck, hPrev, epsilonCheck)
 
 subroutine MMS_analytic_solution
     ! double precision:: phi
-    double precision, dimension(3):: phi,phi_0,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy ! MMS constants
+    double precision, dimension(3):: phi,phi_0,phi_1,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
     ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
-    phi_0 = [1.0d0, 70.0d0, 90.0d0]
+    phi_0 = [2.0d0, 0.0d0, 0.0d0]
+    phi_k = [0.0d0, 20.0d0, -10.0d0]
     phi_x = [0.1d0, 4.0d0, -20.0d0]
     phi_y = [0.15d0, -12.0d0, 4.0d0]
     phi_xy = [0.08d0, 7.0d0, -11.0d0]
@@ -697,13 +698,18 @@ subroutine MMS_analytic_solution
         position_x = dx*i
         do j = 1, Ly
             position_y = dy*j
-            phi(:) = phi_0(:) &
+            
+            phi_1(:) = phi_k(:) &
             & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
             & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
             & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
-            ! do k = 1, 3 
-            !     phi = 
-            ! end do
+            
+            BC_coeff(1) = (position_x - 0.0d0) * (position_x - domainX)*(position_x - domainX) ! depth
+            BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
+            BC_coeff(3) = (position_y - 0.0d0) * (domainY - position_y) ! v-velocity
+            
+            phi(:) = phi_0(:) + phi_1(:) * BC_coeff(:)
+
         if (phi(1) >= 0) then
             hAnal(i,j) = phi(1)
         else

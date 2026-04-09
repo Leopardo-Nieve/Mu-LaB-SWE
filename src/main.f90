@@ -266,6 +266,8 @@ program main
 
     end do timStep
 
+    call MMS_analytic_solution ! calculate analytical solution
+
     call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
     ! write(6,*)' Writing results in file: result.dat ... ' 
