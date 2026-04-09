@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime!, x_r, y_r, r !debug
+    double precision :: uo, vo,simTime, x_r, y_r, radius 
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -89,19 +89,20 @@ program main
     
     ! define bathymetry and node state array
     ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
-    ! x_r = 2.0d0 ! m, position of the cylinder in x direction
-    ! y_r = 0.0d0 ! m, position of the cylinder in y
-    ! r = 0.11d0 ! m, radius of the cylinder
+    x_r    = 2.5d0 ! m, position of the bump in x direction
+    y_r    = 2.5d0 ! m, position of the bump in y
+    radius = 4.0d0 ! m, radius of the bump
 
+    zb = 0.0d0 ! bed is at 0, except for bump
     do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
-        zb(x,:) = dzbdx(x,:)*(position_x - domainX) ! m, bed geometry
-        ! do y = 1, 2*Ly+1
-        !     position_y = dy*(DBLE(y-1)*0.5d0)
-        !     if ( dsqrt((position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r)) <= r) then
-        !         C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
-        !     end if
-        ! end do
+        do y = 1, 2*Ly+1
+            position_y = dy*(DBLE(y-1)*0.5d0)
+            if ( (position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r) <= radius) then
+                zb(x,y) = 0.2d0 - 0.05d0 * ((position_x - x_r) * (position_x - x_r) + (position_y - y_r) * (position_y - y_r))
+                ! C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
+            end if
+        end do
     end do
 
     ! determine boundary nodes
