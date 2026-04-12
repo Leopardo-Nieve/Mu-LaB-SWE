@@ -16,7 +16,7 @@
 ! S. Fiset, Montreal, 2025 
 ! ----------------------------------------------------------!
 !                   List of Major Variables
-! a, x, y, b, i, j - Loop integers
+! a, x, y, b, i, j, k - Loop integers
 ! domainX, domainY - Domain's size in x and y directions [m]
 ! dt - time step [s]
 ! dx, dy - lattice spacing in x and y directions [m]
@@ -43,25 +43,25 @@ module Mu_LaB_SWE
 
         implicit none 
 
-        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,xf,yf,xb,yb
+        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, R, epsilon, nb, position_x, position_y
+        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi, R, epsilon, nb, position_x, position_y, nu_MMs
         double precision, dimension(9):: ex,ey, eMax
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal!&
+        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+        & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
 
 subroutine setup 
-    ! define pi
-    pi = dacos(-1.0d0)
+    
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
@@ -106,9 +106,10 @@ subroutine setup
 
         ftemp = feq ! initialize the temporary distribution function
 
-        if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then
+        if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then 
             h = h + 1.0d-3 ! m, increase the depth at inlet by 1 mm
-            u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
+            ! commented because MMS requires new velocity inlet condition
+            ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
         else
             print*, "Inlet consistency satisfied."
             exit initDepth ! exit loop if consistency is satisfied
@@ -151,8 +152,8 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_y = 0.0d0 !-tau_by !debug ! m^2/s^2, bed shear stress
+    force_x = -hCentered*gacl*dzbdx + force_x_MMS !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    force_y = 0.0d0 + force_y_MMS !-tau_by !debug ! m^2/s^2, bed shear stress
 end subroutine update_body_force
 
 subroutine collide_stream
@@ -168,7 +169,7 @@ subroutine collide_stream
             xb = x -1
             ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
-            ! Following 2 lines Implement periodic BCs in y-direction 
+            ! Following 4 lines Implement periodic BCs in x or y directions
             ! if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
             ! if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
             if (yf > Ly) yf = yf - Ly
@@ -265,15 +266,15 @@ subroutine Noslip_BC
 
     ! this is for noslip boundary with Bounce back scheme
 
-    ! ! for lower boundary
-    ! do a = 2, 4 
-    !     ftemp(a,:,1) = ftemp(a+4,:,1) 
-    ! end do
+    ! for lower boundary
+    do a = 2, 4 
+        ftemp(a,:,1) = ftemp(a+4,:,1) 
+    end do
     
-    ! ! for upper boundary
-    ! do a = 6, 8 
-    !     ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
-    ! end do
+    ! for upper boundary
+    do a = 6, 8 
+        ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
+    end do
 
     ! for cylinder boundary
     ! do x = 1, Lx !debug
@@ -320,15 +321,19 @@ end subroutine Slip_BC
 subroutine Inflow_Outflow_BC
     ! macroscopic values
     h(1,:) = h(2,:)
-    u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
+    h(Lx,:) = hOut ! m, fixed depth at outflow
+    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
+    u(1,:) = uAnal(1,:)
+    u(Lx,:) = uAnal(Lx,:)
+    v(1,:) = vAnal(1,:)
+    v(Lx,:) = vAnal(Lx,:)
     ! u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     ! uAnal = u_analytical(time, Lx, Ly)
     ! u(1,:) = uAnal(1,:)
 
-    h(Lx,:) = hOut ! m, fixed depth at outflow
     ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
-    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
-        &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
+    ! u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
+    !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
     ! h(Lx,:) = hAnal(Lx,:)
 
     if ( BCInflow == "i" ) then
@@ -348,7 +353,8 @@ subroutine Inflow_Outflow_BC
         ! if ( .not. stopSim ) then
         
         ! consistence check
-        if ( check_consistency("east",h,u,e,consCriter,Ly)) then
+        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
+        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
             ! Following lines implement inflow BC (Zhou, p.59)
             ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
             ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
@@ -374,14 +380,15 @@ subroutine Inflow_Outflow_BC
         consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
         do j = 1, Ly
             if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-                print*, "consistence fails at node",Lx,j
-                print*,consOutLft(1,j),"/=", consOutRgt(1,j)
-                stopSim = .true.
+                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
+                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
+                ! stopSim = .true. "" ! debug
             end if
         end do
 
-        if ( .not. stopSim ) then
-            ! Following lines implement outflow BC (Zhou, p.60) and Neumann  
+        ! if ( .not. stopSim ) then
+        if ( .TRUE. ) then ! debug
+            ! Following lines implement outflow BC (Zhou, p.60)
             ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
             ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
             ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
@@ -466,16 +473,23 @@ subroutine write_csv
 
     ! Write CSV header
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
-    &, h analytical (m), u analytical (m/s), h analytical + zb (m)'
+    &, h analytical (m), u analytical (m/s), h analytical + zb (m) ,&
+    ! to add MMS source terms
+    & Fx MMS, Fy MMS&
+    &'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),6(F12.4,","),F12.4)') &
+            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),7(F12.4,","), &
+            ! to add MMS source terms
+            & 2(F12.4,",")   &
+            & )') &
                 x, y, &
                 dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                 h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y)
+                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y) ,&
+                & force_x_MMS(2*x,2*y), force_y_MMS(2*x,2*y)
         end do
     end do
     close(67)
@@ -627,12 +641,12 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
 
         do i = 1, dim
             if ( abs(consLft(i) - consRgt(i)) > criterionCheck ) then
-                ! stopSim = .true.
-                stopSim = .false. ! debug
-                if (localPrintErrors) then
-                    print*, "Inlet consistency check failed at node", i
-                    print*, consLft(i), "=/=", consRgt(i)
-                end if
+                stopSim = .true.
+                ! stopSim = .false. ! debug
+                ! if (localPrintErrors) then
+                print*, "Inlet consistency check failed at node", i
+                print*, consLft(i), "=/=", consRgt(i)
+                ! end if
             end if
         end do
     end if
@@ -640,6 +654,8 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
     if (.NOT. stopSim) then
         check_consistency = .true. ! If no inconsistency found, return true
         ! print*, "Left side:", consLft(dim/2), "Right side:", consRgt(dim/2) !debug
+    else
+
     end if
     
 end function check_consistency
@@ -686,16 +702,22 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
 
 subroutine MMS_analytic_solution
     ! double precision:: phi
-    double precision, dimension(3):: phi,phi_0,phi_1,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
+    double precision, dimension(3):: phi_0,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
+    double precision, allocatable, dimension(:,:,:) :: phi,phi_1
+    
+    allocate (phi(3,Lx,Ly), phi_1(3,Lx,Ly))
+    
     ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
+    nu_MMS = 1.0d-2
+    
     phi_0 = [2.0d0, 0.0d0, 0.0d0]
-    phi_k = [0.0d0, 20.0d0, -10.0d0]
-    phi_x = [0.1d0, 4.0d0, -20.0d0]
-    phi_y = [0.15d0, -12.0d0, 4.0d0]
-    phi_xy = [0.08d0, 7.0d0, -11.0d0]
+    phi_k = [0.0d0, 0.0d0, 0.0d0]
+    phi_x = [0.1d0, 1.0d0, 0.0d0]
+    phi_y = [0.0d0, 0.0d0, 0.0d0]
+    phi_xy = [0.0d0, 0.0d0, 0.0d0]
     a_phix = [0.75d0, 5.0d0/3.0d0, 1.5d0]
-    a_phiy = [1.0d0, 1.5d0, 1.0d0]
-    a_phixy = [1.25d0, 0.6d0, 0.9d0]
+    a_phiy = [1.0d0, 1.2d0, 1.0d0]
+    a_phixy = [1.25d0, 0.2d0, 0.9d0]
 
     
     do i = 1, Lx
@@ -703,25 +725,26 @@ subroutine MMS_analytic_solution
         do j = 1, Ly
             position_y = dy*j
             
-            phi_1(:) = phi_k(:) &
+            phi_1(:,i,j) = phi_k(:) &
             & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
             & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
             & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
             
-            BC_coeff(1) = (position_x - 0.0d0) * (position_x - domainX)*(position_x - domainX) ! depth
-            BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
-            BC_coeff(3) = (position_y - 0.0d0) * (domainY - position_y) ! v-velocity
+            BC_coeff(1) = (position_x - 0.0d0)*(position_x - 0.0d0) * (domainX - position_x) ! depth
+            ! BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
+            BC_coeff(2) = 1 ! u-velocity
+            BC_coeff(3) = 1 ! v-velocity
             
-            phi(:) = phi_0(:) + phi_1(:) * BC_coeff(:)
+            phi(:,i,j) = phi_0(:) + phi_1(:,i,j) * BC_coeff(:)
 
-        if (phi(1) >= 0) then
-            hAnal(i,j) = phi(1)
-        else
-            print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
-            return
-        end if
-        uAnal(i,j) = phi(2)
-        vAnal(i,j) = phi(3)
+            if (phi(1,i,j) >= 0) then
+                hAnal(i,j) = phi(1,i,j)
+            else
+                print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
+                return
+            end if
+            uAnal(i,j) = phi(2,i,j)
+            vAnal(i,j) = phi(3,i,j)
         end do
     end do
 end subroutine MMS_analytic_solution

@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius 
+    double precision :: uo, vo,simTime, x_r, y_r, radius
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -56,7 +56,7 @@ program main
     
     current_iteration = 0
     ! itera_no = 1 !debug
-    ! itera_no = 1e4 !debug
+    ! itera_no = 10 !debug
     itera_no = NINT(4e8)
         
     time = 0
@@ -66,11 +66,11 @@ program main
     ! q_in = 4.42d0 ! m^2/s
 
     ! define total lattice numbers in x and y directions
-    domainX = 5.0d0 ! m
-    domainY = 5.0d0 ! m
+    domainX = 2.0d0 ! m
+    domainY = 2.0d0 ! m
     
     ! assign a value of dx and dy
-    dx = 0.1 ! m, lattice spacing
+    dx = 1.0d-2 ! m, lattice spacing
     dy = dx ! m, lattice spacing
     
     ! define total number of nodes in x and y directions
@@ -83,26 +83,64 @@ program main
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
-        & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly))!, hIn(Ly), uIn(Ly))
+        & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))!, hIn(Ly), uIn(Ly))
 
-    dzbdx = -6.25d-4 ! m/m, slope of the bed
     
+    ! define pi
+    pi = dacos(-1.0d0)
+
+    call MMS_analytic_solution ! calculate analytical solution
+        
     ! define bathymetry and node state array
     ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
-    x_r    = 2.5d0 ! m, position of the bump in x direction
-    y_r    = 2.5d0 ! m, position of the bump in y
+    x_r    = 10.0d0 ! m, position of the bump in x direction
+    y_r    = 5.0d0 ! m, position of the bump in y
     radius = 4.0d0 ! m, radius of the bump
 
-    zb = 0.0d0 ! bed is at 0, except for bump
-    do x = 1, 2*Lx+1
+    ! define bed geometry
+    zb = 0
+    do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
         position_x = dx*(DBLE(x-1)*0.5d0)
-        do y = 1, 2*Ly+1
-            position_y = dy*(DBLE(y-1)*0.5d0)
-            if ( (position_x - x_r)*(position_x - x_r) + (position_y - y_r)*(position_y - y_r) <= radius) then
-                zb(x,y) = 0.2d0 - 0.05d0 * ((position_x - x_r) * (position_x - x_r) + (position_y - y_r) * (position_y - y_r))
-                ! C(2*x,2*y) = 1.0d0 ! m^2/s, solid node, different array dimension
-            end if
-        end do
+        zb(x,:) = 0.2d-1  * DSIN(position_x * 0.5d0 * pi) ! bump function resized for 2 m x 2 m domain
+        
+
+        ! force_x_MMS(x,:) = 0.0d0 ! debug
+
+        force_x_MMS(x,:) = (1.0d0/1440.0d0)*(domainX*(3.6d0*gacl*position_x*(4*domainX*(2*&
+        & domainX - 3*position_x)*DSIN(2.3561944901923449d0*position_x/&
+        & domainX) + 3*pi*position_x*(domainX - position_x)*DCOS(&
+        & 2.3561944901923449d0*position_x/domainX))*(position_x**2*(domainX&
+        & - position_x)*DSIN(2.3561944901923449d0*position_x/domainX) + 20)&
+        & + 144*pi*gacl*(position_x**2*(domainX - position_x)*DSIN(&
+        & 2.3561944901923449d0*position_x/domainX) + 20)*DCOS(&
+        & 3.1415926535897932d0*position_x/domainX) + 36*position_x*(4*&
+        & domainX*(2*domainX - 3*position_x)*DSIN(2.3561944901923449d0*&
+        & position_x/domainX) + 3*pi*position_x*(domainX - position_x)*DCOS(&
+        & 2.3561944901923449d0*position_x/domainX))*DSIN(&
+        & 5.2359877559829887d0*position_x/domainX)**2 + 480*pi*(position_x&
+        & **2*(domainX - position_x)*DSIN(2.3561944901923449d0*position_x/&
+        & domainX) + 20)*DSIN(5.2359877559829887d0*position_x/domainX)*DCOS(&
+        & 5.2359877559829887d0*position_x/domainX)) + nu_MMS*(40*pi*(-3*& 
+        & position_x*(4*domainX*(2*domainX - 3*position_x)*DSIN(&
+        & 2.3561944901923449d0*position_x/domainX) + 3*pi*position_x*(&
+        & domainX - position_x)*DCOS(2.3561944901923449d0*position_x/domainX&
+        & ))*DCOS(5.2359877559829887d0*position_x/domainX) + 10*pi*(&
+        & position_x**2*(domainX - position_x)*DSIN(2.3561944901923449d0*&
+        & position_x/domainX) + 20)*DSIN(5.2359877559829887d0*position_x/&
+        & domainX)) + 9*(32*domainX**2*(-domainX + 3*position_x)*DSIN(&
+        & 2.3561944901923449d0*position_x/domainX) + 24*pi*domainX*&
+        & position_x*(-2*domainX + 3*position_x)*DCOS(2.3561944901923449d0*&
+        & position_x/domainX) + 9*pi**2*position_x**2*(domainX - position_x&
+        & )*DSIN(2.3561944901923449d0*position_x/domainX))*DSIN(&
+        & 5.2359877559829887d0*position_x/domainX)))/domainX**2
+        
+        force_y_MMS(x,:) = 0.0d0
+
+        ! if ( position_x > 0.8 .and. position_x < 1.2) then
+        !     ! zb(x,:) = 0.2d0 - 0.05d0 * (position_x - 10.0d0)**2.0d0 ! bump function
+        !     zb(x,:) = 0.2d-1 - 0.05d1 * (position_x - 10.0d-1)**2.0d0 ! bump function resized for 2 m x 2 m domain
+        ! end if
     end do
 
     ! determine boundary nodes
@@ -132,24 +170,31 @@ program main
 
 
     ! constants for initializing flow field. 
-    ho = 0.185d0 ! m, initial water depth
+    ho = 2.0d0 ! m, initial water depth
     ! uo = 0.0d0
     vo = 0.0d0
 
     ! initialize the depth 
     do x = 1, Lx
-        h(x,:) = ho - zb(2*x,Ly/2) ! different array dimension
+        do y = 1, Ly
+            h(x,y) = ho - zb(2*x,2*y) ! different array dimension
+        end do
     end do
 
-    ! dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
-    ! dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
-    ! dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
+    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
+    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
+    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
-    q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
+    ! q_in = 1d-2 ! debug
+    ! q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
     ! h()
-    u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
-    hOut = 0.185d0 ! m, outflow depth
+    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
+    u(1,:) = uAnal(1,:)
+    u(Lx,:) = uAnal(Lx,:)
+    v(1,:) = vAnal(1,:)
+    v(Lx,:) = vAnal(Lx,:)
+    hOut = 2.0d0 ! m, outflow depth
     h(Lx,:) = hOut ! set outflow depth
     ! u(Lx,:) = 0.0d0
     
@@ -179,8 +224,12 @@ program main
     nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! initialize the velocities
-    u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
-    v = vo
+    ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
+    do i = 2, Lx-2
+        u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
+        v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
+    end do
+    ! v = vo
 
     ! prepare the calculations
     call setup
@@ -209,7 +258,7 @@ program main
         end do
 
         ! Apply no slip at solid boundary nodes
-        call Noslip_BC
+        ! call Noslip_BC
         
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC
@@ -266,8 +315,6 @@ program main
         end if
 
     end do timStep
-
-    call MMS_analytic_solution ! calculate analytical solution
 
     call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
