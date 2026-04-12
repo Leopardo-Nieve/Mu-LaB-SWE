@@ -302,7 +302,8 @@ program main
     call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*) 
     ! write(6,*)' Writing results in file: result.dat ... ' 
-    open(66,file='../results/result.dat',status='unknown') 
+    ! open(66,file='../results/result.dat',status='unknown')    ! run from \src
+    open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
     td=fdate() 
     write(66,*) '# Date: ',td 
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 
