@@ -131,9 +131,13 @@ for r in "${REFINEMENTS[@]}"; do
     sed -i "s/itera_no = NINT([^)]*)/itera_no = ${ITERA_MAX}/g" "${PATCHED_MAIN}"
     sed -i "s/itera_no = [0-9]*/itera_no = ${ITERA_MAX}/g" "${PATCHED_MAIN}"
 
+      # --- Nettoyage des fichiers .mod obsolètes ---
+    rm -f *.mod src/*.mod
+    
     # --- Compilation ---
     echo "  Compilation..."
-    gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    # gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    gfortran -O2 -ffree-line-length-none "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /' # remove line limit fortran
     echo "  ✓ Compilation OK"
 
     # --- Exécution ---

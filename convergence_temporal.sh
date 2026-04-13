@@ -124,7 +124,8 @@ for r in "${REFINEMENTS[@]}"; do
 
     # --- Compilation ---
     echo "  Compilation..."
-    gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    # gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    gfortran -O2 -ffree-line-length-none "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /' # remove line limit fortran
     echo "  ✓ Compilation OK"
 
     # --- Exécution ---
