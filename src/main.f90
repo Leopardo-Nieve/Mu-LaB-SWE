@@ -48,7 +48,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 2.5d-3
+        epsilon = 1d-6
     else
         epsilon = 0.0d0
     end if
@@ -56,14 +56,11 @@ program main
     
     current_iteration = 0
     ! itera_no = 1 !debug
-    ! itera_no = 10 !debug
+    ! itera_no = 1e4 !debug
     itera_no = NINT(4e8)
         
     time = 0
     simTime = 9.0d20 ! s, maximum simulation time, set to a large value for steady flow
-
-    ! assign a value for the inlet discharge
-    ! q_in = 4.42d0 ! m^2/s
 
     ! define total lattice numbers in x and y directions
     domainX = 2.0d0 ! m
@@ -91,7 +88,7 @@ program main
     pi = dacos(-1.0d0)
 
     call MMS_analytic_solution ! calculate analytical solution
-        
+    if (stopSim) STOP
     ! define bathymetry and node state array
     ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
     x_r    = 10.0d0 ! m, position of the bump in x direction
@@ -102,38 +99,14 @@ program main
     zb = 0
     do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
         position_x = dx*(DBLE(x-1)*0.5d0)
-        zb(x,:) = 0.2d-1  * DSIN(position_x * 0.5d0 * pi) ! bump function resized for 2 m x 2 m domain
-        
+        ! commented to debug MMS
+        zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
 
         ! force_x_MMS(x,:) = 0.0d0 ! debug
-
-        force_x_MMS(x,:) = (1.0d0/1440.0d0)*(domainX*(3.6d0*gacl*position_x*(4*domainX*(2*&
-        & domainX - 3*position_x)*DSIN(2.3561944901923449d0*position_x/&
-        & domainX) + 3*pi*position_x*(domainX - position_x)*DCOS(&
-        & 2.3561944901923449d0*position_x/domainX))*(position_x**2*(domainX&
-        & - position_x)*DSIN(2.3561944901923449d0*position_x/domainX) + 20)&
-        & + 144*pi*gacl*(position_x**2*(domainX - position_x)*DSIN(&
-        & 2.3561944901923449d0*position_x/domainX) + 20)*DCOS(&
-        & 3.1415926535897932d0*position_x/domainX) + 36*position_x*(4*&
-        & domainX*(2*domainX - 3*position_x)*DSIN(2.3561944901923449d0*&
-        & position_x/domainX) + 3*pi*position_x*(domainX - position_x)*DCOS(&
-        & 2.3561944901923449d0*position_x/domainX))*DSIN(&
-        & 5.2359877559829887d0*position_x/domainX)**2 + 480*pi*(position_x&
-        & **2*(domainX - position_x)*DSIN(2.3561944901923449d0*position_x/&
-        & domainX) + 20)*DSIN(5.2359877559829887d0*position_x/domainX)*DCOS(&
-        & 5.2359877559829887d0*position_x/domainX)) + nu_MMS*(40*pi*(-3*& 
-        & position_x*(4*domainX*(2*domainX - 3*position_x)*DSIN(&
-        & 2.3561944901923449d0*position_x/domainX) + 3*pi*position_x*(&
-        & domainX - position_x)*DCOS(2.3561944901923449d0*position_x/domainX&
-        & ))*DCOS(5.2359877559829887d0*position_x/domainX) + 10*pi*(&
-        & position_x**2*(domainX - position_x)*DSIN(2.3561944901923449d0*&
-        & position_x/domainX) + 20)*DSIN(5.2359877559829887d0*position_x/&
-        & domainX)) + 9*(32*domainX**2*(-domainX + 3*position_x)*DSIN(&
-        & 2.3561944901923449d0*position_x/domainX) + 24*pi*domainX*&
-        & position_x*(-2*domainX + 3*position_x)*DCOS(2.3561944901923449d0*&
-        & position_x/domainX) + 9*pi**2*position_x**2*(domainX - position_x&
-        & )*DSIN(2.3561944901923449d0*position_x/domainX))*DSIN(&
-        & 5.2359877559829887d0*position_x/domainX)))/domainX**2
+        
+        force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl*(0.12d0*dsin(6.2831853071795865d0*position_x/&
+        & domainX) + 8.0d0*dcos(6.2831853071795865d0*position_x/domainX))*(&
+        & dsin(6.2831853071795865d0*position_x/domainX) + 3.0d0)/domainX
         
         force_y_MMS(x,:) = 0.0d0
 
@@ -170,8 +143,13 @@ program main
 
 
     ! constants for initializing flow field. 
-    ho = 2.0d0 ! m, initial water depth
-    ! uo = 0.0d0
+    
+    ! assign a value for the inlet discharge
+    q_in = 4.42d0 ! m^2/s
+    
+    ! ho = 2.0d0 ! m, initial water depth
+    ho = hAnal(1,Ly/2) ! m, initial water depth
+    uo = 0.0d0
     vo = 0.0d0
 
     ! initialize the depth 
@@ -186,16 +164,21 @@ program main
     dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
+    ! u_in = 0.3125d0
+    ! u_out = -0.636d0
     ! q_in = 1d-2 ! debug
     ! q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
     ! h()
     ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
-    u(1,:) = uAnal(1,:)
-    u(Lx,:) = uAnal(Lx,:)
-    v(1,:) = vAnal(1,:)
-    v(Lx,:) = vAnal(Lx,:)
-    hOut = 2.0d0 ! m, outflow depth
-    h(Lx,:) = hOut ! set outflow depth
+    ! u(1,:) = uAnal(1,:)
+    ! u(Lx,:) = uAnal(Lx,:)
+    ! u(1,:) = u_in
+    ! u(Lx,:) = u_out
+    ! v(1,:) = vAnal(1,:)
+    ! v(Lx,:) = vAnal(Lx,:)
+    ! h(1,:) = 2.0d0
+    ! hOut = 2.0d0 ! m, outflow depth
+    ! h(Lx,:) = hOut ! set outflow depth
     ! u(Lx,:) = 0.0d0
     
     ! assign a value for the molecular viscosity
@@ -225,12 +208,12 @@ program main
 
     ! initialize the velocities
     ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
-    do i = 2, Lx-2
-        u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
-        v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
-    end do
-    ! v = vo
-
+    ! do i = 2, Lx-2
+    !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
+    !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
+    ! end do
+    u = uo
+    v = vo
     ! prepare the calculations
     call setup
     
@@ -261,7 +244,7 @@ program main
         ! call Noslip_BC
         
         ! Apply Inflow and Outflow BC
-        call Inflow_Outflow_BC
+        ! call Inflow_Outflow_BC
 
         ! make sure no population is NaN
         do i = 1, Lx
@@ -309,7 +292,7 @@ program main
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
         end if
-        if (stopSim .or. check_convergence(u,uLast,epsilon)) then
+        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
             call end_simulation 
             exit
         end if
