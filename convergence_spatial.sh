@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# convergence_study.sh
+# convergence_spatial.sh
 # Étude de convergence spatiale (ordre p) pour Mu-LaB-SWE (LBM)
 #
 # Usage (depuis Git Bash ou terminal MSYS2 ucrt64 dans VS Code):
-#   bash convergence_study.sh 1 2 4 8
+#   bash convergence_spatial.sh 1 2 4 8
 #
 # Principe:
 #   Pour chaque facteur r  →  dx = dx_ref / r
@@ -88,9 +88,9 @@ for r in "${REFINEMENTS[@]}"; do
 
     # --- Calcul des paramètres du niveau ---
     # dx = dx_ref / r
-    DX=$(python3 -c "print(f'{${DX_REF} / ${r}:.8f}')")
+    DX=$(python -c "print(f'{${DX_REF} / ${r}:.8f}')")
     # dt = dt_ref / r^2  (scaling diffusif: nu = (tau-0.5)*e*dx/3, e=dx/dt → nu ∝ (tau-0.5)*dx²/dt)
-    DT=$(python3 -c "print(f'{${DT_REF} / (${r}**2):.10f}')")
+    DT=$(python -c "print(f'{${DT_REF} / (${r}**2):.10f}')")
     # tau est ajusté pour maintenir nu constante:
     #   nu = (tau-0.5) * (dx/dt) * dx / 3 = (tau-0.5) * dx^2 / (3*dt)
     #   dx²/dt = dx_ref²/dt_ref (constant si dt ∝ dx²) → tau est constant!
@@ -110,7 +110,7 @@ for r in "${REFINEMENTS[@]}"; do
     echo "------------------------------------------------------------"
 
     # Avertissement stabilité
-    TAU_CHECK=$(python3 -c "t=${TAU}; print('WARN' if t>${TAU_MAX} or t<${TAU_MIN} else 'OK')")
+    TAU_CHECK=$(python -c "t=${TAU}; print('WARN' if t>${TAU_MAX} or t<${TAU_MIN} else 'OK')")
     if [ "${TAU_CHECK}" = "WARN" ]; then
         echo "  ⚠ AVERTISSEMENT: tau=${TAU} hors plage [${TAU_MIN}, ${TAU_MAX}] — risque d'instabilité!"
     fi
@@ -131,9 +131,13 @@ for r in "${REFINEMENTS[@]}"; do
     sed -i "s/itera_no = NINT([^)]*)/itera_no = ${ITERA_MAX}/g" "${PATCHED_MAIN}"
     sed -i "s/itera_no = [0-9]*/itera_no = ${ITERA_MAX}/g" "${PATCHED_MAIN}"
 
+      # --- Nettoyage des fichiers .mod obsolètes ---
+    rm -f *.mod src/*.mod
+    
     # --- Compilation ---
     echo "  Compilation..."
-    gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    # gfortran -O2 "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /'
+    gfortran -O2 -ffree-line-length-none "${MODULE_SRC}" "${PATCHED_MAIN}" -o "${BINARY}" 2>&1 | sed 's/^/    [gfortran] /' # remove line limit fortran
     echo "  ✓ Compilation OK"
 
     # --- Exécution ---
