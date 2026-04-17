@@ -490,9 +490,9 @@ subroutine write_csv
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F12.4,","),3(F12.4,","),7(F12.4,","), &
+            write(67,'(2(I5,","),2(F17.14,","),3(F17.14,","),7(F17.14,","), &
             ! to add MMS source terms
-            & 2(F12.4,",")   &
+            & 2(F17.14,",")   &
             & )') &
                 x, y, &
                 dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &

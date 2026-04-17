@@ -67,7 +67,7 @@ program main
     domainY = 2.0d0 ! m
     
     ! assign a value of dx and dy
-    dx = 1.0d-2 ! m, lattice spacing
+    dx = 1.0d-1 ! m, lattice spacing
     dy = dx ! m, lattice spacing
     
     ! define total number of nodes in x and y directions
