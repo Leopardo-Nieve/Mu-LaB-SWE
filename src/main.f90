@@ -32,9 +32,11 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius
+    double precision :: uo, vo,simTime, x_r, y_r, radius, r
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
+
+    r = 64.0d0 ! convergence ratio. start with 1, then 2, 4, 8
 
     ! define Manning's coefficient
     nb = 0.012d0
@@ -67,7 +69,7 @@ program main
     domainY = 2.0d0 ! m
     
     ! assign a value of dx and dy
-    dx = 1.0d-1 ! m, lattice spacing
+    dx = 1.0d-1/r ! m, lattice spacing
     dy = dx ! m, lattice spacing
     
     ! define total number of nodes in x and y directions
@@ -189,7 +191,7 @@ program main
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define timestep dt
-    dt = 0.00145d0 !s
+    dt = 0.01d0/r**2 !s
 
     ! define the lattice velocity
     e = dx/dt ! m/s, lattice velocity
