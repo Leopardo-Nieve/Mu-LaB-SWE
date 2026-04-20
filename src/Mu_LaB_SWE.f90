@@ -91,37 +91,8 @@ subroutine setup
 
     dt_6e2=dt/(6.0d0*e*e)
 
-    ! determine initial inlet depth and velocity
-    ! h(1,:) = 1.0d-3 ! m, initial depth at inlet
-    ! h(1,:) = 2.0d0 ! m, initial depth at inlet
-    ! u(1,:) = q_in/h(1,:) ! m/s, initial velocity at inlet
-
-    ! initialize the depth over the entire domain
-    ! do x = 1, Lx
-    !     h(x,:) = ho - zb(2*x,Ly/2) ! different array dimension
-    ! end do
-
-    ! commented do loop and moved compute_feq out of it for MMS
-    
-    ! compute the equilibrium distribution function feq 
+    ! compute the equilibrium distribution function feq
     call compute_feq
-    
-    ! initDepth: do
-    !     ! compute the equilibrium distribution function feq 
-    !     call compute_feq
-
-    !     ftemp = feq ! initialize the temporary distribution function
-
-    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then 
-    !         h = h + 1.0d-3 ! m, increase the depth at inlet by 1 mm
-    !         ! commented because MMS requires new velocity inlet condition
-    !         ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
-    !     else
-    !         print*, "Inlet consistency satisfied."
-    !         exit initDepth ! exit loop if consistency is satisfied
-    !     end if
-    !     print*, "Initial depth at inlet:", h(1,Ly/2)
-    ! end do initDepth
 
     stopSim = .false. ! reset stopSim flag before starting the simulation
 
@@ -130,23 +101,7 @@ subroutine setup
     return
 end subroutine setup
 
-subroutine update_body_force   
-    ! interpolate values of h centred between each nodes to evaluate centred slope body force
-    ! do x = 2, 2*Lx
-    !     if (mod(x,2) == 0) then
-    !         hCentered(x,:) = h(x/2,Ly/2)
-    !     else
-    !         hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
-    !     end if
-
-    !     ! if ( x>190 .AND. x<210 ) then !debug
-    !     !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
-    !     ! end if!debug
-    ! end do
-
-    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
-    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
-
+subroutine update_body_force
     hCentered = centred_interpolation(h,Lx,Ly)
     uCentered = centred_interpolation(u,Lx,Ly)
     vCentered = centred_interpolation(v,Lx,Ly)
@@ -282,29 +237,7 @@ subroutine Noslip_BC
         ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
     end do
 
-    ! for cylinder boundary
-    ! do x = 1, Lx !debug
-    !     do y = 1, Ly !debug
-    !         if (C(x,y) == 0.5) then ! boundary node !debug
-    !             xf = x + 1
-    !             xb = x - 1
-    !             yf = y + 1
-    !             yb = y - 1
-
-    !             ! apply bounce back scheme
-    !             if (C(xf,y)  == 1) ftemp(5,x,y) = ftemp(1,x,y) ! E
-    !             if (C(xf,yf) == 1) ftemp(6,x,y) = ftemp(2,x,y) ! NE
-    !             if (C(x,yf)  == 1) ftemp(7,x,y) = ftemp(3,x,y) ! N
-    !             if (C(xb,yf) == 1) ftemp(8,x,y) = ftemp(4,x,y) ! NW
-    !             if (C(xb,y)  == 1) ftemp(1,x,y) = ftemp(5,x,y) ! W
-    !             if (C(xb,yb) == 1) ftemp(2,x,y) = ftemp(6,x,y) ! SW
-    !             if (C(x,yb)  == 1) ftemp(3,x,y) = ftemp(7,x,y) ! S
-    !             if (C(xf,yb) == 1) ftemp(4,x,y) = ftemp(8,x,y) ! SE
-    !         end if
-    !     end do
-    ! end do
-
-    return 
+    return
 end subroutine Noslip_BC 
 
 subroutine Slip_BC
@@ -325,88 +258,41 @@ subroutine Slip_BC
 end subroutine Slip_BC 
 
 subroutine Inflow_Outflow_BC
-    ! macroscopic values
-    ! h(1,:) = h(2,:)
-    ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    h(1,:) = hAnal(1,:)
-    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
-    ! u(1,:) = uAnal(1,:)
-    ! u(Lx,:) = uAnal(Lx,:)
-    ! u(1,:) = q_in/h(1,:)
-    ! u(Lx,:) = q_in/h(Lx,:)
-    v(1,:) = vAnal(1,:)
+    h(1,:)  = hAnal(1,:)
+    v(1,:)  = vAnal(1,:)
     v(Lx,:) = vAnal(Lx,:)
-    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
-    ! uAnal = u_analytical(time, Lx, Ly)
-    ! u(1,:) = uAnal(1,:)
+    u(1,:)  = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:) &
+              & + 2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
 
-    h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
-    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
-        &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
+    h(Lx,:) = hAnal(Lx,:)
+    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:) &
+              & + 2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:)))
 
     if ( BCInflow == "i" ) then
-        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
-        ! do a = 3, 7
-        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-        ! end do
-        ! consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-        ! do j = 1, Ly
-        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-        !         print*, "consistency fails at node",1,j
-        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
-        !         stopSim = .true.
-        !     end if
-        ! end do
-
-        ! if ( .not. stopSim ) then
-        
-        ! consistence check
-        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
-        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
-            ! Following lines implement inflow BC (Zhou, p.59)
-            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
-            ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-            ftemp(8,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
-        end if
+        ! Inflow BC (Zhou, p.59)
+        ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
+        ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+        ftemp(8,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
     elseif (BCInflow == "n") then
-            ! Neumann BC at the inflow (p. 58)
-            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
-            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
-            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
+        ! Neumann BC at inflow (Zhou, p.58)
+        ftemp(1,1,:) = ftemp(1,2,:)
+        ftemp(2,1,:) = ftemp(2,2,:)
+        ftemp(8,1,:) = ftemp(8,2,:)
     else
         print*, "`BCInflow` variable incorrectly defined as:", BCInflow
         print*, "***Hint: the condition must be written all in lower case.***"
     end if
 
     if ( BCOutflow == "o" ) then
-        ! consistence check
-        consOutLft(1,:) = h(Lx,:)
-        do a = 1, 9
-            if (a >= 4 .and. a <=6 ) cycle
-            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
-        end do
-        consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
-        do j = 1, Ly
-            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
-                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
-                ! stopSim = .true. "" ! debug
-            end if
-        end do
-
-        ! if ( .not. stopSim ) then
-        if ( .TRUE. ) then ! debug
-            ! Following lines implement outflow BC (Zhou, p.60)
-            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
-            ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-            ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
-        end if
+        ! Outflow BC (Zhou, p.60)
+        ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
+        ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+        ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
     elseif (BCOutflow == "n") then
-        ! Neumann BC at outflow (p. 58)
-        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
-        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
-        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
+        ! Neumann BC at outflow (Zhou, p.58)
+        ftemp(4,Lx,:) = ftemp(4,Lx-1,:)
+        ftemp(5,Lx,:) = ftemp(5,Lx-1,:)
+        ftemp(6,Lx,:) = ftemp(6,Lx-1,:)
     else
         print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
         print*, "***Hint: the condition must be written all in lower case.***"
@@ -417,21 +303,17 @@ subroutine ensure_results_directory
     implicit none
     logical :: exists
     integer :: ierr
-    character(len=100) :: cmd
 
     inquire(file='./results', exist=exists)
 
     if (.not. exists) then
-        cmd = 'mkdir ".\results"'
-        ierr = system(cmd)
+        call execute_command_line('mkdir -p "./results"', exitstat=ierr)
         if (ierr /= 0) then
-            print *, 'Error: Could not create the directory.'
+            print *, 'Error: Could not create the results directory.'
             stop
         else
-            print *, 'Directory ".\results" created successfully.'
+            print *, 'Directory "./results" created successfully.'
         end if
-    ! else
-    !     print *, 'Directory "..\results" already exists.'
     end if
 end subroutine ensure_results_directory
 
@@ -506,9 +388,7 @@ end subroutine write_csv
 
 subroutine sleep_seconds(n)
     integer, intent(in) :: n
-    character(len=20) :: command
-    write(command, '(A,I0,A)') 'timeout /T ', n, ' >nul'
-    call system(command)
+    call sleep(n)
 end subroutine sleep_seconds
 
 subroutine end_simulation
@@ -570,12 +450,6 @@ subroutine end_simulation
     end if
 end subroutine end_simulation
 
-! double precision function h_in(currentTime)
-!     implicit none
-!     double precision, intent(in)    :: currentTime
-!     h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-! end function h_in
-
 function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
     integer,          intent(in)    :: dimX, dimY ! dimesions of the original array (Lx, Ly)
@@ -596,26 +470,6 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
 end function centred_interpolation
-
-! function h_analytical(currentTime, dimX, dimY) result(h_a)
-!     implicit none
-!     integer,          intent(in)    :: dimX, dimY
-!     double precision, intent(in)    :: currentTime
-!     double precision                :: h_a(dimX,dimY)
-!     h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
-! end function h_analytical
-
-! function u_analytical(currentTime, dimX, dimY) result(u_a)
-!     implicit none
-!     integer,          intent(in)    :: dimX, dimY
-!     double precision, intent(in)    :: currentTime
-!     double precision                :: u_a(dimX,dimY)
-
-!     hAnal = h_analytical(currentTime, Lx, Ly)
-!     do i = 1, Lx
-!         u_a(i,:) = (i*dx - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
-!     end do
-! end function u_analytical
 
 logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionCheck, dim, printErrors)
     implicit none
@@ -697,7 +551,7 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
     R = 0
     do x = 1, Lx
         do y = 1, Ly
-            R = R + ((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))*((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))
+            R = R + ((phiCheck(x,y) - phiPrev(x,y)) / max(abs(phiCheck(x,y)), 1.0d-10))**2
         end do
     end do
 
@@ -735,29 +589,8 @@ subroutine MMS_analytic_solution
         do j = 1, Ly
             position_y = dy*j
             
-            ! phi_1(:,i,j) = phi_k(:) &
-            ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
-            ! & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
-            ! & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
-            
-            ! BC_coeff(1) = (position_x - 0.0d0)*(position_x - 0.0d0) * (domainX - position_x) ! depth
-            ! ! BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
-            ! BC_coeff(2) = 1 ! u-velocity
-            ! BC_coeff(3) = 1 ! v-velocity
-            
-            ! phi(:,i,j) = phi_0(:) + phi_1(:,i,j) * BC_coeff(:)
-
-            ! if (phi(1,i,j) >= 0) then
-            !     hAnal(i,j) = phi(1,i,j)
-            ! else
-            !     print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
-            !     return
-            ! end if
-            ! uAnal(i,j) = phi(2,i,j)
-            ! vAnal(i,j) = phi(3,i,j)
-
-            ! directly from Sympy code
-            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2
+            ! analytical solution derived via Sympy
+            hAnal(i,j) = (2.0d0/3.0d0)*sin(2.0d0*pi*position_x/domainX) + 2.0d0
             if (hAnal(i,j) < 0) then 
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.

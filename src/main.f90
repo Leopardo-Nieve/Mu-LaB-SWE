@@ -32,7 +32,7 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius
+    double precision :: uo, vo, simTime
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -89,24 +89,16 @@ program main
 
     call MMS_analytic_solution ! calculate analytical solution
     if (stopSim) STOP
-    ! define bathymetry and node state array
-    ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
-    x_r    = 10.0d0 ! m, position of the bump in x direction
-    y_r    = 5.0d0 ! m, position of the bump in y
-    radius = 4.0d0 ! m, radius of the bump
-
     ! define bed geometry
     zb = 0
     do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
         position_x = dx*(DBLE(x-1)*0.5d0)
         ! commented to debug MMS
-        zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
+        zb(x,:) = 0.02d0*dsin(pi*position_x/domainX)**2.0d0 ! 2 m wide bump function
 
-        ! force_x_MMS(x,:) = 0.0d0 ! debug
-        
-        force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl*(0.12d0*dsin(6.2831853071795865d0*position_x/&
-        & domainX) + 8.0d0*dcos(6.2831853071795865d0*position_x/domainX))*(&
-        & dsin(6.2831853071795865d0*position_x/domainX) + 3.0d0)/domainX
+        force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl*(0.12d0*dsin(2.0d0*pi*position_x/&
+        & domainX) + 8.0d0*dcos(2.0d0*pi*position_x/domainX))*(&
+        & dsin(2.0d0*pi*position_x/domainX) + 3.0d0)/domainX
         
         force_y_MMS(x,:) = 0.0d0
 
@@ -116,33 +108,7 @@ program main
         ! end if
     end do
 
-    ! determine boundary nodes
-    ! do x = 1, Lx
-    !     xf = x + 1
-    !     xb = x - 1
-    !     do y = 1, Ly
-    !         if ( C(x,y) == 1 .OR. C(x,y) == 0.5) then
-    !             cycle ! skip solid and boundary nodes
-    !         end if
-
-    !         yf = y + 1
-    !         yb = y - 1
-            
-    !         if (C(xf,y) == 1 .OR. &
-    !          & C(xf,yf) == 1 .OR. &
-    !          & C(x,yf)  == 1 .OR. &
-    !          & C(xb,yf) == 1 .OR. &
-    !          & C(xb,y)  == 1 .OR. &
-    !          & C(xb,yb) == 1 .OR. &
-    !          & C(x,yb)  == 1 .OR. &
-    !          & C(xf,yb) == 1) then
-    !             C(x,y) = 0.5 ! m^2/s, boundary node
-    !         end if
-    !     end do
-    ! end do
-
-
-    ! constants for initializing flow field. 
+    ! constants for initializing flow field.
     
     ! assign a value for the inlet discharge
     q_in = 4.42d0 ! m^2/s
@@ -162,31 +128,6 @@ program main
     dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
     dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
     dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
-
-    ! constants for boundary conditions
-    ! u_in = 0.3125d0
-    ! u_out = -0.636d0
-    ! q_in = 1d-2 ! debug
-    ! q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
-    ! h()
-    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
-    ! u(1,:) = uAnal(1,:)
-    ! u(Lx,:) = uAnal(Lx,:)
-    ! u(1,:) = u_in
-    ! u(Lx,:) = u_out
-    ! v(1,:) = vAnal(1,:)
-    ! v(Lx,:) = vAnal(Lx,:)
-    ! h(1,:) = 2.0d0
-    ! hOut = 2.0d0 ! m, outflow depth
-    ! h(Lx,:) = hOut ! set outflow depth
-    ! u(Lx,:) = 0.0d0
-    
-    ! assign a value for the molecular viscosity
-    ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
-
-    
-    ! calculate the minimum possible value of e such that the stationary population is positive
-    ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define timestep dt
     dt = 0.00145d0 !s
