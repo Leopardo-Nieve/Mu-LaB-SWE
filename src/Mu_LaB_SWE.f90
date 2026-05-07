@@ -158,8 +158,10 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx + force_x_MMS !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_y = 0.0d0 + force_y_MMS !-tau_by !debug ! m^2/s^2, bed shear stress
+    ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    force_x = force_x_MMS  !debug ! MMS
+    ! force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
+    force_y = force_y_MMS !debug ! m^2/s^2 MMS
 end subroutine update_body_force
 
 subroutine collide_stream
@@ -484,21 +486,21 @@ subroutine write_csv
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
     &, h analytical (m), u analytical (m/s), h analytical + zb (m) ,&
     ! to add MMS source terms
-    & Fx MMS, Fy MMS&
+    & Fx (m^2/s^2), Fy (m^2/s^2)&
     &'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F17.14,","),3(F17.14,","),7(F17.14,","), &
+            write(67,'(2(I5,","),2(F20.14,","),3(F20.14,","),7(F20.14,","), &
             ! to add MMS source terms
-            & 2(F17.14,",")   &
+            & F20.14, F20.14   &
             & )') &
                 x, y, &
                 dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                 h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
                 u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y) ,&
-                & force_x_MMS(2*x,2*y), force_y_MMS(2*x,2*y)
+                & force_x(2*x,2*y), force_y(2*x,2*y)
         end do
     end do
     close(67)
@@ -731,9 +733,9 @@ subroutine MMS_analytic_solution
 
     
     do i = 1, Lx
-        position_x = dx*i
+        position_x = DBLE(i - 0.5d0) * dx
         do j = 1, Ly
-            position_y = dy*j
+            position_y = DBLE(j - 0.5d0) * dy
             
             ! phi_1(:,i,j) = phi_k(:) &
             ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
@@ -757,7 +759,7 @@ subroutine MMS_analytic_solution
             ! vAnal(i,j) = phi(3,i,j)
 
             ! directly from Sympy code
-            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2
+            hAnal(i,j) = (2.0d0/3.0d0)*dsin(6.2831853071795865d0*position_x/domainX) + 2.0d0
             if (hAnal(i,j) < 0) then 
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.
