@@ -158,10 +158,10 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_x = force_x_MMS  !debug ! MMS
-    ! force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
-    force_y = force_y_MMS !debug ! m^2/s^2 MMS
+    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    ! force_x = force_x_MMS  !debug ! MMS
+    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
+    ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
 end subroutine update_body_force
 
 subroutine collide_stream
