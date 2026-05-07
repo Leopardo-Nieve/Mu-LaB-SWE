@@ -41,7 +41,7 @@ program main
     ! define Manning's coefficient
     nb = 0.012d0
 
-    steadyFlow = .TRUE. ! if steady define `.true.`, if tidal define `.false.`
+    steadyFlow = .FALSE. ! if steady define `.true.`, if tidal define `.false.`
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient

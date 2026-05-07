@@ -599,13 +599,16 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
 end function centred_interpolation
 
-! function h_analytical(currentTime, dimX, dimY) result(h_a)
-!     implicit none
-!     integer,          intent(in)    :: dimX, dimY
-!     double precision, intent(in)    :: currentTime
-!     double precision                :: h_a(dimX,dimY)
-!     h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
-! end function h_analytical
+subroutine analytical_solution(currentTime, dimX, dimY)
+    implicit none
+    integer,          intent(in)    :: dimX, dimY
+    double precision, intent(in)    :: currentTime
+    hAnal = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
+    do i = 1, Lx
+        position_x = DBLE(i - 0.5d0) * dx
+        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+    end do
+end subroutine
 
 ! function u_analytical(currentTime, dimX, dimY) result(u_a)
 !     implicit none
