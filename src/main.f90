@@ -92,7 +92,7 @@ program main
     ! define pi
     pi = dacos(-1.0d0)
 
-    call MMS_analytic_solution ! calculate analytical solution
+    ! call MMS_analytic_solution ! calculate analytical solution
     if (stopSim) STOP
     ! define bathymetry and node state array
     ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
@@ -100,12 +100,16 @@ program main
     y_r    = 5.0d0 ! m, position of the bump in y
     radius = 4.0d0 ! m, radius of the bump
 
-    ! define bed geometry
+    ! define partial depth and bathymetry
     zb = 0
     do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
         position_x = dx*(DBLE(x-1)*0.5d0)
-        ! commented to debug MMS
-        ! zb(x,:) = 0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
+
+        ! partial depth
+        H_part(x,:) = 50.5d0 - 40.0d0*position_x/domainX - 10.0d0*DSIN(pi*(4.0d0*position_x/domainX - 0.5d0))
+
+        ! bathymetry
+        zb(x,:) = H_part(1,:) - H_part(x,:)
 
         ! force_x_MMS(x,:) = 0.0d0 ! debug
 
@@ -158,16 +162,10 @@ program main
     q_in = 4.42d0 ! m^2/s
     
     ! ho = 2.0d0 ! m, initial water depth
-    ho = hAnal(1,Ly/2) ! m, initial water depth
+
+    ho = 2.0d0 ! debug
     uo = 0.0d0
     vo = 0.0d0
-
-    ! initialize the depth 
-    do x = 1, Lx
-        do y = 1, Ly
-            h(x,y) = ho - zb(2*x,2*y) ! different array dimension
-        end do
-    end do
 
     dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
     dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
@@ -222,6 +220,12 @@ program main
     !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
+
+    ! define initial water depth
+    ! do x = 1, Lx
+    !     h(x,:) = H_part(2*x,:) ! m, initial water dept
+    ! end do
+    h = ho !debug
     u = uo
     v = vo
     ! prepare the calculations

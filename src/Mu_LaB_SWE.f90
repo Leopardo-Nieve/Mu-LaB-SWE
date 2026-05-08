@@ -158,7 +158,8 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    force_x = 0.0d0 ! debug
     ! force_x = force_x_MMS  !debug ! MMS
     force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
     ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
@@ -572,11 +573,11 @@ subroutine end_simulation
     end if
 end subroutine end_simulation
 
-! double precision function h_in(currentTime)
-!     implicit none
-!     double precision, intent(in)    :: currentTime
-!     h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-! end function h_in
+double precision function h_in(currentTime)
+    implicit none
+    double precision, intent(in)    :: currentTime
+    h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+end function h_in
 
 function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
