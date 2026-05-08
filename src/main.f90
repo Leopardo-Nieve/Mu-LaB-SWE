@@ -163,7 +163,6 @@ program main
     
     ! ho = 2.0d0 ! m, initial water depth
 
-    ho = 50.5d0 ! debug
     uo = 0.0d0
     vo = 0.0d0
 
@@ -222,10 +221,9 @@ program main
     ! end do
 
     ! define initial water depth
-    ! do x = 1, Lx
-    !     h(x,:) = H_part(2*x,:) ! m, initial water dept
-    ! end do
-    h = ho !debug
+    do x = 1, Lx
+        h(x,:) = H_part(2*x,:) ! m, initial water dept
+    end do
     u = uo
     v = vo
     ! prepare the calculations
