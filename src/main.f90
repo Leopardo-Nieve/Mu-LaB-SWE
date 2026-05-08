@@ -65,11 +65,11 @@ program main
     simTime = 9.0d20 ! s, maximum simulation time, set to a large value for steady flow
 
     ! define total lattice numbers in x and y directions
-    domainX = 2.0d0 ! m
+    domainX = 14.0d3 ! m
     ! domainY = 2.0d0 ! m
     
     ! assign a value of dx and dy
-    dx = 1.0d-1/r ! m, lattice spacing
+    dx = 14.0d0/r ! m, lattice spacing
     dy = dx ! m, lattice spacing
     ! because case is only 1D
     domainY = 5.0d0 * dy ! m 
@@ -163,7 +163,7 @@ program main
     
     ! ho = 2.0d0 ! m, initial water depth
 
-    ho = 2.0d0 ! debug
+    ho = 50.5d0 ! debug
     uo = 0.0d0
     vo = 0.0d0
 

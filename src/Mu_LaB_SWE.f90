@@ -47,7 +47,7 @@ module Mu_LaB_SWE
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
+        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, & 
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
         double precision, dimension(9):: ex,ey, eMax
@@ -178,9 +178,11 @@ subroutine collide_stream
             xb = x -1
             ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
-            ! Following 4 lines Implement periodic BCs in x or y directions
-            if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
-            if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
+            ! Following 2 lines Implement periodic BCs in x direction
+            ! if (xf > Lx) xf = xf - Lx 
+            ! if (xb < 1) xb = Lx + xb 
+            
+            ! Following 2 lines Implement periodic BCs in y direction
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
