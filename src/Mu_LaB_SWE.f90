@@ -49,8 +49,9 @@ module Mu_LaB_SWE
         character:: BCInflow, BCOutflow
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, & 
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
+        & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs
         double precision, dimension(9):: ex,ey, eMax
+        double precision, dimension(3):: L1_error,L2_error
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
@@ -148,8 +149,8 @@ subroutine update_body_force
     ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
 
     hCentered = centred_interpolation(h,Lx,Ly)
-    uCentered = centred_interpolation(u,Lx,Ly)
-    vCentered = centred_interpolation(v,Lx,Ly)
+    ! uCentered = centred_interpolation(u,Lx,Ly)
+    ! vCentered = centred_interpolation(v,Lx,Ly)
 
     ! ! bed shear stress    
     ! Cz = hCentered**(1.0d0/6.0d0)/nb ! Chezy coefficient
@@ -158,11 +159,12 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_x = 0.0d0 ! debug
+    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+    ! force_x = 0.0d0 ! debug
     ! force_x = force_x_MMS  !debug ! MMS
     force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
     ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
+
 end subroutine update_body_force
 
 subroutine collide_stream
@@ -333,22 +335,23 @@ subroutine Inflow_Outflow_BC
     ! macroscopic values
     ! h(1,:) = h(2,:)
     ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    h(1,:) = hAnal(1,:)
+    h(1,:) = h_in(time)
     ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
     ! u(1,:) = uAnal(1,:)
     ! u(Lx,:) = uAnal(Lx,:)
     ! u(1,:) = q_in/h(1,:)
     ! u(Lx,:) = q_in/h(Lx,:)
-    v(1,:) = vAnal(1,:)
-    v(Lx,:) = vAnal(Lx,:)
+    ! v(1,:) = vAnal(1,:)
+    ! v(Lx,:) = vAnal(Lx,:)
     u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     ! uAnal = u_analytical(time, Lx, Ly)
     ! u(1,:) = uAnal(1,:)
 
-    h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
-    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
-        &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
+    ! h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
+    u(Lx,:) = 0.0d0
+    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
+    ! u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
+    !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
 
     if ( BCInflow == "i" ) then
         ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
@@ -488,22 +491,41 @@ subroutine write_csv
     ! Write CSV header
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
     &, h analytical (m), u analytical (m/s), h analytical + zb (m) ,&
-    ! to add MMS source terms
     & Fx (m^2/s^2), Fy (m^2/s^2)&
+    & ,L1 h, L1 u, L1 v, L2 h, L2 u, L2 v&
     &'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F20.14,","),3(F20.14,","),7(F20.14,","), &
-            ! to add MMS source terms
-            & F20.14, F20.14   &
-            & )') &
-                x, y, &
-                dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
-                h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y) ,&
-                & force_x(2*x,2*y), force_y(2*x,2*y)
+            IF (x == 1 .AND. y == 1) THEN
+                write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),6(E20.14,","), &
+                ! source terms
+                ! & F20.14, F20.14,&!
+                & 2(E20.14,","),&
+
+                ! errors
+                ! &, 5(F20.14,","), F20.14& !
+                & 5(E20.14,","), E20.14&
+                & )') &
+                    x, y, &
+                    dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
+                    h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
+                    u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
+                    & force_x(2*x,2*y), force_y(2*x,2*y) &
+                    & ,L1_error(1), L1_error(2), L1_error(3), L2_error(1), L2_error(2), L2_error(3)
+            ELSE
+                write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),7(E20.14,","), &
+                ! source terms
+                ! & F20.14, F20.14,&!
+                & E20.14&
+                & )') &
+                    x, y, &
+                    dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
+                    h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
+                    u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
+                    & force_x(2*x,2*y), force_y(2*x,2*y)
+            end IF
         end do
     end do
     close(67)
@@ -545,31 +567,31 @@ subroutine end_simulation
     Ma = sqrt(uMax2)/(1.0d0/sqrt(3.0d0)*e)
     print*, "tau =",tau 
     if (tauOk) then
-        print*, "tau ok!"
+        print*, "tau ok"
     else
         print*, "tau NOT OKAY!!"
     end if
     print*, "u_ju_j/e^2 =", uMax2/(e*e)
     if (velOk) then
-        print*, "velocity ok!"
+        print*, "velocity ok"
     else
         print*, "velocity NOT OKAY!!"
     end if
     print*, "gh/e^2 =", gacl*hMax/(e*e)
     if (celOk) then
-        print*, "celerity ok!"
+        print*, "celerity ok"
     else
         print*, "celerity NOT OKAY!!"
     end if
     print*, "Fr max = ",FrMax, "at node:",i,j
     if (FrOk) then
-        print*, "Froude ok!"
+        print*, "Froude ok"
     else
         print*, "Froude NOT OKAY!!"
     end if
     print*, "Ma max = ",Ma!, "at node:",uIndex
     if (Ma<0.3) then
-        print*, "Mach ok!"
+        print*, "Mach ok"
     else 
         print*, "Mach NOT OKAY!!"
     end if
@@ -588,27 +610,35 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     double precision                :: outputArray(2*dimX+1, 2*dimY+1)
 
     do i = 2, 2*dimX
+        ! print*, "i =", i ! debug
         if (mod(i,2) == 0) then
-            outputArray(i,:) = originalArray(i/2,:)
+            outputArray(i,:) = originalArray(i/2,Ly/2)
+            ! print*, "originalArray(",i,",:) =", originalArray(i/2,:) ! debug
+            ! print*, "hCentered(",i,",:) =", outputArray(i,:) ! debug
         else
             outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
-             + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
+            & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
+            ! print*, "hCentered(",i,",:) =", (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)& ! debug
+            ! & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0 ! debug
         end if
+            ! print*, "hCentered(2,:) =", outputArray(i/2,:) ! debug
+
     end do
 
     outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
         & + 3.0d0*originalArray(3,dimY/2))/8.0d0 
     outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
+    
 end function centred_interpolation
 
 subroutine analytical_solution(currentTime, dimX, dimY)
     implicit none
     integer,          intent(in)    :: dimX, dimY
     double precision, intent(in)    :: currentTime
-    hAnal = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
     do i = 1, Lx
         position_x = DBLE(i - 0.5d0) * dx
+        hAnal(i,:) = H_part(2*i,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
         uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
     end do
 end subroutine
@@ -717,6 +747,22 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
         check_convergence = .false.
     end if
   end function check_convergence
+
+
+subroutine calculate_errors
+    !depth error
+    L1_error(1) = L1_error(1) + SUM(ABS(h - hAnal))
+    L2_error(1) = L2_error(1) + SUM((h - hAnal)*(h - hAnal))/(Lx*Ly)
+
+    ! x velocity error
+    L1_error(2) = L1_error(2) + SUM(ABS(u - uAnal))
+    L2_error(2) = L2_error(2) + SUM((u - uAnal)*(u - uAnal))
+
+    ! y velocity error
+    L1_error(3) = L1_error(3) + SUM(ABS(v - vAnal))
+    L2_error(3) = L2_error(3) + SUM((v - vAnal)*(v - vAnal))
+
+end subroutine calculate_errors
 
 subroutine MMS_analytic_solution
     ! double precision:: phi
