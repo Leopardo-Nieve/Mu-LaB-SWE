@@ -28,12 +28,13 @@ program main
     ! call the module LABSWE
     use ieee_arithmetic  ! Module for IEEE functions
     use Mu_LaB_SWE
-    implicit none ! had to write in a second line because VSCode was signaling an error
+    implicit none ! had to write in a second line because VSCode was signalling an error
 
     ! declare local working variables
     integer:: itera_no
     double precision :: uo, vo,simTime, x_r, y_r, radius, r
     character:: fdate*24, td*24 ! get date for output
+    character(len=3), dimension(2) :: all_forcing_schemes
     logical:: steadyFlow
 
     r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8, 16, 32
@@ -41,20 +42,36 @@ program main
     ! define Manning's coefficient
     nb = 0.012d0
 
+    ! initialize stopSim to let the simulation run
+    stopSim = .false.
+
     steadyFlow = .FALSE. ! if steady define `.true.`, if tidal define `.false.`
 
-    ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
-    BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-    BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-
-    ! initialize stopSim and epsilon to let the simulation run
-    stopSim = .false.
+    ! initialize stopSim epsilon to let the simulation run
     if ( steadyFlow ) then
         epsilon = 1.0d-8
     else
         epsilon = 0.0d0
     end if
     consCriter = 1.0d-3
+
+    ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
+    BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+    BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+
+    ! Forcing schemes: "bg": Buick-Greated, "gzs": Guo-Zheng-Shi
+    all_forcing_schemes = [character(len=3) :: "BG", "GZS"]
+
+    forcing_scheme = "BG"
+    forcing_scheme = trim(forcing_scheme)
+
+    do i=1, size(all_forcing_schemes)
+        if (forcing_scheme == all_forcing_schemes(i)) exit
+        if (i == size(all_forcing_schemes)) then
+            print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
+            stopSim = .true.
+        end if
+    end do
 
     current_iteration = 0
     ! itera_no = 1 !debug
@@ -86,7 +103,7 @@ program main
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))!, hIn(Ly), uIn(Ly))
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly))!, hIn(Ly), uIn(Ly))
 
 
     ! define pi

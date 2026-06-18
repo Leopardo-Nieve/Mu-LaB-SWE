@@ -1,19 +1,19 @@
-!----------------------------------------------------------! 
-!                       LABSWE.f90 
-! This module written in FORTRAN 90 implements the lattice 
-! Boltzmann method for shallow water equations (LABSWE), 
-! based on the 9-speed square lattices. It is adapted from 
+!----------------------------------------------------------!
+!                       LABSWE.f90
+! This module written in FORTRAN 90 implements the lattice
+! Boltzmann method for shallow water equations (LABSWE),
+! based on the 9-speed square lattices. It is adapted from
 ! the sample code presented in appendix B of
-! Zhou, J. G. (2004). Lattice Boltzmann methods for shallow 
-! water flows. Springer. 
+! Zhou, J. G. (2004). Lattice Boltzmann methods for shallow
+! water flows. Springer.
 ! https://doi.org/10.1007/978-3-662-08276-8
 ! Contrary to the sample code, the time step and lattice
-! spacing do not have to be taken as units. Also the 
-! module provides periodic boundary conditions, 
-! inflow-outflow boundary conditions in the x direction 
-! boundaries and no-slip boundary conditions in y direction 
-! boundaries. 
-! S. Fiset, Montreal, 2025 
+! spacing do not have to be taken as units. Also the
+! module provides periodic boundary conditions,
+! inflow-outflow boundary conditions in the x direction
+! boundaries and no-slip boundary conditions in y direction
+! boundaries.
+! S. Fiset, Montreal, 2025
 ! ----------------------------------------------------------!
 !                   List of Major Variables
 ! a, x, y, b, i, j, k - Loop integers
@@ -34,6 +34,7 @@
 ! Lx, Ly - Total lattice numbers in x and y directions [-]
 ! nu - Molecular viscosity  [m^2/s]
 ! q_in - Inflow discharge [m^2/s]
+! S - Source term [m/s]
 ! tau - Relaxation time [-]
 ! time - Amount of time elapsed since start of simulation [s]
 ! u, v - x and y components of flow velocity [m/s]
@@ -41,35 +42,38 @@
 ! zb - bed geometry
 module Mu_LaB_SWE
 
-        implicit none 
+        implicit none
 
         integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, & 
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
+        character(3):: forcing_scheme
+        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,gacl = 9.81,&
         & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs
-        double precision, dimension(9):: ex,ey, eMax
+        double precision, dimension(9):: ex,ey, eMax, omega
         double precision, dimension(3):: L1_error,L2_error
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
-        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
-    
-contains 
+        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S
+        double precision. allocatable, dimension(:,:,:,:,:) :: force
 
-subroutine setup 
-    
+contains
+
+subroutine setup
+
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
 
     ex = (/ 1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0,  0.0d0,  1.0d0, 0.0d0 /)
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
-    
+
+
     ex(9) = 0.0d0; ey(9) = 0.0d0
     eMax = gacl*h(1,3)/3.0d0
     eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
@@ -81,6 +85,11 @@ subroutine setup
     end do
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
+    ! declare the weights function
+    omega(1:7:2) = 1.0d0/9.0d0
+    omega(2:8:2) = 1.0d0/36.0d0
+    omega(9) = 4.0d0/9.0d0
+
     ! constants to limit random error
     one_24th_e2=1.0d0/(24.0d0*e*e)
     one_12th_e2=2.0d0*one_24th_e2
@@ -91,6 +100,7 @@ subroutine setup
     two_3rd_e2 = 2.0d0*one_3rd_e2
 
     dt_6e2=dt/(6.0d0*e*e)
+    one_minus_one_2tau = 1.0d0 - 1.0d0/(2.0d0 * tau)
 
     ! determine initial inlet depth and velocity
     ! h(1,:) = 1.0d-3 ! m, initial depth at inlet
@@ -103,17 +113,17 @@ subroutine setup
     ! end do
 
     ! commented do loop and moved compute_feq out of it for MMS
-    
-    ! compute the equilibrium distribution function feq 
+
+    ! compute the equilibrium distribution function feq
     call compute_feq
-    
+
     ! initDepth: do
-    !     ! compute the equilibrium distribution function feq 
+    !     ! compute the equilibrium distribution function feq
     !     call compute_feq
 
     !     ftemp = feq ! initialize the temporary distribution function
 
-    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then 
+    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then
     !         h = h + 1.0d-3 ! m, increase the depth at inlet by 1 mm
     !         ! commented because MMS requires new velocity inlet condition
     !         ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
@@ -126,12 +136,12 @@ subroutine setup
 
     stopSim = .false. ! reset stopSim flag before starting the simulation
 
-    ! Set the initial distribution function to feq 
+    ! Set the initial distribution function to feq
     f = feq
     return
 end subroutine setup
 
-subroutine update_body_force   
+subroutine update_body_force
     ! interpolate values of h centred between each nodes to evaluate centred slope body force
     ! do x = 2, 2*Lx
     !     if (mod(x,2) == 0) then
@@ -145,14 +155,14 @@ subroutine update_body_force
     !     ! end if!debug
     ! end do
 
-    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
-    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
+    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0
+    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0
 
     hCentered = centred_interpolation(h,Lx,Ly)
     ! uCentered = centred_interpolation(u,Lx,Ly)
     ! vCentered = centred_interpolation(v,Lx,Ly)
 
-    ! ! bed shear stress    
+    ! ! bed shear stress
     ! Cz = hCentered**(1.0d0/6.0d0)/nb ! Chezy coefficient
     ! Cb = gacl/(Cz*Cz) ! bed friction coefficient
     ! tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
@@ -165,73 +175,82 @@ subroutine update_body_force
     force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
     ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
 
+    ! Define source term
+    if (forcing_scheme == "BG ") then
+        do i = 1,Lx
+            do j = 1,Ly
+                S(:,i,j) = one_minus_one_2tau * 3.0d0*omega(:)/(ex(:)*ex(:) + ey(:)*ey(:))!*(ex(:)*force_x()
+            end do
+        end do
+    end if
+
 end subroutine update_body_force
 
 subroutine collide_stream
 
-    ! This calculates distribution function with the LABSWE 
+    ! This calculates distribution function with the LABSWE
 
-    do y = 1, Ly 
+    do y = 1, Ly
         yf = y + 1
         yb = y -1
-    
+
         do x = 1, Lx
             xf = x + 1
             xb = x -1
             ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
             ! Following 2 lines Implement periodic BCs in x direction
-            ! if (xf > Lx) xf = xf - Lx 
-            ! if (xb < 1) xb = Lx + xb 
-            
+            ! if (xf > Lx) xf = xf - Lx
+            ! if (xb < 1) xb = Lx + xb
+
             ! Following 2 lines Implement periodic BCs in y direction
             if (yf > Ly) yf = yf - Ly
-            if (yb < 1) yb = Ly + yb 
+            if (yb < 1) yb = Ly + yb
 
-            ! start streaming and collision 
+            ! start streaming and collision
             if (xf<=Lx) then ! periodic in y direction
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
                 & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
-                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
+                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau&
                 & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
             end if
             ! if (yf<=Ly) ! periodic in y direction
-            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
+            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
                 & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
-                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
+                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau&
                 & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
             end if
-            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
+            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau&
                 & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
             if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
-                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
+                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau&
                 & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
             end if
             ! if (yb>=1) ! periodic in y direction
-            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
+            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
                 & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
-                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
+                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau&
                 & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
             end if
-            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
-            
-        end do 
+            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau
+
+        end do
     end do
 
 return
 end subroutine collide_stream
 
 subroutine solution
-    
+
     ! save last timestep
     hLast = h
     uLast = u
     vLast = v
-    
+
     ! compute physical variables h, u and v
 
     ! Set the distribution function f
@@ -256,16 +275,16 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
-    do a = 1, 8 
-        ! if (mod(a,2) == 0) then 
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +& 
-            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+& 
-            & ey(a)*v(:,:))+h(:,:)*one_8th_e4& 
-            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
-            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
-            & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+& 
-            & v(:,:)*v(:,:)) 
+    do a = 1, 8
+        ! if (mod(a,2) == 0) then
+        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +&
+            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+&
+            & ey(a)*v(:,:))+h(:,:)*one_8th_e4&
+            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+&
+            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+&
+            & ey(a)*v(:,:)*ey(a)*v(:,:))-&
+            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+&
+            & v(:,:)*v(:,:))
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
@@ -280,13 +299,13 @@ subroutine Noslip_BC
     ! this is for noslip boundary with Bounce back scheme
 
     ! for lower boundary
-    do a = 2, 4 
-        ftemp(a,:,1) = ftemp(a+4,:,1) 
+    do a = 2, 4
+        ftemp(a,:,1) = ftemp(a+4,:,1)
     end do
-    
+
     ! for upper boundary
-    do a = 6, 8 
-        ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
+    do a = 6, 8
+        ftemp(a,:,Ly) = ftemp(a-4,:,Ly)
     end do
 
     ! for cylinder boundary
@@ -311,25 +330,25 @@ subroutine Noslip_BC
     !     end do
     ! end do
 
-    return 
-end subroutine Noslip_BC 
+    return
+end subroutine Noslip_BC
 
 subroutine Slip_BC
 
     ! this is for slip boundary with Bounce back scheme
 
     ! for lower boundary
-    ftemp(2,:,1) = ftemp(8,:,1) 
-    ftemp(3,:,1) = ftemp(7,:,1) 
-    ftemp(4,:,1) = ftemp(6,:,1) 
-    
+    ftemp(2,:,1) = ftemp(8,:,1)
+    ftemp(3,:,1) = ftemp(7,:,1)
+    ftemp(4,:,1) = ftemp(6,:,1)
+
     ! for upper boundary
-    ftemp(8,:,Ly) = ftemp(2,:,Ly) 
+    ftemp(8,:,Ly) = ftemp(2,:,Ly)
     ftemp(7,:,Ly) = ftemp(3,:,Ly)
     ftemp(6,:,Ly) = ftemp(4,:,Ly)
 
-    return 
-end subroutine Slip_BC 
+    return
+end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
     ! macroscopic values
@@ -368,7 +387,7 @@ subroutine Inflow_Outflow_BC
         ! end do
 
         ! if ( .not. stopSim ) then
-        
+
         ! consistence check
         ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
         if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
@@ -454,8 +473,8 @@ subroutine write_csv
     ! integer, dimension(8) :: d
     character(len=19) :: formatted_time
     ! call date_and_time (values=d)
-    
-    
+
+
     call date_and_time(DATE=date, TIME=t, ZONE=zone)
     formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
                & //'T'//                             &
@@ -550,7 +569,7 @@ subroutine end_simulation
     FrMax = 0
     do x=1,Lx
         do y=1,Ly
-            if (u(x,y)**2+v(x,y)**2>uMax2) uMax2 = u(x,y)**2+v(x,y)**2 
+            if (u(x,y)**2+v(x,y)**2>uMax2) uMax2 = u(x,y)**2+v(x,y)**2
             Fr = (u(x,y)**2 + v(x,y)**2)/h(x,y)
             if (Fr>FrMax) then
                 FrMax=Fr
@@ -565,7 +584,7 @@ subroutine end_simulation
     if (gacl*hMax<e*e) celOk = .true. ! stability condition 3
     if (FrMax   < 1)   FrOk  = .true. ! stability condition 4
     Ma = sqrt(uMax2)/(1.0d0/sqrt(3.0d0)*e)
-    print*, "tau =",tau 
+    print*, "tau =",tau
     if (tauOk) then
         print*, "tau ok"
     else
@@ -592,7 +611,7 @@ subroutine end_simulation
     print*, "Ma max = ",Ma!, "at node:",uIndex
     if (Ma<0.3) then
         print*, "Mach ok"
-    else 
+    else
         print*, "Mach NOT OKAY!!"
     end if
 end subroutine end_simulation
@@ -626,10 +645,10 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     end do
 
     outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
-        & + 3.0d0*originalArray(3,dimY/2))/8.0d0 
+        & + 3.0d0*originalArray(3,dimY/2))/8.0d0
     outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
-    
+
 end function centred_interpolation
 
 subroutine analytical_solution(currentTime, dimX, dimY)
@@ -704,7 +723,7 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
     else
 
     end if
-    
+
 end function check_consistency
 
 logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
@@ -768,12 +787,12 @@ subroutine MMS_analytic_solution
     ! double precision:: phi
     double precision, dimension(3):: phi_0,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
     double precision, allocatable, dimension(:,:,:) :: phi,phi_1
-    
+
     allocate (phi(3,Lx,Ly), phi_1(3,Lx,Ly))
-    
+
     ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
     nu_MMS = 1.0d-2
-    
+
     phi_0   = [2.0d0, 0.0d0, 0.0d0]
     phi_k   = [0.0d0, 0.0d0, 0.0d0]
     phi_x   = [0.0d0, 0.0d0, 0.0d0]
@@ -783,22 +802,22 @@ subroutine MMS_analytic_solution
     a_phiy  = [1.0d0, 1.2d0, 1.0d0]
     a_phixy = [1.25d0, 0.2d0, 0.9d0]
 
-    
+
     do i = 1, Lx
         position_x = DBLE(i - 0.5d0) * dx
         do j = 1, Ly
             position_y = DBLE(j - 0.5d0) * dy
-            
+
             ! phi_1(:,i,j) = phi_k(:) &
             ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
             ! & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
             ! & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
-            
+
             ! BC_coeff(1) = (position_x - 0.0d0)*(position_x - 0.0d0) * (domainX - position_x) ! depth
             ! ! BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
             ! BC_coeff(2) = 1 ! u-velocity
             ! BC_coeff(3) = 1 ! v-velocity
-            
+
             ! phi(:,i,j) = phi_0(:) + phi_1(:,i,j) * BC_coeff(:)
 
             ! if (phi(1,i,j) >= 0) then
@@ -812,10 +831,10 @@ subroutine MMS_analytic_solution
 
             ! directly from Sympy code
             hAnal(i,j) = (2.0d0/3.0d0)*dsin(6.2831853071795865d0*position_x/domainX) + 2.0d0
-            if (hAnal(i,j) < 0) then 
+            if (hAnal(i,j) < 0) then
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.
-                exit 
+                exit
             end if
             uAnal(i,j) = 0.0d0
             vAnal(i,j) = 0.0d0
