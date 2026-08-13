@@ -28,42 +28,86 @@ program main
     ! call the module LABSWE
     use ieee_arithmetic  ! Module for IEEE functions
     use Mu_LaB_SWE
+    use m_config
     implicit none ! had to write in a second line because VSCode was signalling an error
+
+    ! configuration file
+    type(CFG_t)           :: my_cfg
 
     ! declare local working variables
     integer:: itera_no
     double precision :: uo, vo,simTime, x_r, y_r, radius, r
-    character:: fdate*24, td*24 ! get date for output
+    character:: td*24 ! get date for output
     character(len=3), dimension(2) :: all_forcing_schemes
     logical:: steadyFlow
+
+    ! standard values
+    call CFG_add(my_cfg, "physical_constants%nb", 0.012d0, "nb")
+    call CFG_add(my_cfg, "simulation_parameters%steadyFlow", .false., "steadyFlow")
+    call CFG_add(my_cfg, "simulation_parameters%epsilon", 0.0d0, "epsilon")
+    call CFG_add(my_cfg, "simulation_parameters%consCriter", 1.0d-3, "consCriter")
+    call CFG_add(my_cfg, "simulation_parameters%all_forcing_schemes", ["BG ", "GZS"], "all_forcing_schemes")
+    call CFG_add(my_cfg, "simulation_parameters%forcing_scheme", "BG ", "all_forcing_schemes")
+    call CFG_add(my_cfg, "simulation_parameters%simTime", 500.0d0, "simTime")
+    call CFG_add(my_cfg, "simulation_parameters%itera_no", NINT(4e8), "itera_no")
+    call CFG_add(my_cfg, "simulation_parameters%domainX", 14.0d3, "domainX")
+    call CFG_add(my_cfg, "simulation_parameters%domainY", 70.0d0, "domainY")
+    call CFG_add(my_cfg, "simulation_parameters%dx", 14.0d0, "dx")
+    call CFG_add(my_cfg, "simulation_parameters%dt", 0.07d0, "dt")
+    call CFG_add(my_cfg, "simulation_parameters%tau", 1.0d0, "tau")
+
+    ! read parameters.cfg file to update values
+    call CFG_read_file(my_cfg, "doc/parameters.cfg")
 
     r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8, 16, 32
 
     ! define Manning's coefficient
-    nb = 0.012d0
+!    nb = 0.012d0
+    call CFG_get(my_cfg, "physical_constants%nb", nb)
+    call CFG_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow)
+    call CFG_get(my_cfg, "simulation_parameters%consCriter", consCriter)
+    call CFG_get(my_cfg, "simulation_parameters%all_forcing_schemes", all_forcing_schemes)
+    call CFG_get(my_cfg, "simulation_parameters%forcing_scheme", forcing_scheme)
+    forcing_scheme = trim(forcing_scheme)
+    call CFG_get(my_cfg, "simulation_parameters%simTime", simTime)
+    call CFG_get(my_cfg, "simulation_parameters%itera_no", itera_no)
+    call CFG_get(my_cfg, "simulation_parameters%domainX", domainX)
+    call CFG_get(my_cfg, "simulation_parameters%domainY", domainY)
+    call CFG_get(my_cfg, "simulation_parameters%dx", dx)
+    call CFG_get(my_cfg, "simulation_parameters%dt", dt)
+    call CFG_get(my_cfg, "simulation_parameters%tau", tau)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
 
-    steadyFlow = .FALSE. ! if steady define `.true.`, if tidal define `.false.`
-
-    ! initialize stopSim epsilon to let the simulation run
+    ! initialize epsilon to let the simulation run
     if ( steadyFlow ) then
-        epsilon = 1.0d-8
-    else
-        epsilon = 0.0d0
+        call CFG_get(my_cfg, "simulation_parameters%epsilon", epsilon)
     end if
-    consCriter = 1.0d-3
+
+    ! debugging config fortran
+    print*, "Manning constant: ", nb
+    print*, "Steady flow: ", steadyFlow
+    print*, "Epsilon: ", epsilon
+    print*, "Consistency criterion: ", consCriter
+    print*, "All forcing schemes: ", all_forcing_schemes
+    print*, "Chosen forcing scheme: ", forcing_scheme
+    print*, "Simulation time: ", simTime
+    print*, "Iteration number: ", itera_no
+    print*, "Domain x: ", domainX
+    print*, "Domain y: ", domainY
+    print*, "dx: ", dx
+    print*, "dt: ", dt
+    print*, "tau: ", tau
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
 
     ! Forcing schemes: "bg": Buick-Greated, "gzs": Guo-Zheng-Shi
-    all_forcing_schemes = [character(len=3) :: "BG", "GZS"]
+!    all_forcing_schemes = [character(len=3) :: "BG", "GZS"]
 
-    forcing_scheme = "BG"
-    forcing_scheme = trim(forcing_scheme)
+
 
     do i=1, size(all_forcing_schemes)
         if (forcing_scheme == all_forcing_schemes(i)) exit
@@ -74,23 +118,12 @@ program main
     end do
 
     current_iteration = 0
-    ! itera_no = 1 !debug
-    ! itera_no = 7.9e4 !debug
-    itera_no = NINT(4e8)
 
+    ! Initialise time
     time = 0
-    simTime = 500.d0 ! s, maximum simulation time, set to a large value for steady flow
 
-    ! define total lattice numbers in x and y directions
-    domainX = 14.0d3 ! m
-    ! domainY = 2.0d0 ! m
-
-    ! assign a value of dx and dy
-    dx = 14.0d0/r ! m, lattice spacing
+    ! assign a value of dy
     dy = dx ! m, lattice spacing
-    ! because case is only 1D
-    domainY = 5.0d0 * dy ! m
-
 
     ! define total number of nodes in x and y directions
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
@@ -103,7 +136,7 @@ program main
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly))!, hIn(Ly), uIn(Ly))
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(9,Lx,Ly,1,1))!, hIn(Ly), uIn(Ly))
 
 
     ! define pi
@@ -212,9 +245,6 @@ program main
     ! calculate the minimum possible value of e such that the stationary population is positive
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! define timestep dt
-    dt = 0.07d0/r**2 !s
-
     ! define the lattice velocity
     e = dx/dt ! m/s, lattice velocity
 
@@ -226,13 +256,10 @@ program main
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 1.0d0
-    ! print *,  "passed tau" ! debug
 
 
     ! calculate molecular viscosity
     nu = (tau-0.5d0)*e*dx/3.0d0
-    ! print *,  "passed nu" ! debug
 
     ! initialize the velocities
     ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
@@ -377,7 +404,7 @@ program main
     ! write(6,*)' Writing results in file: result.dat ... '
     ! open(66,file='../results/result.dat',status='unknown')    ! run from \src
     open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
-    td=fdate()
+    call fdate(td)
     write(66,*) '# Date: ',td
     write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2))
     write(66,*) '# tau =',tau,', uO =',uo

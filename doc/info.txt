@@ -1,30 +1,16 @@
-2025-08-12
+2026-08-13
 
-Consistency not respected at inlet. If let run for 100 iterations anyway, inconsistency increases with time and depth inlet increases to non physical values.
+Body force scheme seems to be the culprit of low order of convergence per literature review. However, to make the code work dynamically and save time in the future, a case_parameter file will be used to define the case while the code should remain untouched between cases.
+This will allow domain size, force scheme choice etc. to be selected easily.
 
 ---
 
 Modifications since last version:
-- moved ho variable from main.f90 to to Mu_LaB_SWE.f90
-
-- defined pi in the setup subroutine
-
-- defined constants for initializing flow field later in code
-
-- defined initial u such that the discharge is continuous over the entire domain (u = q_in/(h*domainY))
-
-- wrote a logical function check_consistency. can only computate east direction for the moment
-
-- replaced the inflow consistency check lines by a call to check_consistency function
+- Created Makefile that works with codeblocks
+- Created a configuration file called parameters.cfg to work with config_fortran
+- Modified main.f90 to work with parameters.cfg
 
 ---
 
 Potential next step(s):
-
-- remove complexities: cylinder geometry, shear stress term
-
-- determine what causes instability in inlet condition (according to Ru (2023), the kinetic scheme currently used should still work)
-
-- Update iterative process to define initial depth over entire domain and avoid shocks
-
-- Determine way to display solid nodes so they have no value on paraview
+- create a source term variable that is defined differently based on the force scheme chosen

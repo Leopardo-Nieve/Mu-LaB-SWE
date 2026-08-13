@@ -60,7 +60,7 @@ module Mu_LaB_SWE
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S
-        double precision. allocatable, dimension(:,:,:,:,:) :: force
+        double precision, allocatable, dimension(:,:,:,:,:) :: force
 
 contains
 
@@ -78,7 +78,7 @@ subroutine setup
     eMax = gacl*h(1,3)/3.0d0
     eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
     eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
-    eMax = eMax/-(ex*u(1,3) + ey*v(1,3))
+    eMax = eMax/(-(ex*u(1,3) + ey*v(1,3)))
     eMax = 6.0d0*eMax
     do a=1,9
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
@@ -442,15 +442,16 @@ end subroutine Inflow_Outflow_BC
 
 subroutine ensure_results_directory
     implicit none
-    logical :: exists
+    logical :: exists!, ierr
     integer :: ierr
     character(len=100) :: cmd
 
     inquire(file='./results', exist=exists)
 
     if (.not. exists) then
-        cmd = 'mkdir ".\results"'
-        ierr = system(cmd)
+        cmd = 'mkdir "./results"'
+        call EXECUTE_COMMAND_LINE(cmd, exitstat=ierr)
+!        ierr = system(cmd)
         if (ierr /= 0) then
             print *, 'Error: Could not create the directory.'
             stop
@@ -554,7 +555,7 @@ subroutine sleep_seconds(n)
     integer, intent(in) :: n
     character(len=20) :: command
     write(command, '(A,I0,A)') 'timeout /T ', n, ' >nul'
-    call system(command)
+    call EXECUTE_COMMAND_LINE(command)
 end subroutine sleep_seconds
 
 subroutine end_simulation

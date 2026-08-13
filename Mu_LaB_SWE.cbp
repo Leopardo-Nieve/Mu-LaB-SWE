@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Mu_LaB_SWE" />
+		<Option makefile_is_custom="1" />
+		<Option pch_mode="2" />
+		<Option compiler="gfortran" />
+		<Build>
+			<Target title="Debug">
+				<Option output="bin/Mu_LaB_SWE" prefix_auto="1" extension_auto="1" />
+				<Option object_output="obj/" />
+				<Option type="1" />
+				<Option compiler="gfortran" />
+				<Compiler>
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+			<Target title="bin/main">
+				<Option output="bin/main" prefix_auto="1" extension_auto="1" />
+				<Option type="1" />
+				<Option compiler="gfortran" />
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="doc/parameters.cfg" />
+		<Unit filename="src/Mu_LaB_SWE.f90" />
+		<Unit filename="src/m_config.f90" />
+		<Unit filename="src/main.f90" />
+		<Extensions />
+	</Project>
+</CodeBlocks_project_file>
