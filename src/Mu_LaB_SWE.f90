@@ -16,7 +16,7 @@
 ! S. Fiset, Montreal, 2025
 ! ----------------------------------------------------------!
 !                   List of Major Variables
-! a, x, y, b, i, j, k - Loop integers
+! a, x, y, i, j, k - Loop integers
 ! domainX, domainY - Domain's size in x and y directions [m]
 ! dt - time step [s]
 ! dx, dy - lattice spacing in x and y directions [m]
@@ -44,7 +44,7 @@ module Mu_LaB_SWE
 
         implicit none
 
-        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
+        integer:: Lx,Ly,x,y,a,current_iteration, i,j,k,xf,yf,xb,yb
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
