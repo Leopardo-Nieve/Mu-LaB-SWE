@@ -55,13 +55,14 @@ module Mu_LaB_SWE
         & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C
         double precision, dimension(9):: ex,ey, eMax, omega
         double precision, dimension(3):: L1_error,L2_error
+        double precision, dimension(2,9):: e_vec
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S
-        double precision, allocatable, dimension(:,:,:,:,:) :: force
+        double precision, allocatable, dimension(:,:,:,:) :: force
 
 contains
 
@@ -76,6 +77,8 @@ subroutine setup
 
 
     ex(9) = 0.0d0; ey(9) = 0.0d0
+    e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
+    e_vec = e*e_vec ! scale for non unit lattice velocity
     eMax = gacl*h(1,3)/3.0d0
     eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
     eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
@@ -84,7 +87,7 @@ subroutine setup
     do a=1,9
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
-    ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
+    !ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
     ! declare the weights function
     omega(1:7:2) = 1.0d0/9.0d0
@@ -175,6 +178,9 @@ subroutine update_body_force
     ! force_x = force_x_MMS  !debug ! MMS
     force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
     ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
+    do a=1,9
+        force(a,1,:,:) = e_vec(1,a)*force_x(:,:); force(a,2,:,:) = e_vec(2,a)*force_y(:,:)
+    end do
 
     ! Define source term
     if (forcing_scheme == "BG ") then
