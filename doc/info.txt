@@ -1,16 +1,30 @@
-2026-08-13
-
-Body force scheme seems to be the culprit of low order of convergence per literature review. However, to make the code work dynamically and save time in the future, a case_parameter file will be used to define the case while the code should remain untouched between cases.
-This will allow domain size, force scheme choice etc. to be selected easily.
-
+2026-08-27
 ---
 
 Modifications since last version:
-- Created Makefile that works with codeblocks
-- Created a configuration file called parameters.cfg to work with config_fortran
-- Modified main.f90 to work with parameters.cfg
+- Undid most recent commit which eliminated the error, but reverted my change with the new source term variable
+- Added B and C source term variables back
+- vectorised the lattice velocity so it can be summed more easily 
+- vectorised the body force
+- vectorise the velocity
+- modify calculation of velocity to include l=1/2 term 
 
 ---
 
 Potential next step(s):
-- create a source term variable that is defined differently based on the force scheme chosen
+- create a 2D centred force scheme
+- modify body force scheme:	
+	- create a source term variable that is defined differently based on the force scheme chosen			
+		- define S term with correct general equation
+		- replace source term in collide_stream subroutine  
+	
+	- modify body force term to include hydrostatic pressure term
+	
+	- modify equilibrium populations to not include hydrostatic pressure term
+		- use vectorised variables for e_vec and u_vec	
+
+
+- run convergence analysis on seamount case Li et al. (2019)
+	- modify bed geometry
+	- run one case for each force scheme and compare to analytical solution
+	- write script automating convergence analysis and run it

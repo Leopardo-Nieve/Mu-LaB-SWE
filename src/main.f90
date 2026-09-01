@@ -109,13 +109,24 @@ program main
 
 
 
-    do i=1, size(all_forcing_schemes)
-        if (forcing_scheme == all_forcing_schemes(i)) exit
-        if (i == size(all_forcing_schemes)) then
-            print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
-            stopSim = .true.
-        end if
-    end do
+!    do i=1, size(all_forcing_schemes)
+!        if (forcing_scheme == all_forcing_schemes(i)) exit
+!        if (i == size(all_forcing_schemes)) then
+!!            print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
+!!            stopSim = .true.
+!        end if
+!    end do
+
+    if (forcing_scheme == "BG ") then
+        B = 1.0d0-1.0d0/(2.0d0*tau)
+        C = 0
+    elseif (forcing_scheme == "GZS") then
+        B = 1.0d0-1.0d0/(2.0d0*tau)
+        C = 1.0d0-1.0d0/(2.0d0*tau)
+    else
+        print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
+        stopSim = .true.
+    end if
 
     current_iteration = 0
 
@@ -136,7 +147,8 @@ program main
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(9,Lx,Ly,1,1))!, hIn(Ly), uIn(Ly))
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(9,2,2*Lx+1,2*Ly+1),&
+        &u_vec(2,Lx,Ly),u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
 
 
     ! define pi
@@ -226,17 +238,17 @@ program main
     ! q_in = 1d-2 ! debug
     ! q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
     ! h()
-    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
-    ! u(1,:) = uAnal(1,:)
-    ! u(Lx,:) = uAnal(Lx,:)
-    ! u(1,:) = u_in
-    ! u(Lx,:) = u_out
+    ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
+    ! u_vec(1,1,:) = uAnal(1,:)
+    ! u_vec(1,Lx,:) = uAnal(Lx,:)
+    ! u_vec(1,1,:) = u_in
+    ! u_vec(1,Lx,:) = u_out
     ! v(1,:) = vAnal(1,:)
     ! v(Lx,:) = vAnal(Lx,:)
     ! h(1,:) = 2.0d0
     ! hOut = 2.0d0 ! m, outflow depth
     ! h(Lx,:) = hOut ! set outflow depth
-    ! u(Lx,:) = 0.0d0
+    ! u_vec(1,Lx,:) = 0.0d0
 
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
@@ -264,7 +276,7 @@ program main
     ! initialize the velocities
     ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
     ! do i = 2, Lx-2
-    !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
+    !     u_vec(1,i,:) = (u_vec(1,Lx,:) - u_vec(1,1,:))/Lx * i + u_vec(1,1,:)
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
 
@@ -281,7 +293,7 @@ program main
     ! prepare the calculations
     call setup
     ! print*, "After setup"" ! debug
-    ! print*, "u(1,:) =", u(1,:)" ! debug
+    ! print*, "u_vec(1,1,:) =", u_vec(1,1,:)" ! debug
     ! print*, "v(1,:) =", v(1,:)" ! debug
 
     ! do a=1,9
@@ -363,13 +375,13 @@ program main
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,'   ', time, '   ',&
         & hAnal(1,Ly/2), '   ', h(1,Ly/2) ! debug
-        ! & h(1,Ly/2), '   ', u(1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
+        ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
 
         do i=1,Lx
             do j = 1, Ly
 
                 ! make sure no u is NaN
-                if (ieee_is_nan(u(i,j))) then
+                if (ieee_is_nan(u_vec(1,i,j))) then
                     print*, "u",i,j,"is not a number"
                     stopSim = .true.
                 end if
@@ -406,18 +418,18 @@ program main
     open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
     call fdate(td)
     write(66,*) '# Date: ',td
-    write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2))
+    write(66,*) '# Fr =' ,u_vec(1,1,Ly/2)/sqrt(gacl*h(1,Ly/2))
     write(66,*) '# tau =',tau,', uO =',uo
     write(66,*) '# Iteration No.: ',current_iteration
     write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
     write(66,*) '#      Results of the computations'
     write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
-                                        & 'u(i,j)' , 'v(i,j)'
+                                        & 'u_vec(1,i,j)' , 'v(i,j)'
     write(66,*) '#------------------------------------------'
 
     do x = 1, Lx
         do y = 1, Ly
-            write(66,'(2i4,3f12.6)')x,y,h(x,y),u(x,y) ,v(x,y)
+            write(66,'(2i4,3f12.6)')x,y,h(x,y),u_vec(1,x,y) ,v(x,y)
         end do
     end do
     close(66)
