@@ -144,7 +144,7 @@ program main
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
-        & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
+        & H_part(2*Lx+1,2*Ly+1),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(9,2,2*Lx+1,2*Ly+1),&
@@ -320,6 +320,8 @@ program main
         call update_body_force
         ! print *,  "passed update_body_force" ! debug
 
+        ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision)
+        ! call Noslip_BC
 
         ! Streaming and collision steps
         call collide_stream
@@ -337,8 +339,7 @@ program main
             end do
         end do
 
-        ! Apply no slip at solid boundary nodes
-        ! call Noslip_BC
+
 
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC

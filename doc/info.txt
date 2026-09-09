@@ -14,12 +14,13 @@ Modifications since last version:
 - vectorised the body force
 - vectorise the velocity
 - modify calculation of velocity to include l=1/2 term 
+- zb is now of dimensions Lx x Ly
 
 ---
 
 Potential next step(s):
-- remove the dx/2 offset and make solid boundary conditions the modified boundary condition (if not done already)
-- makie it so h_centered is the average value of the two neighbouring nodes
+- create a body force calculation subroutine or function that returns/assigns the value of the body force in both cartesian directions for a certain alpha direction, a position along the x axis and a position along the y axis
+- remove the dx/2 offset when analysing geometry and assigning initial values
 - create a 2D centred force scheme
 - modify body force scheme:	
 	- create a source term variable that is defined differently based on the force scheme chosen			

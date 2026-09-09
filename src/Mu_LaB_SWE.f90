@@ -78,8 +78,6 @@ subroutine setup
 
     e_unit(:,:) = reshape([1,0, 1,1, 0,1, -1,1, -1,0, -1,-1, 0,-1, 1,-1, 0,0], (/2, 9/) ) ! unit lattice velocities
     !e_unit(:,:) = reshape([1,2,3,4,5,6,7,8,9, 10,11,12,13,14,15,16,17,18], (/2, 9/) ) ! debug
-    print*, "ex = ", e_unit(1,:) ! debug
-    print*, "ey = ", e_unit(2,:) ! debug
 
     ex(9) = 0.0d0; ey(9) = 0.0d0
     e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
