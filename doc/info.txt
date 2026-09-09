@@ -1,5 +1,11 @@
-2026-08-27
+2026-09-09
 ---
+I realised I missed a much simpler way to apply the centred scheme. The only value I actually need at the midpoint between two nodes is the depth. I found out they simply used the average depth. 
+Then, I can use a finite difference scheme with two neighbouring nodes to find the 2nd order centred gradient. No need for another array with complex indices that cost a bunch of memory. I just need to recalculate that at each timestep, which is why it might be quicker to divide the bed slope and hydrostatic pressure gradients, since the bed slope is steady. 
+
+To apply this, maybe I have to remove the dx/2 offset of cells at the boundary. Otherwise, calculating the force towards towads a boundary from a boundary cell is more complex.
+
+After having read Zhou's treatment of boundary conditions and Guo's explanation of the 4 different bounceback schemes, I determined that I was previously using the modified bounceback scheme, which is of 2nd order of accuracy! I should be able to remove the offset without any issue
 
 Modifications since last version:
 - Undid most recent commit which eliminated the error, but reverted my change with the new source term variable
@@ -12,6 +18,8 @@ Modifications since last version:
 ---
 
 Potential next step(s):
+- remove the dx/2 offset and make solid boundary conditions the modified boundary condition (if not done already)
+- makie it so h_centered is the average value of the two neighbouring nodes
 - create a 2D centred force scheme
 - modify body force scheme:	
 	- create a source term variable that is defined differently based on the force scheme chosen			

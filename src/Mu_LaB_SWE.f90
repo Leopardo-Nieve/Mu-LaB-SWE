@@ -47,12 +47,13 @@ module Mu_LaB_SWE
 
         integer:: Lx,Ly,x,y,a,current_iteration, i,j,k,xf,yf,xb,yb
         integer, dimension(2):: hIndex
+        integer, dimension(2,9) :: e_unit
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,gacl = 9.81,&
-        & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C
+        & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
         double precision, dimension(9):: ex,ey, eMax, omega
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
@@ -75,6 +76,10 @@ subroutine setup
     ex = (/ 1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0,  0.0d0,  1.0d0, 0.0d0 /)
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
 
+    e_unit(:,:) = reshape([1,0, 1,1, 0,1, -1,1, -1,0, -1,-1, 0,-1, 1,-1, 0,0], (/2, 9/) ) ! unit lattice velocities
+    !e_unit(:,:) = reshape([1,2,3,4,5,6,7,8,9, 10,11,12,13,14,15,16,17,18], (/2, 9/) ) ! debug
+    print*, "ex = ", e_unit(1,:) ! debug
+    print*, "ey = ", e_unit(2,:) ! debug
 
     ex(9) = 0.0d0; ey(9) = 0.0d0
     e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
@@ -146,6 +151,17 @@ subroutine setup
 end subroutine setup
 
 subroutine update_body_force
+    do x=1,Lx
+        do y=1,Ly
+            do a=1,9
+                h_bar = 0.5d0 * (h(x,y) + h(x+e_unit(1,a),y+e_unit(2,a)) )
+                ! centred finite difference
+                force(1,a,x,y) = - gacl * h_bar * ((h(x+e_unit(1,a),y) + zb(x+e_unit(1,a),y)) - (h(x-e_unit(1,a),y) + zb(x-e_unit(1,a),y)))/dx
+                force(2,a,x,y) = - gacl * h_bar * ((h(x,y+e_unit(2,a)) + zb(x,y+e_unit(2,a))) - (h(x,y-e_unit(2,a)) + zb(x,y-e_unit(2,a))))/dx
+            end do
+        end do
+    end do
+
     ! interpolate values of h centred between each nodes to evaluate centred slope body force
     ! do x = 2, 2*Lx
     !     if (mod(x,2) == 0) then
@@ -162,7 +178,7 @@ subroutine update_body_force
     ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0
     ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0
 
-    hCentered = centred_interpolation(h,Lx,Ly)
+!    hCentered = centred_interpolation(h,Lx,Ly)
     ! uCentered = centred_interpolation(u,Lx,Ly)
     ! vCentered = centred_interpolation(v,Lx,Ly)
 
@@ -173,14 +189,14 @@ subroutine update_body_force
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
+!    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
     ! force_x = 0.0d0 ! debug
     ! force_x = force_x_MMS  !debug ! MMS
-    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
+!    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
     ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
-    do a=1,9
-        force(a,1,:,:) = e_vec(1,a)*force_x(:,:); force(a,2,:,:) = e_vec(2,a)*force_y(:,:)
-    end do
+!    do a=1,9
+!        force(a,1,:,:) = e_vec(1,a)*force_x(:,:); force(a,2,:,:) = e_vec(2,a)*force_y(:,:)
+!    end do
 
     ! Define source term
 !    do i = 1,2
@@ -639,21 +655,32 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     double precision, intent(in)    :: originalArray(:,:)
     double precision                :: outputArray(2*dimX+1, 2*dimY+1)
 
-    do i = 2, 2*dimX
-        ! print*, "i =", i ! debug
-        if (mod(i,2) == 0) then
-            outputArray(i,:) = originalArray(i/2,Ly/2)
-            ! print*, "originalArray(",i,",:) =", originalArray(i/2,:) ! debug
-            ! print*, "hCentered(",i,",:) =", outputArray(i,:) ! debug
-        else
-            outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
+    ! both node's coordinates are even (no interpolation needed)
+    do x = 2, 2*dimX, 2
+        do y=2,2*dimY, 2
+            outputArray(x,y) = originalArray(x/2,y/2)
+        end do
+    end do
+
+    ! x position is even, but y is odd
+    do x = 2, 2*dimX, 2
+        do y=3, 2*dimY-1, 2
+            outputArray(x,y) = 0.5d0 * (originalArray(x/2, (y+1)/2) + originalArray(x/2, (y-1)/2))
+        end do
+    end do
+
+    ! x position is odd, but y is even
+    do x = 3, 2*dimX-1, 2
+        do y=2, 2*dimX, 2
+!            outputArray(x,y) =
+        end do
+    end do
+
+    outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
             & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
             ! print*, "hCentered(",i,",:) =", (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)& ! debug
             ! & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0 ! debug
-        end if
             ! print*, "hCentered(2,:) =", outputArray(i/2,:) ! debug
-
-    end do
 
     outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
         & + 3.0d0*originalArray(3,dimY/2))/8.0d0
