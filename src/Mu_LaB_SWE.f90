@@ -52,8 +52,8 @@ module Mu_LaB_SWE
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,gacl = 9.81,&
-        & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e2,&
+        & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
@@ -68,7 +68,6 @@ module Mu_LaB_SWE
 contains
 
 subroutine setup
-
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
@@ -110,7 +109,10 @@ subroutine setup
             e_squared(a) = e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a)
             e_fourth(a) = (e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a))**2
     end do
-
+    nine_4 = 9.0d0/4.0d0
+    nine_2e2 = 9.0d0/(2.0d0*e**2)
+    three_e2 = 3.0d0/(e**2)
+    three_2e2 = 0.5d0*three_e2
 
     dt_6e2=dt/(6.0d0*e*e)
     one_minus_one_2tau = 1.0d0 - 1.0d0/(2.0d0 * tau)
@@ -293,31 +295,31 @@ subroutine collide_stream
             ! start streaming and collision
             if (xf<=Lx) then ! periodic in y direction
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
+                & + dt*S(1,x,y)
             end if
             if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
                 ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau&
-                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
+                & + dt*S(2,x,y)
             end if
             ! if (yf<=Ly) ! periodic in y direction
             ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
-                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
+                & + dt*S(3,x,y)
             if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau&
-                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
+                & + dt*S(4,x,y)
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau&
-                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
+                & + dt*S(5,x,y)
             if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau&
-                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
+                & + dt*S(6,x,y)
             end if
             ! if (yb>=1) ! periodic in y direction
             ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
-                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
+                & + dt*S(7,x,y)
             if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau&
-                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
+                & + dt*S(8,x,y)
             end if
             ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau
 
@@ -357,21 +359,23 @@ subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
     do a = 1, 8
-        ! if (mod(a,2) == 0) then
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +&
-            & h(:,:)*one_12th_e2*(ex(a)*u(1,:,:)+&
-            & ey(a)*u(2,:,:))+h(:,:)*one_8th_e4&
-            & *(ex(a)*u(1,:,:)*ex(a)*u(1,:,:)+&
-            & 2.0d0*ex(a)*u(1,:,:)*ey(a)*u(2,:,:)+&
-            & ey(a)*u(2,:,:)*ey(a)*u(2,:,:))-&
-            & h(:,:)*one_24th_e2*(u(1,:,:)*u(1,:,:)+&
-            & u(2,:,:)*u(2,:,:))
-        ! end if
+        ! initialise
+        feq(a,:,:) = 0.0d0
+
+        do i = 1,2
+            do j = 1,2
+                feq(a,:,:) = feq(a,:,:) + omega(a) * h(:,:)* (three_e2*e_vec(i,a)*u(i,:,:) - nine_2e2*e_vec(i,a)*u(i,:,:)*e_vec(j,a)*u(j,:,:)&
+                & - three_2e2* u(i,:,:)*u(i,:,:))
+            end do
+        end do
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
     end do
-    feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
-             & two_3rd_e2*h(:,:)*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:))
+    do i = 1,2
+        do j = 1,2
+            feq(9,:,:) = feq(9,:,:) + omega(9) * h(:,:)* (nine_4 - three_2e2*u(i,:,:)*u(i,:,:))
+        end do
+    end do
     return
 end subroutine compute_feq
 

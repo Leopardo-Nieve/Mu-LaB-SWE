@@ -11,19 +11,11 @@ I apply the bounce back on the boundary nodes BEFORE the streaming and collision
 Modifications since last version:
 - defined S term with correct general equation
 - removed the definition of u(Lx,Ly) and v(Lx,Ly) and instead only used u(2,Lx,Ly)
-
+- replaced source term in collide_stream subroutine by S variable
+- modified equilibrium populations to not include hydrostatic pressure term
 ---
 
 Potential next step(s):
-- modify body force scheme:
-	- create a source term variable that is defined differently based on the force scheme chosen			
-		- replace source term in collide_stream subroutine  
-	
-	- modify body force term to include hydrostatic pressure term
-	
-	- modify equilibrium populations to not include hydrostatic pressure term
-		- use vectorised variables for e_vec
-
 - run convergence analysis on seamount case Li et al. (2019)
 	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
 	- run one case for each force scheme and compare to analytical solution
