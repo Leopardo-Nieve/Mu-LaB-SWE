@@ -1,11 +1,12 @@
-2026-09-09
+2026-09-10
 ---
 I realised I missed a much simpler way to apply the centred scheme. The only value I actually need at the midpoint between two nodes is the depth. I found out they simply used the average depth. 
 Then, I can use a finite difference scheme with two neighbouring nodes to find the 2nd order centred gradient. No need for another array with complex indices that cost a bunch of memory. I just need to recalculate that at each timestep, which is why it might be quicker to divide the bed slope and hydrostatic pressure gradients, since the bed slope is steady. 
 
 To apply this, maybe I have to remove the dx/2 offset of cells at the boundary. Otherwise, calculating the force towards towads a boundary from a boundary cell is more complex.
 
-After having read Zhou's treatment of boundary conditions and Guo's explanation of the 4 different bounceback schemes, I determined that I was previously using the modified bounceback scheme, which is of 2nd order of accuracy! I should be able to remove the offset without any issue
+After having read Zhou's treatment of boundary conditions and Guo's explanation of the 4 different bounceback schemes, I determined that using the "modified bounceback scheme" could work. 
+I apply the bounce back on the boundary nodes BEFORE the streaming and collision steps. This allows the fullway bounceback to become second order (one time step to "feel" the boundary instead of 2)
 
 Modifications since last version:
 - Undid most recent commit which eliminated the error, but reverted my change with the new source term variable
@@ -15,13 +16,13 @@ Modifications since last version:
 - vectorise the velocity
 - modify calculation of velocity to include l=1/2 term 
 - zb is now of dimensions Lx x Ly
-
+- created a body force calculation function that calculates the value of the body force in both cartesian directions for a certain alpha direction, a position along the x axis and a position along the y axis
+- created a 2D centred body force scheme
 ---
 
 Potential next step(s):
-- create a body force calculation subroutine or function that returns/assigns the value of the body force in both cartesian directions for a certain alpha direction, a position along the x axis and a position along the y axis
 - remove the dx/2 offset when analysing geometry and assigning initial values
-- create a 2D centred force scheme
+
 - modify body force scheme:	
 	- create a source term variable that is defined differently based on the force scheme chosen			
 		- define S term with correct general equation

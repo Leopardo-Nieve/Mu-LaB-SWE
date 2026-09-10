@@ -148,14 +148,102 @@ subroutine setup
     return
 end subroutine setup
 
+function calculate_body_force(alpha, x_node, y_node) result(body_forces)
+
+    integer, intent(in):: alpha, x_node, y_node
+    double precision   :: body_forces(2)
+
+    h_bar = 0.5d0 * ( h(x_node,y_node) + h(x_node+e_unit(1,alpha),y_node+e_unit(2,alpha)) )
+
+    body_forces(1) = - gacl * h_bar * ((h(x_node+e_unit(1,alpha),y_node) + zb(x_node+e_unit(1,alpha),y_node)) &
+    &- (h(x_node,y_node) + zb(x_node,y_node)))/dx * e_unit(1,alpha)
+
+    body_forces(2) = - gacl * h_bar * ((h(x_node,y_node+e_unit(2,alpha)) + zb(x_node,y_node+e_unit(2,alpha))) &
+    &- (h(x_node,y_node) + zb(x_node,y_node)))/dx * e_unit(2,alpha)
+
+end function calculate_body_force
+
+
 subroutine update_body_force
-    do x=1,Lx
-        do y=1,Ly
-            do a=1,9
-                h_bar = 0.5d0 * (h(x,y) + h(x+e_unit(1,a),y+e_unit(2,a)) )
-                ! centred finite difference
-                force(1,a,x,y) = - gacl * h_bar * ((h(x+e_unit(1,a),y) + zb(x+e_unit(1,a),y)) - (h(x-e_unit(1,a),y) + zb(x-e_unit(1,a),y)))/dx
-                force(2,a,x,y) = - gacl * h_bar * ((h(x,y+e_unit(2,a)) + zb(x,y+e_unit(2,a))) - (h(x,y-e_unit(2,a)) + zb(x,y-e_unit(2,a))))/dx
+
+    ! centred nodes
+    do y = 2, Ly-1
+        do x = 2, Lx-1
+            do a = 1, 9
+                force(:,a,x,y) = calculate_body_force(a,x,y)
+            end do
+        end do
+    end do
+
+
+    ! left border
+    do y = 2, Ly-1
+        ! do not do directions 4, 5 and 6 because no body force needs to be calculated
+        do a = 1, 3
+            force(:,a,1,y) = calculate_body_force(a,1,y)
+        end do
+
+        do a = 7, 8
+            force(:,a,1,y) = calculate_body_force(a,1,y)
+        end do
+    end do
+
+    ! right border
+    do y=2,Ly-1
+        ! do not do directions 1, 2 and 8 because no body force needs to be calculated
+        do a = 3,7
+            force(:,a,Lx,y) = calculate_body_force(a,Lx,y)
+        end do
+    end do
+
+    ! bottom border
+    do x = 2, Lx-1
+        ! do not do directions 6, 7 and 8 because no body force needs to be calculated
+        do a = 1, 5
+            force(:,a,x,1) = calculate_body_force(a,x,1)
+        end do
+    end do
+
+    ! top border
+    do x = 2, Lx-1
+        ! do not do directions 2, 3 and 4 because no body force needs to be calculated
+
+        force(:,1,x,Ly) = calculate_body_force(1,x,Ly)
+
+        do a = 5, 8
+            force(:,a,x,Ly) = calculate_body_force(a,x,Ly)
+        end do
+    end do
+
+    ! corners
+
+    ! bottom left, only do directions 1, 2 and 3
+    do a = 1,3
+        force(:,a,1,1) = calculate_body_force(a,1,1)
+    end do
+
+    ! top left, only do directions 1, 7 and 8
+    force(:,1,1,Ly) = calculate_body_force(1,1,Ly)
+
+    do a = 7,8
+        force(:,a,1,Ly) = calculate_body_force(a,1,Ly)
+    end do
+
+    ! bottom right, only do directions 4, 5 and 6
+    do a = 3, 5
+        force(:,a,Lx,1) = calculate_body_force(a,Lx,1)
+    end do
+
+    ! top right, only do directions 5, 6 and 7
+    do a = 5, 7
+        force(:,a,Lx,Ly) = calculate_body_force(a,Lx,Ly)
+    end do
+
+    ! debug
+    do y = 1, Ly
+        do x = 1, Lx
+            do a = 1, 9
+                if (force(1,a,x,y) /= 6 .or. force(2,a,x,y) /= 7) print*, "force(",a,x,y,"=", force(:,a,x,y)
             end do
         end do
     end do

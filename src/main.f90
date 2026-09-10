@@ -147,7 +147,7 @@ program main
         & H_part(2*Lx+1,2*Ly+1),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(9,2,2*Lx+1,2*Ly+1),&
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
         &u_vec(2,Lx,Ly),u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
 
 
