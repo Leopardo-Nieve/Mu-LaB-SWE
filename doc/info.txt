@@ -9,32 +9,22 @@ After having read Zhou's treatment of boundary conditions and Guo's explanation 
 I apply the bounce back on the boundary nodes BEFORE the streaming and collision steps. This allows the fullway bounceback to become second order (one time step to "feel" the boundary instead of 2)
 
 Modifications since last version:
-- Undid most recent commit which eliminated the error, but reverted my change with the new source term variable
-- Added B and C source term variables back
-- vectorised the lattice velocity so it can be summed more easily 
-- vectorised the body force
-- vectorise the velocity
-- modify calculation of velocity to include l=1/2 term 
-- zb is now of dimensions Lx x Ly
-- created a body force calculation function that calculates the value of the body force in both cartesian directions for a certain alpha direction, a position along the x axis and a position along the y axis
-- created a 2D centred body force scheme
+- defined S term with correct general equation
+- removed the definition of u(Lx,Ly) and v(Lx,Ly) and instead only used u(2,Lx,Ly)
+
 ---
 
 Potential next step(s):
-- remove the dx/2 offset when analysing geometry and assigning initial values
-
-- modify body force scheme:	
+- modify body force scheme:
 	- create a source term variable that is defined differently based on the force scheme chosen			
-		- define S term with correct general equation
 		- replace source term in collide_stream subroutine  
 	
 	- modify body force term to include hydrostatic pressure term
 	
 	- modify equilibrium populations to not include hydrostatic pressure term
-		- use vectorised variables for e_vec and u_vec	
-
+		- use vectorised variables for e_vec
 
 - run convergence analysis on seamount case Li et al. (2019)
-	- modify bed geometry
+	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
 	- run one case for each force scheme and compare to analytical solution
 	- write script automating convergence analysis and run it

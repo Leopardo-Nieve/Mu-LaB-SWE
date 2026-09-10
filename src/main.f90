@@ -140,7 +140,7 @@ program main
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(2,Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
@@ -148,7 +148,7 @@ program main
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
-        &u_vec(2,Lx,Ly),u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
+        & u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
 
 
     ! define pi
@@ -285,8 +285,8 @@ program main
         h(x,:) = H_part(2*x,Ly/2) ! m, initial water dept
     end do
     ! print *,  "passed h initializing" ! debug
-    u = uo
-    v = vo
+    u(1,:,:) = uo
+    u(2,:,:) = vo
     ! print*, "After initializing" ! debug
     ! print*, "h(1,:) =", h(1,:)" ! debug
     ! print *,  "reached setup" ! debug
@@ -382,13 +382,13 @@ program main
             do j = 1, Ly
 
                 ! make sure no u is NaN
-                if (ieee_is_nan(u_vec(1,i,j))) then
+                if (ieee_is_nan(u(1,i,j))) then
                     print*, "u",i,j,"is not a number"
                     stopSim = .true.
                 end if
 
                 ! make sure no v is NaN
-                if (ieee_is_nan(v(i,j))) then
+                if (ieee_is_nan(u(2,i,j))) then
                     print*, "v",i,j,"is not a number"
                     stopSim = .true.
                 end if
@@ -419,18 +419,18 @@ program main
     open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
     call fdate(td)
     write(66,*) '# Date: ',td
-    write(66,*) '# Fr =' ,u_vec(1,1,Ly/2)/sqrt(gacl*h(1,Ly/2))
+    write(66,*) '# Fr =' ,u(1,1,Ly/2)/sqrt(gacl*h(1,Ly/2))
     write(66,*) '# tau =',tau,', uO =',uo
     write(66,*) '# Iteration No.: ',current_iteration
     write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
     write(66,*) '#      Results of the computations'
     write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
-                                        & 'u_vec(1,i,j)' , 'v(i,j)'
+                                        & 'u(1,i,j)' , 'u(1,i,j)'
     write(66,*) '#------------------------------------------'
 
     do x = 1, Lx
         do y = 1, Ly
-            write(66,'(2i4,3f12.6)')x,y,h(x,y),u_vec(1,x,y) ,v(x,y)
+            write(66,'(2i4,3f12.6)')x,y,h(x,y),u(1,x,y),u(2,x,y)
         end do
     end do
     close(66)

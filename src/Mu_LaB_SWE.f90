@@ -54,15 +54,15 @@ module Mu_LaB_SWE
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,gacl = 9.81,&
         & hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
-        double precision, dimension(9):: ex,ey, eMax, omega
+        double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
+        double precision, allocatable, dimension(:,:):: h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
-        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u_vec,u_vecLast
+        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u,u_vecLast
         double precision, allocatable, dimension(:,:,:,:) :: force
 
 contains
@@ -82,11 +82,12 @@ subroutine setup
     ex(9) = 0.0d0; ey(9) = 0.0d0
     e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
     e_vec = e*e_vec ! scale for non unit lattice velocity
-    eMax = gacl*h(1,3)/3.0d0
-    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
-    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
-    eMax = eMax/(-(ex*u(1,3) + ey*v(1,3)))
-    eMax = 6.0d0*eMax
+
+!    eMax = gacl*h(1,3)/3.0d0
+!    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
+!    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
+!    eMax = eMax/(-(ex*u(1,3) + ey*v(1,3)))
+!    eMax = 6.0d0*eMax
     do a=1,9
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
@@ -105,6 +106,11 @@ subroutine setup
     one_8th_e4 = 1.0d0/(8.0d0*e*e*e*e)
     five_6th_g_e2 = 5.0d0*gacl*one_6th_e2
     two_3rd_e2 = 2.0d0*one_3rd_e2
+    do a = 1,9
+            e_squared(a) = e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a)
+            e_fourth(a) = (e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a))**2
+    end do
+
 
     dt_6e2=dt/(6.0d0*e*e)
     one_minus_one_2tau = 1.0d0 - 1.0d0/(2.0d0 * tau)
@@ -239,64 +245,27 @@ subroutine update_body_force
         force(:,a,Lx,Ly) = calculate_body_force(a,Lx,Ly)
     end do
 
-    ! debug
-    do y = 1, Ly
-        do x = 1, Lx
-            do a = 1, 9
-                if (force(1,a,x,y) /= 6 .or. force(2,a,x,y) /= 7) print*, "force(",a,x,y,"=", force(:,a,x,y)
+
+    ! initialise
+    S = 0.0d0
+
+    ! einstein notation sum
+    do y=1,Ly
+        do x=1,Lx
+            do a=1,9
+                do i=1,2
+                    do j=1,2
+                        S(a,x,y) = S(a,x,y) + ((e_vec(i,a) / (e_squared(a))) * B + ( (3*e_vec(j,a)*u(j,x,y)) / (e_fourth(a)) * e_vec(i,a) - u(i,x,y)/(e_squared(a)))*C) * force(i,a,x,y)
+                    end do
+                end do
             end do
         end do
     end do
 
-    ! interpolate values of h centred between each nodes to evaluate centred slope body force
-    ! do x = 2, 2*Lx
-    !     if (mod(x,2) == 0) then
-    !         hCentered(x,:) = h(x/2,Ly/2)
-    !     else
-    !         hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
-    !     end if
-
-    !     ! if ( x>190 .AND. x<210 ) then !debug
-    !     !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
-    !     ! end if!debug
-    ! end do
-
-    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0
-    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0
-
-!    hCentered = centred_interpolation(h,Lx,Ly)
-    ! uCentered = centred_interpolation(u,Lx,Ly)
-    ! vCentered = centred_interpolation(v,Lx,Ly)
-
-    ! ! bed shear stress
-    ! Cz = hCentered**(1.0d0/6.0d0)/nb ! Chezy coefficient
-    ! Cb = gacl/(Cz*Cz) ! bed friction coefficient
-    ! tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
-    ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
-
-    ! Set body force
-!    force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    ! force_x = 0.0d0 ! debug
-    ! force_x = force_x_MMS  !debug ! MMS
-!    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
-    ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
-!    do a=1,9
-!        force(a,1,:,:) = e_vec(1,a)*force_x(:,:); force(a,2,:,:) = e_vec(2,a)*force_y(:,:)
-!    end do
-
-    ! Define source term
-!    do i = 1,2
-!        do j = 1,2
-!            S(:,:,:) = ()*force(:,i,:,:)
-!        end do
-!    end do
-!
-!    ! multiply by centred body force
-!    do x=1,Lx
-!        do y=1,Ly
-!            S(:,x,y) = S(:,x,y) * force
-!        end do
-!    end do
+    ! multiply by weight factor
+    do a=1,9
+        S(a,:,:) = 3.0d0 * omega(a) * S(a,:,:)
+    end do
 
 end subroutine update_body_force
 
@@ -362,7 +331,7 @@ subroutine solution
 
     ! save last timestep
     hLast = h
-    u_vecLast = u_vec
+    u_vecLast = u
 
     ! compute physical variables h, u_vec
 
@@ -371,14 +340,14 @@ subroutine solution
 
     ! compute the velocity and depth
     h = 0.0d0
-    u_vec = 0.0d0
+    u = 0.0d0
     do a = 1, 9
         h(:,:) = h(:,:) + f(a,:,:)
-        u_vec(1,:,:) = u_vec(1,:,:) + e_vec(1,a)*f(a,:,:)
-        u_vec(2,:,:) = u_vec(2,:,:) + e_vec(2,a)*f(a,:,:)
+        u(1,:,:) = u(1,:,:) + e_vec(1,a)*f(a,:,:)
+        u(2,:,:) = u(2,:,:) + e_vec(2,a)*f(a,:,:)
     end do
-    u_vec(1,:,:) = (u_vec(1,:,:) + 0.5d0*dt*force(1,1,:,:))/h(:,:) ! add BG corrective term l*dt*F_i and divide by depth
-    u_vec(2,:,:) = (u_vec(2,:,:) + 0.5d0*dt*force(3,2,:,:))/h(:,:)
+    u(1,:,:) = (u(1,:,:) + 0.5d0*dt*force(1,1,:,:))/h(:,:) ! add BG corrective term l*dt*F_i and divide by depth
+    u(2,:,:) = (u(2,:,:) + 0.5d0*dt*force(3,2,:,:))/h(:,:)
 
     return
 
@@ -390,19 +359,19 @@ subroutine compute_feq
     do a = 1, 8
         ! if (mod(a,2) == 0) then
         feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +&
-            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+&
-            & ey(a)*v(:,:))+h(:,:)*one_8th_e4&
-            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+&
-            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+&
-            & ey(a)*v(:,:)*ey(a)*v(:,:))-&
-            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+&
-            & v(:,:)*v(:,:))
+            & h(:,:)*one_12th_e2*(ex(a)*u(1,:,:)+&
+            & ey(a)*u(2,:,:))+h(:,:)*one_8th_e4&
+            & *(ex(a)*u(1,:,:)*ex(a)*u(1,:,:)+&
+            & 2.0d0*ex(a)*u(1,:,:)*ey(a)*u(2,:,:)+&
+            & ey(a)*u(2,:,:)*ey(a)*u(2,:,:))-&
+            & h(:,:)*one_24th_e2*(u(1,:,:)*u(1,:,:)+&
+            & u(2,:,:)*u(2,:,:))
         ! end if
 
         if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
     end do
     feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
-             & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+             & two_3rd_e2*h(:,:)*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:))
     return
 end subroutine compute_feq
 
@@ -474,13 +443,13 @@ subroutine Inflow_Outflow_BC
     ! u_vec(1,Lx,:) = q_in/h(Lx,:)
     ! u_vec(2,1,:) = vAnal(1,:)
     ! u_vec(2,Lx,:) = vAnal(Lx,:)
-    u_vec(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    u(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     ! uAnal = u_analytical(time, Lx, Ly)
     ! u_vec(1,1,:) = uAnal(1,:)
 
     ! h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    u_vec(1,Lx,:) = 0.0d0
-    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u_vec(1,Lx,:)/e)
+    u(1,Lx,:) = 0.0d0
+    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(1,Lx,:)/e)
     ! u_vec(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
     !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
 
@@ -504,9 +473,9 @@ subroutine Inflow_Outflow_BC
         ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
         if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
             ! Following lines implement inflow BC (Zhou, p.59)
-            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u_vec(1,1,:)/(3.0d0*e)
-            ftemp(2,1,:) = h(1,:)*u_vec(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-            ftemp(8,1,:) = h(1,:)*u_vec(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
+            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,1,:)/(3.0d0*e)
+            ftemp(2,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+            ftemp(8,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
         end if
     elseif (BCInflow == "n") then
             ! Neumann BC at the inflow (p. 58)
@@ -525,7 +494,7 @@ subroutine Inflow_Outflow_BC
             if (a >= 4 .and. a <=6 ) cycle
             consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
         end do
-        consOutRgt(1,:) = -h(Lx,:)*u_vec(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+        consOutRgt(1,:) = -h(Lx,:)*u(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
         do j = 1, Ly
             if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
                 ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
@@ -537,9 +506,9 @@ subroutine Inflow_Outflow_BC
         ! if ( .not. stopSim ) then
         if ( .TRUE. ) then ! debug
             ! Following lines implement outflow BC (Zhou, p.60)
-            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u_vec(1,Lx,:)/(3.0d0*e)
-            ftemp(4,Lx,:) = -h(Lx,:)*u_vec(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-            ftemp(6,Lx,:) = -h(Lx,:)*u_vec(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:)/(3.0d0*e)
+            ftemp(4,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+            ftemp(6,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
         end if
     elseif (BCOutflow == "n") then
         ! Neumann BC at outflow (p. 58)
@@ -643,7 +612,7 @@ subroutine write_csv
                     x, y, &
                     dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                     h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                    u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
                     & force_x(2*x,2*y), force_y(2*x,2*y) &
                     & ,L1_error(1), L1_error(2), L1_error(3), L2_error(1), L2_error(2), L2_error(3)
             ELSE
@@ -655,7 +624,7 @@ subroutine write_csv
                     x, y, &
                     dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                     h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                    u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
                     & force_x(2*x,2*y), force_y(2*x,2*y)
             end IF
         end do
@@ -682,8 +651,8 @@ subroutine end_simulation
     FrMax = 0
     do x=1,Lx
         do y=1,Ly
-            if (u_vec(1,x,y)**2+u_vec(2,x,y)**2>uMax2) uMax2 = u_vec(1,x,y)**2+u_vec(2,x,y)**2
-            Fr = (u_vec(1,x,y)**2 + u_vec(2,x,y)**2)/h(x,y)
+            if (u(1,x,y)**2+u(2,x,y)**2>uMax2) uMax2 = u(1,x,y)**2+u(2,x,y)**2
+            Fr = (u(1,x,y)**2 + u(2,x,y)**2)/h(x,y)
             if (Fr>FrMax) then
                 FrMax=Fr
                 i=x;j=y
@@ -898,12 +867,12 @@ subroutine calculate_errors
     L2_error(1) = L2_error(1) + SUM((h - hAnal)*(h - hAnal))/(Lx*Ly)
 
     ! x velocity error
-    L1_error(2) = L1_error(2) + SUM(ABS(u - uAnal))
-    L2_error(2) = L2_error(2) + SUM((u - uAnal)*(u - uAnal))
+    L1_error(2) = L1_error(2) + SUM(ABS(u(1,:,:) - uAnal))
+    L2_error(2) = L2_error(2) + SUM((u(1,:,:) - uAnal)*(u(1,:,:) - uAnal))
 
     ! y velocity error
-    L1_error(3) = L1_error(3) + SUM(ABS(v - vAnal))
-    L2_error(3) = L2_error(3) + SUM((v - vAnal)*(v - vAnal))
+    L1_error(3) = L1_error(3) + SUM(ABS(u(2,:,:) - vAnal))
+    L2_error(3) = L2_error(3) + SUM((u(2,:,:) - vAnal)*(u(2,:,:) - vAnal))
 
 end subroutine calculate_errors
 
