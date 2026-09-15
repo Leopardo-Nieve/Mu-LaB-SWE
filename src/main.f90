@@ -164,33 +164,6 @@ program main
 
     ! define partial depth and bathymetry
     zb = 0
-    do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
-        position_x = dx*(DBLE(x-1)*0.5d0)
-
-        ! partial depth
-        H_part(x,:) = 50.5d0 - 40.0d0*position_x/domainX - 10.0d0*DSIN(pi*(4.0d0*position_x/domainX - 0.5d0))
-
-        ! bathymetry
-        zb(x,:) = H_part(1,:) - H_part(x,:)
-
-        ! force_x_MMS(x,:) = 0.0d0 ! debug
-
-        ! with bed
-        ! force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl/domainX*(0.12d0*dsin(2.0d0*pi*position_x/domainX) &
-        ! & + 8.0d0*dcos(2.0d0*pi*position_x/domainX))*&
-        ! & (dsin(2.0d0*pi*position_x/domainX) + 3.0d0)
-
-        ! without bed
-        force_x_MMS(x,:) = (8.0d0/9.0d0)*pi*gacl/domainX*(dsin(2.0d0*pi*position_x/domainX) + 3.0d0)&
-         & * dcos(2.0d0*pi*position_x/domainX)
-
-        force_y_MMS(x,:) = 0.0d0
-
-        ! if ( position_x > 0.8 .and. position_x < 1.2) then
-        !     ! zb(x,:) = 0.2d0 - 0.05d0 * (position_x - 10.0d0)**2.0d0 ! bump function
-        !     zb(x,:) = 0.2d-1 - 0.05d1 * (position_x - 10.0d-1)**2.0d0 ! bump function resized for 2 m x 2 m domain
-        ! end if
-    end do
 
     ! determine boundary nodes
     ! do x = 1, Lx
@@ -223,7 +196,7 @@ program main
     ! assign a value for the inlet discharge
     q_in = 4.42d0 ! m^2/s
 
-    ! ho = 2.0d0 ! m, initial water depth
+    ho = 5.0d0 ! m, initial water depth
 
     uo = 0.0d0
     vo = 0.0d0
@@ -280,11 +253,6 @@ program main
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
 
-    ! define initial water depth
-    do x = 1, Lx
-        h(x,:) = H_part(2*x,Ly/2) ! m, initial water dept
-    end do
-    ! print *,  "passed h initializing" ! debug
     u(1,:,:) = uo
     u(2,:,:) = vo
     ! print*, "After initializing" ! debug
@@ -425,7 +393,7 @@ program main
     write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
     write(66,*) '#      Results of the computations'
     write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
-                                        & 'u(1,i,j)' , 'u(1,i,j)'
+                                        & 'u(1,i,j)' , 'u(2,i,j)'
     write(66,*) '#------------------------------------------'
 
     do x = 1, Lx
@@ -438,5 +406,8 @@ program main
     ! Add after the existing result.dat write
     call write_csv
     write(6,*) ' CSV results written! ... '
+
+    print*, "program done" !debug
+
 
 end program main
