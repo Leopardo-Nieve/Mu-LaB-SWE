@@ -51,9 +51,11 @@ module Mu_LaB_SWE
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
+        character(len=4) :: boundaries_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e2,&
         & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
+        double precision, dimension(4) :: is_inlet, is_outlet
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
@@ -381,7 +383,7 @@ end subroutine compute_feq
 
 subroutine Noslip_BC
 
-    ! this is for noslip boundary with Bounce back scheme
+    ! this is for noslip boundary with modified Bounce back scheme (Guo & Shu, 2013)
 
     ! for lower boundary
     do a = 2, 4
@@ -439,7 +441,7 @@ subroutine Inflow_Outflow_BC
     ! macroscopic values
     ! h(1,:) = h(2,:)
     ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    h(1,:) = h_in(time)
+    h(1,:) = 5.0d0 - zb(1,:)
     ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
     ! u_vec(1,1,:) = uAnal(1,:)
     ! u_vec(1,Lx,:) = uAnal(Lx,:)
@@ -644,6 +646,8 @@ subroutine sleep_seconds(n)
 end subroutine sleep_seconds
 
 subroutine end_simulation
+
+
     tauOk = .false.
     velOk = .false.
     celOk = .false.

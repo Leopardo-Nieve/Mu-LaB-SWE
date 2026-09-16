@@ -35,9 +35,11 @@ program main
     type(CFG_t)           :: my_cfg
 
     ! declare local working variables
-    integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r
+    integer:: itera_no, wall_size
+    double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
+    character(len=1) :: inlet_pos, outlet_pos
+!    character(len=1), dimension(:) :: wall_pos(:) !debug
     character(len=3), dimension(2) :: all_forcing_schemes
     logical:: steadyFlow
 
@@ -55,6 +57,9 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%dx", 14.0d0, "dx")
     call CFG_add(my_cfg, "simulation_parameters%dt", 0.07d0, "dt")
     call CFG_add(my_cfg, "simulation_parameters%tau", 1.0d0, "tau")
+    call CFG_add(my_cfg, "simulation_parameters%inlet_pos", "left", "inlet_pos")
+    call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
+    call CFG_add(my_cfg, "simulation_parameters%wall_pos", (/ "bottom", "top   " /), "inlet_pos")
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -76,6 +81,11 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%dx", dx)
     call CFG_get(my_cfg, "simulation_parameters%dt", dt)
     call CFG_get(my_cfg, "simulation_parameters%tau", tau)
+    call CFG_get(my_cfg, "simulation_parameters%inlet_pos", inlet_pos)
+    call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
+!    call CFG_get_size(my_cfg, "simulation_parameters%wall_pos", wall_size) !debug
+!    allocate(wall_pos(wall_size))
+!    call CFG_get(my_cfg, "simulation_parameters%wall_pos", wall_pos)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
@@ -104,18 +114,6 @@ program main
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
 
-    ! Forcing schemes: "bg": Buick-Greated, "gzs": Guo-Zheng-Shi
-!    all_forcing_schemes = [character(len=3) :: "BG", "GZS"]
-
-
-
-!    do i=1, size(all_forcing_schemes)
-!        if (forcing_scheme == all_forcing_schemes(i)) exit
-!        if (i == size(all_forcing_schemes)) then
-!!            print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
-!!            stopSim = .true.
-!        end if
-!    end do
 
     if (forcing_scheme == "BG ") then
         B = 1.0d0-1.0d0/(2.0d0*tau)
@@ -127,6 +125,14 @@ program main
         print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
         stopSim = .true.
     end if
+
+    boundaries_string = "lrbt"
+
+    is_inlet = 0.0d0
+    is_outlet = 0.0d0
+
+    is_inlet(index(boundaries_string, inlet_pos)) = 1.0d0
+    is_outlet(index(boundaries_string, outlet_pos)) = 1.0d0
 
     current_iteration = 0
 
@@ -156,14 +162,20 @@ program main
 
     ! call MMS_analytic_solution ! calculate analytical solution
     if (stopSim) STOP
-    ! define bathymetry and node state array
-    ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
-    x_r    = 10.0d0 ! m, position of the bump in x direction
-    y_r    = 5.0d0 ! m, position of the bump in y
-    radius = 4.0d0 ! m, radius of the bump
 
-    ! define partial depth and bathymetry
+    ! define bathymetry
     zb = 0
+    H0 = 4.5d0
+    L = 42.0d0
+    xc = 0.5d0 * domainX
+    yc = 0.5d0 * domainY
+
+    do x = 1, Lx
+        do y = 1, Ly
+            h(x,y) = 4.5d0 * (1.0d0 * 0.9d0 * exp( -((x-xc)*(x-xc) + (y-yc)*(y-yc))/(L*L)) )
+        end do
+    end do
+    zb = 5.0d0 - h
 
     ! determine boundary nodes
     ! do x = 1, Lx

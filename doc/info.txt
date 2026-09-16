@@ -1,12 +1,7 @@
-2026-09-10
+2026-09-16
 ---
-I realised I missed a much simpler way to apply the centred scheme. The only value I actually need at the midpoint between two nodes is the depth. I found out they simply used the average depth. 
-Then, I can use a finite difference scheme with two neighbouring nodes to find the 2nd order centred gradient. No need for another array with complex indices that cost a bunch of memory. I just need to recalculate that at each timestep, which is why it might be quicker to divide the bed slope and hydrostatic pressure gradients, since the bed slope is steady. 
-
-To apply this, maybe I have to remove the dx/2 offset of cells at the boundary. Otherwise, calculating the force towards towads a boundary from a boundary cell is more complex.
-
-After having read Zhou's treatment of boundary conditions and Guo's explanation of the 4 different bounceback schemes, I determined that using the "modified bounceback scheme" could work. 
-I apply the bounce back on the boundary nodes BEFORE the streaming and collision steps. This allows the fullway bounceback to become second order (one time step to "feel" the boundary instead of 2)
+I want to generalise the treatment of my boundary conditions. I started an algorithm to do so, but currently the wall boundary condition is giving me trouble, so I have commented it. 
+Note that the current treatment of boundary conditions (especially the corners) makes the code unstable. This is normal until the boundary conditions are properly implemented. 
 
 Modifications since last version:
 - defined S term with correct general equation
@@ -16,6 +11,8 @@ Modifications since last version:
 ---
 
 Potential next step(s):
+- make boundary conditions generalisable (step 1)
+
 - run convergence analysis on seamount case Li et al. (2019)
 	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
 	- run one case for each force scheme and compare to analytical solution
