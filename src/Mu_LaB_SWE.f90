@@ -51,11 +51,11 @@ module Mu_LaB_SWE
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
-        character(len=4) :: boundaries_string
+        character(len=4) :: bc_pos_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e2,&
         & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
-        double precision, dimension(4) :: is_inlet, is_outlet
+        double precision, dimension(4) :: is_inlet, is_outlet, is_wall
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec

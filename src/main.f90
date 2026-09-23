@@ -38,8 +38,7 @@ program main
     integer:: itera_no, wall_size
     double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
-    character(len=1) :: inlet_pos, outlet_pos
-!    character(len=1), dimension(:) :: wall_pos(:) !debug
+    character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
     character(len=3), dimension(2) :: all_forcing_schemes
     logical:: steadyFlow
 
@@ -59,7 +58,8 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%tau", 1.0d0, "tau")
     call CFG_add(my_cfg, "simulation_parameters%inlet_pos", "left", "inlet_pos")
     call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
-    call CFG_add(my_cfg, "simulation_parameters%wall_pos", (/ "bottom", "top   " /), "inlet_pos")
+    call CFG_add(my_cfg, "simulation_parameters%wall_pos1", "bottom", "wall_pos1")
+    call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -83,9 +83,8 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%tau", tau)
     call CFG_get(my_cfg, "simulation_parameters%inlet_pos", inlet_pos)
     call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
-!    call CFG_get_size(my_cfg, "simulation_parameters%wall_pos", wall_size) !debug
-!    allocate(wall_pos(wall_size))
-!    call CFG_get(my_cfg, "simulation_parameters%wall_pos", wall_pos)
+    call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
+    call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
@@ -126,13 +125,16 @@ program main
         stopSim = .true.
     end if
 
-    boundaries_string = "lrbt"
+    bc_pos_string = "lrbt"
 
     is_inlet = 0.0d0
     is_outlet = 0.0d0
+    is_wall = 0.0d0
 
-    is_inlet(index(boundaries_string, inlet_pos)) = 1.0d0
-    is_outlet(index(boundaries_string, outlet_pos)) = 1.0d0
+    is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
+    is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
+    is_wall(index(bc_pos_string, wall_pos1)) = 1.0d0
+    is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
 
     current_iteration = 0
 
