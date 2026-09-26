@@ -51,15 +51,19 @@ module Mu_LaB_SWE
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
+        character(len=2) :: bc_macro_string
         character(len=4) :: bc_pos_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e2,&
-        & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar
-        double precision, dimension(4) :: is_inlet, is_outlet, is_wall
+        & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
+        & inlet_value, outlet_value
+        double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
+        double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
+        double precision, dimension(4,2) :: is_not_in_out
         double precision, allocatable, dimension(:,:):: h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
@@ -382,42 +386,30 @@ subroutine compute_feq
 end subroutine compute_feq
 
 subroutine Noslip_BC
+! this is for noslip boundary with modified Bounce back scheme (Guo & Shu, 2013)
 
-    ! this is for noslip boundary with modified Bounce back scheme (Guo & Shu, 2013)
+    ! left boundary
+    do a = 1,2
+	    ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(a,1,:)
+    end do
+    ftemp(8,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(8,1,:)
 
-    ! for lower boundary
+    ! right boundary
+    ftemp(4,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(8,Lx,:) + is_not_wall(index(bc_pos_string, "r"))*ftemp(4,Lx,:)
+    do a = 5, 6
+	    ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_not_wall(index(bc_pos_string, "r"))*ftemp(a,Lx,:)
+    end do
+
+    ! bottom boundary
     do a = 2, 4
-        ftemp(a,:,1) = ftemp(a+4,:,1)
+        ftemp(a,:,1) = is_wall(index(bc_pos_string, "b"))*ftemp(a+4,:,1) + is_not_wall(index(bc_pos_string, "b"))*ftemp(a,:,1)
     end do
 
-    ! for upper boundary
+    ! top boundary
     do a = 6, 8
-        ftemp(a,:,Ly) = ftemp(a-4,:,Ly)
+        ftemp(a,:,Ly) = is_wall(index(bc_pos_string, "t")) * ftemp(a-4,:,Ly) + is_not_wall(index(bc_pos_string, "t"))*ftemp(a,:,Ly)
     end do
 
-    ! for cylinder boundary
-    ! do x = 1, Lx !debug
-    !     do y = 1, Ly !debug
-    !         if (C(x,y) == 0.5) then ! boundary node !debug
-    !             xf = x + 1
-    !             xb = x - 1
-    !             yf = y + 1
-    !             yb = y - 1
-
-    !             ! apply bounce back scheme
-    !             if (C(xf,y)  == 1) ftemp(5,x,y) = ftemp(1,x,y) ! E
-    !             if (C(xf,yf) == 1) ftemp(6,x,y) = ftemp(2,x,y) ! NE
-    !             if (C(x,yf)  == 1) ftemp(7,x,y) = ftemp(3,x,y) ! N
-    !             if (C(xb,yf) == 1) ftemp(8,x,y) = ftemp(4,x,y) ! NW
-    !             if (C(xb,y)  == 1) ftemp(1,x,y) = ftemp(5,x,y) ! W
-    !             if (C(xb,yb) == 1) ftemp(2,x,y) = ftemp(6,x,y) ! SW
-    !             if (C(x,yb)  == 1) ftemp(3,x,y) = ftemp(7,x,y) ! S
-    !             if (C(xf,yb) == 1) ftemp(4,x,y) = ftemp(8,x,y) ! SE
-    !         end if
-    !     end do
-    ! end do
-
-    return
 end subroutine Noslip_BC
 
 subroutine Slip_BC
@@ -438,6 +430,63 @@ subroutine Slip_BC
 end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
+
+    ! determine inlet and outlet values first
+    ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
+
+    ! depth
+    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)
+
+    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)
+
+    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)
+
+    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)
+
+    ! velocity
+
+    u(1,1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "u"))*u(1,1,:)
+
+    u(1,Lx,:) = is_inlet(index(bc_pos_string, "r"))* is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "u"))  * u(1,Lx,:)
+
+    u(2,:,1)  = is_inlet(index(bc_pos_string, "b"))* is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "u"))*u(2,:,1)
+
+    u(2,:,Ly) = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "u"))*u(2,:,Ly)
+
+    ! discharge
+    ! tbd?
+
+    ! left inlet-outlet
+    ftemp(1,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (ftemp(5,1,:) + 2.0d0 * h(1,:) * u(1,1,:)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(1,1,:)
+
+    ftemp(2,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0 * (ftemp(7,1,:) - ftemp(3,1,:) )) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
+
+    ftemp(8,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0 * (ftemp(3,1,:) - ftemp(7,1,:) )) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
+
+    ! right
+    ! bottom
+    ! top
+
+
     ! macroscopic values
     ! h(1,:) = h(2,:)
     ! h(Lx,:) = hOut ! m, fixed depth at outflow
@@ -629,9 +678,9 @@ subroutine write_csv
                 & )') &
                     x, y, &
                     dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
-                    h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
-                    & force_x(2*x,2*y), force_y(2*x,2*y)
+                    h(x,y) + zb(x,y), zb(x,y), h(x,y), &
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
+                    & force_x(x,y), force_y(x,y)
             end IF
         end do
     end do

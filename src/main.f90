@@ -35,11 +35,12 @@ program main
     type(CFG_t)           :: my_cfg
 
     ! declare local working variables
-    integer:: itera_no, wall_size
+    integer:: itera_no
     double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
     character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
     character(len=3), dimension(2) :: all_forcing_schemes
+    character(len=1), dimension(2) :: inlet, outlet
     logical:: steadyFlow
 
     ! standard values
@@ -60,6 +61,8 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
     call CFG_add(my_cfg, "simulation_parameters%wall_pos1", "bottom", "wall_pos1")
     call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
+    call CFG_add(my_cfg, "simulation_parameters%inlet", ["u","d"], "inlet")
+    call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -85,6 +88,7 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
     call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
     call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
+    call CFG_get(my_cfg, "simulation_parameters%inlet", inlet)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
@@ -130,11 +134,25 @@ program main
     is_inlet = 0.0d0
     is_outlet = 0.0d0
     is_wall = 0.0d0
+    is_not_wall = 1.0d0 ! assume not a wall until assigned otherwise
 
     is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
+    is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
+
     is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
+    is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
+
     is_wall(index(bc_pos_string, wall_pos1)) = 1.0d0
+    is_not_wall(index(bc_pos_string, wall_pos1)) = 0.0d0
     is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
+    is_not_wall(index(bc_pos_string, wall_pos2)) = 0.0d0
+
+    bc_macro_string = "hu" ! depth (h), velocity (u)
+    is_inlet_macro = 0.0d0
+    is_outlet_macro = 0.0d0
+
+    is_inlet_macro(index(bc_macro_string, inlet(1))) = 1.0d0
+    is_outlet_macro(index(bc_macro_string, outlet(1))) = 1.0d0
 
     current_iteration = 0
 
