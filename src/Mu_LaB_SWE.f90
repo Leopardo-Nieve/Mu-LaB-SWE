@@ -390,14 +390,14 @@ subroutine Noslip_BC
 
     ! left boundary
     do a = 1,2
-	    ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(a,1,:)
+        ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(a,1,:)
     end do
     ftemp(8,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(8,1,:)
 
     ! right boundary
     ftemp(4,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(8,Lx,:) + is_not_wall(index(bc_pos_string, "r"))*ftemp(4,Lx,:)
     do a = 5, 6
-	    ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_not_wall(index(bc_pos_string, "r"))*ftemp(a,Lx,:)
+        ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_not_wall(index(bc_pos_string, "r"))*ftemp(a,Lx,:)
     end do
 
     ! bottom boundary
@@ -472,6 +472,11 @@ subroutine Inflow_Outflow_BC
     ! discharge
     ! tbd?
 
+    ! hard-coded because generalising for every direction is not worth the time, especially considering indexation method will be implemented soon
+    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
+    u(2,1,:) = 0.0d0
+    u(2,Lx,:) = 0.0d0
+
     ! left inlet-outlet
     ftemp(1,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (ftemp(5,1,:) + 2.0d0 * h(1,:) * u(1,1,:)/(3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(1,1,:)
@@ -483,14 +488,39 @@ subroutine Inflow_Outflow_BC
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
 
     ! right
-    ! bottom
-    ! top
+    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(5,Lx,:)
 
+    ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) + 3.0d0*u(2,Lx,:)))/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(6,Lx,:)
+
+    ftemp(4,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) - 3.0d0 * u(2,Lx,:)))/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0 * (ftemp(7,Lx,:) - ftemp(3,Lx,:)))&
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(4,Lx,:)
+
+    ! bottom
+    ftemp(3,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (ftemp(7,:,1) + 2.0d0*h(:,1)*u(2,:,1)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(3,:,1)
+
+    ftemp(2,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) + 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(6,:,1)+ 0.5d0*(ftemp(5,:,1) - ftemp(1,:,1))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(2,:,1)
+
+    ftemp(4,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) - 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(8,:,1)+ 0.5d0*(ftemp(1,:,1) - ftemp(5,:,1))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(4,:,1)
+
+    ! top
+    ftemp(7,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (ftemp(3,:,Ly) - 2.0d0*h(:,Ly)*u(2,:,Ly)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(7,:,Ly)
+
+    ftemp(6,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) + 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(2,:,Ly)+ 0.5d0*(ftemp(1,:,Ly) - ftemp(5,:,Ly))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(6,:,Ly)
+
+    ftemp(8,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) - 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(4,:,Ly)+ 0.5d0*(ftemp(5,:,Ly) - ftemp(1,:,Ly))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(8,:,Ly)
 
     ! macroscopic values
     ! h(1,:) = h(2,:)
     ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    h(1,:) = 5.0d0 - zb(1,:)
+    ! h(1,:) = 5.0d0 - zb(1,:)
     ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
     ! u_vec(1,1,:) = uAnal(1,:)
     ! u_vec(1,Lx,:) = uAnal(Lx,:)
@@ -498,82 +528,82 @@ subroutine Inflow_Outflow_BC
     ! u_vec(1,Lx,:) = q_in/h(Lx,:)
     ! u_vec(2,1,:) = vAnal(1,:)
     ! u_vec(2,Lx,:) = vAnal(Lx,:)
-    u(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    ! u(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     ! uAnal = u_analytical(time, Lx, Ly)
     ! u_vec(1,1,:) = uAnal(1,:)
 
     ! h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    u(1,Lx,:) = 0.0d0
-    h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(1,Lx,:)/e)
+    ! u(1,Lx,:) = 0.0d0
+    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(1,Lx,:)/e)
     ! u_vec(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
     !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
 
-    if ( BCInflow == "i" ) then
-        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
-        ! do a = 3, 7
-        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-        ! end do
-        ! consInRgt(1,:) = h(1,:)*u_vec(1,1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-        ! do j = 1, Ly
-        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-        !         print*, "consistency fails at node",1,j
-        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
-        !         stopSim = .true.
-        !     end if
-        ! end do
+!    if ( BCInflow == "i" ) then
+!        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+!        ! do a = 3, 7
+!        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
+!        ! end do
+!        ! consInRgt(1,:) = h(1,:)*u_vec(1,1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+!        ! do j = 1, Ly
+!        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+!        !         print*, "consistency fails at node",1,j
+!        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
+!        !         stopSim = .true.
+!        !     end if
+!        ! end do
+!
+!        ! if ( .not. stopSim ) then
+!
+!        ! consistence check
+!        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
+!        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
+!            ! Following lines implement inflow BC (Zhou, p.59)
+!            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,1,:)/(3.0d0*e)
+!            ftemp(2,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+!            ftemp(8,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
+!        end if
+!    elseif (BCInflow == "n") then
+!            ! Neumann BC at the inflow (p. 58)
+!            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
+!            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
+!            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
+!    else
+!        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
+!        print*, "***Hint: the condition must be written all in lower case.***"
+!    end if
 
-        ! if ( .not. stopSim ) then
-
-        ! consistence check
-        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
-        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
-            ! Following lines implement inflow BC (Zhou, p.59)
-            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,1,:)/(3.0d0*e)
-            ftemp(2,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-            ftemp(8,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
-        end if
-    elseif (BCInflow == "n") then
-            ! Neumann BC at the inflow (p. 58)
-            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
-            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
-            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
-    else
-        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
-        print*, "***Hint: the condition must be written all in lower case.***"
-    end if
-
-    if ( BCOutflow == "o" ) then
-        ! consistence check
-        consOutLft(1,:) = h(Lx,:)
-        do a = 1, 9
-            if (a >= 4 .and. a <=6 ) cycle
-            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
-        end do
-        consOutRgt(1,:) = -h(Lx,:)*u(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
-        do j = 1, Ly
-            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
-                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
-                ! stopSim = .true. "" ! debug
-            end if
-        end do
-
-        ! if ( .not. stopSim ) then
-        if ( .TRUE. ) then ! debug
-            ! Following lines implement outflow BC (Zhou, p.60)
-            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:)/(3.0d0*e)
-            ftemp(4,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-            ftemp(6,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
-        end if
-    elseif (BCOutflow == "n") then
-        ! Neumann BC at outflow (p. 58)
-        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
-        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
-        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
-    else
-        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
-        print*, "***Hint: the condition must be written all in lower case.***"
-    end if
+!    if ( BCOutflow == "o" ) then
+!        ! consistence check
+!        consOutLft(1,:) = h(Lx,:)
+!        do a = 1, 9
+!            if (a >= 4 .and. a <=6 ) cycle
+!            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
+!        end do
+!        consOutRgt(1,:) = -h(Lx,:)*u(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+!        do j = 1, Ly
+!            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
+!                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
+!                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
+!                ! stopSim = .true. "" ! debug
+!            end if
+!        end do
+!
+!        ! if ( .not. stopSim ) then
+!        if ( .TRUE. ) then ! debug
+!            ! Following lines implement outflow BC (Zhou, p.60)
+!            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:)/(3.0d0*e)
+!            ftemp(4,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+!            ftemp(6,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+!        end if
+!    elseif (BCOutflow == "n") then
+!        ! Neumann BC at outflow (p. 58)
+!        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
+!        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
+!        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
+!    else
+!        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
+!        print*, "***Hint: the condition must be written all in lower case.***"
+!    end if
 end subroutine Inflow_Outflow_BC
 
 subroutine ensure_results_directory

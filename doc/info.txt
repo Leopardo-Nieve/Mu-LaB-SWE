@@ -1,4 +1,4 @@
-2026-09-25
+2026-09-28
 ---
 I want to generalise the treatment of my boundary conditions. I started an algorithm to do so, but currently the wall boundary condition is giving me trouble, so I have commented it. 
 Note that the current treatment of boundary conditions (especially the corners) makes the code unstable. This is normal until the boundary conditions are properly implemented. 
@@ -6,11 +6,11 @@ Note that the current treatment of boundary conditions (especially the corners) 
 Modifications since last version:
 - wrote boolean variable selection
 - modified No-slip BC to work correctly
+- modified inlet-outlet BC to work correctly
 ---
 
 Potential next step(s):
 - make boundary conditions generalisable (step 1)
-	- modify inlet-outlet BC to work correctly
 	- add corners treatment subroutine
 
 - run convergence analysis on seamount case Li et al. (2019)
