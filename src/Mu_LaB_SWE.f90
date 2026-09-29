@@ -54,7 +54,7 @@ module Mu_LaB_SWE
         character(len=2) :: bc_macro_string
         character(len=4) :: bc_pos_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e2,&
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e4,&
         & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
         & inlet_value, outlet_value
         double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
@@ -116,7 +116,7 @@ subroutine setup
             e_fourth(a) = (e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a))**2
     end do
     nine_4 = 9.0d0/4.0d0
-    nine_2e2 = 9.0d0/(2.0d0*e**2)
+    nine_2e4 = 9.0d0/(2.0d0*e**4)
     three_e2 = 3.0d0/(e**2)
     three_2e2 = 0.5d0*three_e2
 
@@ -176,7 +176,6 @@ function calculate_body_force(alpha, x_node, y_node) result(body_forces)
     &- (h(x_node,y_node) + zb(x_node,y_node)))/dx * e_unit(2,alpha)
 
 end function calculate_body_force
-
 
 subroutine update_body_force
 
@@ -295,35 +294,38 @@ subroutine collide_stream
             ! if (xb < 1) xb = Lx + xb
 
             ! Following 2 lines Implement periodic BCs in y direction
-            if (yf > Ly) yf = yf - Ly
-            if (yb < 1) yb = Ly + yb
+!            if (yf > Ly) yf = yf - Ly
+!            if (yb < 1) yb = Ly + yb
 
             ! start streaming and collision
-            if (xf<=Lx) then ! periodic in y direction
+            if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
                 & + dt*S(1,x,y)
             end if
-            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
+            if (xf<=Lx .and. yf<=Ly) then
                 ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau&
                 & + dt*S(2,x,y)
             end if
-            ! if (yf<=Ly) ! periodic in y direction
-            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
+            if (yf<=Ly) then
+                ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
                 & + dt*S(3,x,y)
-            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
+            end if
+
+            if (xb>=1 .and. yf<=Ly) then
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau&
                 & + dt*S(4,x,y)
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau&
                 & + dt*S(5,x,y)
-            if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
+            if (xb>=1 .and. yb>=1) then
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau&
                 & + dt*S(6,x,y)
             end if
-            ! if (yb>=1) ! periodic in y direction
-            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
+            if (yb>=1) then
+                ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
                 & + dt*S(7,x,y)
-            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
+            end if
+            if (xf<=Lx .and. yb>=1) then
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau&
                 & + dt*S(8,x,y)
             end if
@@ -364,24 +366,42 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
+    ! initialise
+    feq(:,:,:) = 0.0d0
+
+    ! debug
+    u(1,:,:) = 5.0d0
+    u(2,:,:) = 2.0d0
+
     do a = 1, 8
-        ! initialise
-        feq(a,:,:) = 0.0d0
+        do i = 1,2
+            feq(a,:,:) = feq(a,:,:) + three_e2*e_vec(i,a)*u(i,:,:)
+        end do
 
         do i = 1,2
             do j = 1,2
-                feq(a,:,:) = feq(a,:,:) + omega(a) * h(:,:)* (three_e2*e_vec(i,a)*u(i,:,:) - nine_2e2*e_vec(i,a)*u(i,:,:)*e_vec(j,a)*u(j,:,:)&
-                & - three_2e2* u(i,:,:)*u(i,:,:))
+                feq(a,:,:) = feq(a,:,:) + nine_2e4*e_vec(i,a)*u(i,:,:)*e_vec(j,a)*u(j,:,:)
             end do
         end do
 
-        if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
-    end do
-    do i = 1,2
-        do j = 1,2
-            feq(9,:,:) = feq(9,:,:) + omega(9) * h(:,:)* (nine_4 - three_2e2*u(i,:,:)*u(i,:,:))
+        do i = 1,2
+            do j = 1,2
+                feq(a,:,:) = feq(a,:,:) - three_2e2 * u(i,:,:)*u(i,:,:)
+            end do
         end do
+
+        feq(a,:,:) = feq(a,:,:) * omega(a) * h(:,:)
+
+
     end do
+    feq(9,:,:) = omega(9) * h(:,:)* (nine_4 - three_2e2*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:)))
+
+
+
+    print*, feq(5,Lx/2,Ly/2), "=", omega(5)*h(Lx/2,Ly/2) * (3/e**2 * (e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(2,5)*u(2,Lx/2,Ly/2)) &
+    & + 9/(2*e**4)*(e_vec(1,5)*u(1,Lx/2,Ly/2)*e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(1,5)*u(1,Lx/2,Ly/2)*e_vec(2,5)*u(2,Lx/2,Ly/2) &
+    &+ e_vec(2,5)*u(2,Lx/2,Ly/2)*e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(2,5)*u(2,Lx/2,Ly/2)*e_vec(2,5)*u(2,Lx/2,Ly/2))&
+    &- 3/(2*e**2) * (u(1,Lx/2,Ly/2)**2 + u(2,Lx/2,Ly/2)**2) ) !debug
     return
 end subroutine compute_feq
 
@@ -606,6 +626,43 @@ subroutine Inflow_Outflow_BC
 !    end if
 end subroutine Inflow_Outflow_BC
 
+subroutine corners
+    ! bottom left
+
+    ! make sure depth has the correct value if it is not specified at the flow boundary
+    h(1,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(2,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(1,1)
+
+    ftemp(4,1,1) = 0.5d0 * (h(1,1) - sum((/ftemp(1:3,1,1),ftemp(5:7,1,1),ftemp(9,1,1)/)))
+    ftemp(8,1,1) = ftemp(4,1,1)
+
+    ! top right
+    h(Lx,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx-1,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx,Ly)
+
+    ftemp(4,Lx,Ly) = 0.5d0 * (h(Lx,Ly) - sum((/ftemp(1:3,Lx,Ly),ftemp(5:7,Lx,Ly),ftemp(9,Lx,Ly)/)))
+    ftemp(8,Lx,Ly) = ftemp(4,1,1)
+
+    ! top left
+    h(1,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(2,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(1,Ly)
+
+    ftemp(2,1,Ly) = 0.5d0 * (h(1,Ly) - sum((/ftemp(1,1,Ly),ftemp(3:5,1,Ly),ftemp(7,1,Ly),ftemp(9,1,Ly)/)))
+    ftemp(6,1,Ly) = ftemp(2,1,Ly)
+
+    ! bottom right
+    h(Lx,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx-1,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx,1)
+
+    ftemp(2,1,Ly) = 0.5d0 * (h(Lx,1) - sum((/ftemp(1,Lx,1),ftemp(3:5,Lx,1),ftemp(7,Lx,1),ftemp(9,Lx,1)/)))
+    ftemp(6,1,Ly) = ftemp(2,Lx,1)
+
+end subroutine
+
 subroutine ensure_results_directory
     implicit none
     logical :: exists!, ierr
@@ -695,10 +752,10 @@ subroutine write_csv
                 & 5(E20.14,","), E20.14&
                 & )') &
                     x, y, &
-                    dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
-                    h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(2*x,2*y),&
-                    & force_x(2*x,2*y), force_y(2*x,2*y) &
+                    dx*(DBLE(x-1)), dy*(DBLE(y-1)), &
+                    h(x,y) + zb(x,y), zb(x,y), h(x,y), &
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
+                    & force_x(x,y), force_y(x,y) &
                     & ,L1_error(1), L1_error(2), L1_error(3), L2_error(1), L2_error(2), L2_error(3)
             ELSE
                 write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),7(E20.14,","), &
@@ -707,7 +764,7 @@ subroutine write_csv
                 & E20.14&
                 & )') &
                     x, y, &
-                    dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
+                    dx*(DBLE(x)-1), dy*(DBLE(y)-1), &
                     h(x,y) + zb(x,y), zb(x,y), h(x,y), &
                     u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
                     & force_x(x,y), force_y(x,y)

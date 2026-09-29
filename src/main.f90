@@ -63,6 +63,8 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
     call CFG_add(my_cfg, "simulation_parameters%inlet", ["u","d"], "inlet")
     call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
+    call CFG_add(my_cfg, "simulation_parameters%outlet", ["u","d"], "outlet")
+    call CFG_add(my_cfg, "simulation_parameters%outlet_value", 0.0d0, "outlet_value")
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -89,6 +91,9 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
     call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
     call CFG_get(my_cfg, "simulation_parameters%inlet", inlet)
+    call CFG_get(my_cfg, "simulation_parameters%inlet_value", inlet_value)
+    call CFG_get(my_cfg, "simulation_parameters%outlet", outlet)
+    call CFG_get(my_cfg, "simulation_parameters%outlet_value", outlet_value)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
@@ -130,14 +135,18 @@ program main
     end if
 
     bc_pos_string = "lrbt"
+    bc_macro_string = "hu" ! depth (h), velocity (u)
+
 
     is_inlet = 0.0d0
     is_outlet = 0.0d0
     is_wall = 0.0d0
     is_not_wall = 1.0d0 ! assume not a wall until assigned otherwise
+    is_not_in_out = 1.0d0 ! assume not an inlet or boundary condition until assigned otherwise
 
     is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
+    print*, "is_not_in_out(", index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1)), ")"! debug
 
     is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
@@ -147,7 +156,6 @@ program main
     is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
     is_not_wall(index(bc_pos_string, wall_pos2)) = 0.0d0
 
-    bc_macro_string = "hu" ! depth (h), velocity (u)
     is_inlet_macro = 0.0d0
     is_outlet_macro = 0.0d0
 
@@ -191,11 +199,15 @@ program main
     yc = 0.5d0 * domainY
 
     do x = 1, Lx
+        position_x = x * dx
         do y = 1, Ly
-            h(x,y) = 4.5d0 * (1.0d0 * 0.9d0 * exp( -((x-xc)*(x-xc) + (y-yc)*(y-yc))/(L*L)) )
+            position_y = y * dy
+            h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * exp( -((position_x-xc)*(position_x-xc) + (position_y-yc)*(position_y-yc))/(L*L)) )
         end do
     end do
     zb = 5.0d0 - h
+
+
 
     ! determine boundary nodes
     ! do x = 1, Lx
@@ -321,7 +333,7 @@ program main
         ! print *,  "passed update_body_force" ! debug
 
         ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision)
-        ! call Noslip_BC
+         call Noslip_BC
 
         ! Streaming and collision steps
         call collide_stream
@@ -357,6 +369,9 @@ program main
                 end do
             end do
         end do
+
+        ! Apply corner boundary conditions
+        call corners
 
         ! do a=1,9 ! debug
             ! do y= 1, Ly ! debug

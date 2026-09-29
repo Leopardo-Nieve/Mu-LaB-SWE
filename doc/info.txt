@@ -1,17 +1,19 @@
-2026-09-28
+2026-09-29
 ---
-I want to generalise the treatment of my boundary conditions. I started an algorithm to do so, but currently the wall boundary condition is giving me trouble, so I have commented it. 
-Note that the current treatment of boundary conditions (especially the corners) makes the code unstable. This is normal until the boundary conditions are properly implemented. 
+Realised that my treatment of Einstein summation notation was incorrect in the code. Corrected the equation for the equilibrium edf in direction 0 (still), but have yet to correct other directions of 
+equilibrium edfs or the Source term equation or any other Einstein summation used =
 
 Modifications since last version:
-- wrote boolean variable selection
-- modified No-slip BC to work correctly
-- modified inlet-outlet BC to work correctly
+- added corners treatment subroutine 
+- corrected collision_stream operation by removing the treatment that made y periodic
+- corrected definition of pseudo-boolean variables in main.f90 as well as added importing of certain variables from parameters.cfg to make the if sequence work correctly
+- corrected the csv writing subroutine to display the correct values of the x position (dx*(dble(x-1) instead of dx*(dble(x)-0.5d0)
+- corrected the indices used for calling zb in the write_csv subroutine to use correct values of x and y (and not 2*x and 2*y)
 ---
 
 Potential next step(s):
 - make boundary conditions generalisable (step 1)
-	- add corners treatment subroutine
+	- fix Einstein summation convention used in the code (search for j to find them all)
 
 - run convergence analysis on seamount case Li et al. (2019)
 	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)

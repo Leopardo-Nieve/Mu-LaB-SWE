@@ -2,36 +2,44 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="bin/main" />
-	<File name="src\Mu_LaB_SWE.f90" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-1" zoom_2="0">
+	<File name="src/main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="18852" topLine="107" />
+			<Cursor1 position="13516" topLine="317" />
+		</Cursor>
+		<Folding>
+			<Collapse line="330" />
+			<Collapse line="349" />
+		</Folding>
+	</File>
+	<File name="doc/parameters.cfg" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="539" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="src/Mu_LaB_SWE.f90" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-1" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="15616" topLine="212" />
 		</Cursor>
 		<Folding>
 			<Collapse line="75" />
 			<Collapse line="164" />
-			<Collapse line="180" />
 			<Collapse line="279" />
 			<Collapse line="337" />
 			<Collapse line="363" />
 			<Collapse line="387" />
 			<Collapse line="414" />
-			<Collapse line="601" />
-			<Collapse line="696" />
+			<Collapse line="645" />
+			<Collapse line="668" />
 			<Collapse line="763" />
-			<Collapse line="803" />
-			<Collapse line="826" />
-			<Collapse line="872" />
-			<Collapse line="878" />
+			<Collapse line="830" />
+			<Collapse line="838" />
+			<Collapse line="870" />
+			<Collapse line="893" />
+			<Collapse line="907" />
+			<Collapse line="915" />
+			<Collapse line="945" />
+			<Collapse line="987" />
+			<Collapse line="1002" />
 		</Folding>
-	</File>
-	<File name="src\main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="8510" topLine="14" />
-		</Cursor>
-	</File>
-	<File name="doc\parameters.cfg" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="1168" topLine="21" />
-		</Cursor>
 	</File>
 </CodeBlocks_layout_file>
