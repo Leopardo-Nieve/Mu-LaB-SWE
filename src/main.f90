@@ -389,8 +389,8 @@ program main
         call compute_feq
         ! print *,  "passed compute_feq" ! debug
 
-        write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,'   ', time, '   ',&
-        & hAnal(1,Ly/2), '   ', h(1,Ly/2) ! debug
+        write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
+        & h(Lx,Ly/2) ! debug
         ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
 
         do i=1,Lx

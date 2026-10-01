@@ -252,26 +252,16 @@ subroutine update_body_force
         force(:,a,Lx,Ly) = calculate_body_force(a,Lx,Ly)
     end do
 
-
     ! initialise
     S = 0.0d0
 
-    ! einstein notation sum
-    do y=1,Ly
-        do x=1,Lx
-            do a=1,9
-                do i=1,2
-                    do j=1,2
-                        S(a,x,y) = S(a,x,y) + ((e_vec(i,a) / (e_squared(a))) * B + ( (3*e_vec(j,a)*u(j,x,y)) / (e_fourth(a)) * e_vec(i,a) - u(i,x,y)/(e_squared(a)))*C) * force(i,a,x,y)
-                    end do
-                end do
-            end do
-        end do
-    end do
-
-    ! multiply by weight factor
-    do a=1,9
-        S(a,:,:) = 3.0d0 * omega(a) * S(a,:,:)
+    do a = 1,8
+        S(a,:,:) = 3.0d0 * omega(a) * (&
+        & (e_vec(1,a)/e_squared(a)*B &
+        &+ (3.0d0* (e_vec(1,a)*u(1,:,:) + e_vec(2,a)*u(2,:,:))/e_fourth(a)*e_vec(1,a) - u(1,:,:)/e_squared(a))*C )*force(1,a,:,:)&
+        &+(e_vec(2,a)/e_squared(a)*B &
+        &+ (3.0d0* (e_vec(1,a)*u(1,:,:) + e_vec(2,a)*u(2,:,:))/e_fourth(a)*e_vec(2,a) - u(2,:,:)/e_squared(a))*C )*force(2,a,:,:)&
+        &)
     end do
 
 end subroutine update_body_force
@@ -369,39 +359,25 @@ subroutine compute_feq
     ! initialise
     feq(:,:,:) = 0.0d0
 
-    ! debug
-    u(1,:,:) = 5.0d0
-    u(2,:,:) = 2.0d0
-
     do a = 1, 8
+!       first term
         do i = 1,2
             feq(a,:,:) = feq(a,:,:) + three_e2*e_vec(i,a)*u(i,:,:)
         end do
-
+!       second term
         do i = 1,2
             do j = 1,2
                 feq(a,:,:) = feq(a,:,:) + nine_2e4*e_vec(i,a)*u(i,:,:)*e_vec(j,a)*u(j,:,:)
             end do
         end do
-
+!       third term
         do i = 1,2
-            do j = 1,2
-                feq(a,:,:) = feq(a,:,:) - three_2e2 * u(i,:,:)*u(i,:,:)
-            end do
+            feq(a,:,:) = feq(a,:,:) - three_2e2 * u(i,:,:)*u(i,:,:)
         end do
 
         feq(a,:,:) = feq(a,:,:) * omega(a) * h(:,:)
-
-
     end do
     feq(9,:,:) = omega(9) * h(:,:)* (nine_4 - three_2e2*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:)))
-
-
-
-    print*, feq(5,Lx/2,Ly/2), "=", omega(5)*h(Lx/2,Ly/2) * (3/e**2 * (e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(2,5)*u(2,Lx/2,Ly/2)) &
-    & + 9/(2*e**4)*(e_vec(1,5)*u(1,Lx/2,Ly/2)*e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(1,5)*u(1,Lx/2,Ly/2)*e_vec(2,5)*u(2,Lx/2,Ly/2) &
-    &+ e_vec(2,5)*u(2,Lx/2,Ly/2)*e_vec(1,5)*u(1,Lx/2,Ly/2) + e_vec(2,5)*u(2,Lx/2,Ly/2)*e_vec(2,5)*u(2,Lx/2,Ly/2))&
-    &- 3/(2*e**2) * (u(1,Lx/2,Ly/2)**2 + u(2,Lx/2,Ly/2)**2) ) !debug
     return
 end subroutine compute_feq
 
