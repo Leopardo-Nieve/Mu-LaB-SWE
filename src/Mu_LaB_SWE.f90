@@ -116,8 +116,8 @@ subroutine setup
             e_fourth(a) = (e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a))**2
     end do
     nine_4 = 9.0d0/4.0d0
-    nine_2e4 = 9.0d0/(2.0d0*e**4)
-    three_e2 = 3.0d0/(e**2)
+    nine_2e4 = 9.0d0/(2.0d0*e**4.0d0)
+    three_e2 = 3.0d0/(e**2.0d0)
     three_2e2 = 0.5d0*three_e2
 
     dt_6e2=dt/(6.0d0*e*e)
@@ -378,6 +378,7 @@ subroutine compute_feq
         feq(a,:,:) = feq(a,:,:) * omega(a) * h(:,:)
     end do
     feq(9,:,:) = omega(9) * h(:,:)* (nine_4 - three_2e2*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:)))
+    feq(9,:,:) = omega(9) * h(:,:)* (nine_4)
     return
 end subroutine compute_feq
 
@@ -431,20 +432,20 @@ subroutine Inflow_Outflow_BC
     ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
 
     ! depth
-    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
-    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value-zb(1,:)) &
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value-zb(1,:) )&
     &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)
 
-    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
-    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(Lx,:) )&
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(Lx,:) )&
     &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)
 
-    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
-    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,1))&
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,1))&
     &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)
 
-    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*inlet_value &
-    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*outlet_value &
+    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,Ly))&
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,Ly))&
     &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)
 
     ! velocity

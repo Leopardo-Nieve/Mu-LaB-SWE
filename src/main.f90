@@ -104,19 +104,19 @@ program main
     end if
 
     ! debugging config fortran
-    print*, "Manning constant: ", nb
-    print*, "Steady flow: ", steadyFlow
-    print*, "Epsilon: ", epsilon
-    print*, "Consistency criterion: ", consCriter
-    print*, "All forcing schemes: ", all_forcing_schemes
-    print*, "Chosen forcing scheme: ", forcing_scheme
-    print*, "Simulation time: ", simTime
-    print*, "Iteration number: ", itera_no
-    print*, "Domain x: ", domainX
-    print*, "Domain y: ", domainY
-    print*, "dx: ", dx
-    print*, "dt: ", dt
-    print*, "tau: ", tau
+!    print*, "Manning constant: ", nb
+!    print*, "Steady flow: ", steadyFlow
+!    print*, "Epsilon: ", epsilon
+!    print*, "Consistency criterion: ", consCriter
+!    print*, "All forcing schemes: ", all_forcing_schemes
+!    print*, "Chosen forcing scheme: ", forcing_scheme
+!    print*, "Simulation time: ", simTime
+!    print*, "Iteration number: ", itera_no
+!    print*, "Domain x: ", domainX
+!    print*, "Domain y: ", domainY
+!    print*, "dx: ", dx
+!    print*, "dt: ", dt
+!    print*, "tau: ", tau
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
@@ -146,7 +146,6 @@ program main
 
     is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
-    print*, "is_not_in_out(", index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1)), ")"! debug
 
     is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
@@ -171,7 +170,7 @@ program main
     dy = dx ! m, lattice spacing
 
     ! define total number of nodes in x and y directions
-    Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
+    Lx = NINT(domainX/dx)+1; Ly = NINT(domainY/dy)+1 ! nodes
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(2,Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
@@ -192,17 +191,17 @@ program main
     if (stopSim) STOP
 
     ! define bathymetry
-    zb = 0
+    zb = 0.0d0
     H0 = 4.5d0
     L = 42.0d0
     xc = 0.5d0 * domainX
     yc = 0.5d0 * domainY
 
     do x = 1, Lx
-        position_x = x * dx
+        position_x = dble(x-1) * dx
         do y = 1, Ly
-            position_y = y * dy
-            h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * exp( -((position_x-xc)*(position_x-xc) + (position_y-yc)*(position_y-yc))/(L*L)) )
+            position_y = dble(y-1) * dy
+            h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
         end do
     end do
     zb = 5.0d0 - h
@@ -279,8 +278,8 @@ program main
 
     ! print values
     ! print*, "q inlet =", q_in, "m^2/s"
-    print*, "e =", e, "m/s"
-    print*, "dt =", dt, "s"
+!    print*, "e =", e, "m/s"
+!    print*, "dt =", dt, "s"
     ! print *,  "passed dt print" ! debug
 
     ! calculate the dimensionless relaxation time
@@ -390,7 +389,7 @@ program main
         ! print *,  "passed compute_feq" ! debug
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
-        & h(Lx,Ly/2) ! debug
+        & h(Lx/2,Ly/2)
         ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
 
         do i=1,Lx
@@ -453,8 +452,6 @@ program main
     ! Add after the existing result.dat write
     call write_csv
     write(6,*) ' CSV results written! ... '
-
-    print*, "program done" !debug
 
 
 end program main
