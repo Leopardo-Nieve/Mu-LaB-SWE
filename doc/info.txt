@@ -3,9 +3,11 @@
 for tidal inlet, make it so the second entry (dirichlet, neumann) can also be tidal. That way, h_in can be modified to be h_tidal and have a pseudo boolean variable to check if it is applied in Inflow-Outflow subroutine
 
 Modifications since last version:
-- for debugging, used dx = 175 m to accelerate simulation time
-- modified treatment of walls to include slip conditions
-- commented call to corners subroutine
+- deleted No_Slip subroutine
+- modified bed geometry to match tidal flow case (Li et al. 2019)
+- modified boundary conditions to use tidal depth at inlet and u = 0 at outlet
+- tidal inlet does not seem to be working
+- did not check if outlet boundary condition is respected
 ---
 
 

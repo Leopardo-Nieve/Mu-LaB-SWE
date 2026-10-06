@@ -52,12 +52,14 @@ module Mu_LaB_SWE
         character:: BCInflow, BCOutflow
         character(3):: forcing_scheme
         character(len=2) :: bc_macro_string
+        character(len=3) :: bc_type_string
         character(len=4) :: bc_pos_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e4,&
         & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
-        & inlet_value, outlet_value
+        & inlet_value, outlet_value, h_t
         double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
+        double precision, dimension(4,3) :: is_bc_type
         double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall, is_slip, is_not_slip
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
@@ -415,44 +417,38 @@ subroutine walls
 
 end subroutine walls
 
-subroutine Slip_BC
-
-    ! this is for slip boundary with Bounce back scheme
-
-    ! for lower boundary
-    ftemp(2,:,1) = ftemp(8,:,1)
-    ftemp(3,:,1) = ftemp(7,:,1)
-    ftemp(4,:,1) = ftemp(6,:,1)
-
-    ! for upper boundary
-    ftemp(8,:,Ly) = ftemp(2,:,Ly)
-    ftemp(7,:,Ly) = ftemp(3,:,Ly)
-    ftemp(6,:,Ly) = ftemp(4,:,Ly)
-
-    return
-end subroutine Slip_BC
-
 subroutine Inflow_Outflow_BC
 
     ! determine inlet and outlet values first
     ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
 
+    ! precalculated the current tidal value
+    h_t = h_tidal(time)
+
     ! depth
-    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value-zb(1,:)) &
-    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value-zb(1,:) )&
-    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)
+    h(1,:)  = is_bc_type(index(bc_pos_string, "l"),index(bc_type_string, "d")) &                                        ! is Dirichlet BC
+    &* (is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value-zb(1,:)) &         ! Dirichlet inlet
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value-zb(1,:)))&       ! Dirichlet outlet
+    &+ is_bc_type(index(bc_pos_string, "l"), index(bc_type_string, "t")) * h_t &                                        ! is tidal BC
+    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)                                      ! no inlet or outlet condition
 
-    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(Lx,:) )&
-    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(Lx,:) )&
-    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)
+    h(Lx,:) = is_bc_type(index(bc_pos_string, "r"),index(bc_type_string, "d")) &                                        ! is Dirichlet BC
+    &* (is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(Lx,:) )&      ! Dirichlet inlet
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(Lx,:)))&    ! Dirichlet outlet
+    &+ is_bc_type(index(bc_pos_string, "r"), index(bc_type_string, "t"))*h_t &                                          ! is tidal BC
+    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)                                     ! no inlet or outlet condition
 
-    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,1))&
-    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,1))&
-    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)
+    h(:,1)  = is_bc_type(index(bc_pos_string, "b"),index(bc_type_string, "d")) &                                        ! is Dirichlet BC
+    &* (is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,1))&        ! Dirichlet inlet
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,1)))&     ! Dirichlet outlet
+    &+ is_bc_type(index(bc_pos_string, "b"), index(bc_type_string, "t"))*h_t &                                          ! is tidal BC
+    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)                                      ! no inlet or outlet condition
 
-    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,Ly))&
-    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,Ly))&
-    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)
+    h(:,Ly) = is_bc_type(index(bc_pos_string, "t"),index(bc_type_string, "d")) &                                        ! is Dirichlet BC
+    &* (is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,Ly))&       ! Dirichlet inlet
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,Ly)))&    ! Dirichlet outlet
+    &+ is_bc_type(index(bc_pos_string, "t"), index(bc_type_string, "t"))*h_t &                                          ! is tidal BC
+    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)                                     ! no inlet or outlet condition
 
     ! velocity
 
@@ -825,11 +821,11 @@ subroutine end_simulation
     end if
 end subroutine end_simulation
 
-double precision function h_in(currentTime)
+double precision function h_tidal(currentTime)
     implicit none
     double precision, intent(in)    :: currentTime
-    h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-end function h_in
+    h_tidal = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+end function h_tidal
 
 function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
@@ -875,10 +871,10 @@ subroutine analytical_solution(currentTime, dimX, dimY)
     implicit none
     integer,          intent(in)    :: dimX, dimY
     double precision, intent(in)    :: currentTime
-    do i = 1, Lx
-        position_x = DBLE(i - 0.5d0) * dx
-        hAnal(i,:) = H_part(2*i,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+    do x = 1, Lx
+        position_x = dble(x-1) * dx
+        hAnal(x,:) = H_part(x,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(x,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
     end do
 end subroutine
 

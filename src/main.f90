@@ -138,9 +138,9 @@ program main
         stopSim = .true.
     end if
 
-    bc_pos_string = "lrbt"
+    bc_pos_string = "lrbt" ! left, right, bottom, top
     bc_macro_string = "hu" ! depth (h), velocity (u)
-
+    bc_type_string = "dnt" ! Dirichlet, Neumann, tidal
 
     is_inlet = 0.0d0
     is_outlet = 0.0d0
@@ -149,12 +149,15 @@ program main
     is_slip = 0.0d0
     is_not_slip = 1.0d0
     is_not_in_out = 1.0d0 ! assume not an inlet or boundary condition until assigned otherwise
+    is_bc_type = 0.0d0
 
     is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
+    is_bc_type(index(bc_pos_string, inlet_pos), index(bc_type_string, inlet(2))) = 1.0d0
 
     is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
     is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
+    is_bc_type(index(bc_pos_string, outlet_pos), index(bc_type_string, outlet(2))) = 1.0d0
 
     is_wall(index(bc_pos_string, wall_pos1)) = 1.0d0
     is_not_wall(index(bc_pos_string, wall_pos1)) = 0.0d0
@@ -188,7 +191,7 @@ program main
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
-        & H_part(2*Lx+1,2*Ly+1),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
+        & H_part(Lx,Ly),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
@@ -212,12 +215,11 @@ program main
         position_x = dble(x-1) * dx
         do y = 1, Ly
             position_y = dble(y-1) * dy
-            h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
+            H_part(x,y) = 50.5d0 - 40.0d0 * position_x / domainX - 10.0d0 * dsin(pi*(4.0d0 * position_x / domainX - 0.5d0) )
+            h(x,y) = H_part(x,y)
         end do
+        zb(x,:) = H(0,:) - H(x,:)
     end do
-    zb = 5.0d0 - h
-
-
 
     ! determine boundary nodes
     ! do x = 1, Lx
@@ -393,7 +395,7 @@ program main
         call compute_feq
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
-        & h(Lx/2,Ly/2)
+        & h(1,Ly/2), " ", hAnal(1,Ly/2)
         ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
 
         do i=1,Lx
