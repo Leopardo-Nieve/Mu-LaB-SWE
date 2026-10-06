@@ -47,7 +47,7 @@ module Mu_LaB_SWE
         integer, dimension(2):: hIndex
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
+        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, & 
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
         & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
         double precision, dimension(9):: ex,ey, eMax
@@ -159,9 +159,10 @@ subroutine update_body_force
 
     ! Set body force
     ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_x = force_x_MMS  !debug ! MMS
-    ! force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
-    force_y = force_y_MMS !debug ! m^2/s^2 MMS
+    force_x = 0.0d0 ! debug
+    ! force_x = force_x_MMS  !debug ! MMS
+    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
+    ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
 end subroutine update_body_force
 
 subroutine collide_stream
@@ -177,9 +178,11 @@ subroutine collide_stream
             xb = x -1
             ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
-            ! Following 4 lines Implement periodic BCs in x or y directions
-            if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
-            if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
+            ! Following 2 lines Implement periodic BCs in x direction
+            ! if (xf > Lx) xf = xf - Lx 
+            ! if (xb < 1) xb = Lx + xb 
+            
+            ! Following 2 lines Implement periodic BCs in y direction
             if (yf > Ly) yf = yf - Ly
             if (yb < 1) yb = Ly + yb 
 
@@ -572,11 +575,11 @@ subroutine end_simulation
     end if
 end subroutine end_simulation
 
-! double precision function h_in(currentTime)
-!     implicit none
-!     double precision, intent(in)    :: currentTime
-!     h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-! end function h_in
+double precision function h_in(currentTime)
+    implicit none
+    double precision, intent(in)    :: currentTime
+    h_in = H_part(1,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+end function h_in
 
 function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
@@ -599,13 +602,16 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
 end function centred_interpolation
 
-! function h_analytical(currentTime, dimX, dimY) result(h_a)
-!     implicit none
-!     integer,          intent(in)    :: dimX, dimY
-!     double precision, intent(in)    :: currentTime
-!     double precision                :: h_a(dimX,dimY)
-!     h_a = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
-! end function h_analytical
+subroutine analytical_solution(currentTime, dimX, dimY)
+    implicit none
+    integer,          intent(in)    :: dimX, dimY
+    double precision, intent(in)    :: currentTime
+    hAnal = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
+    do i = 1, Lx
+        position_x = DBLE(i - 0.5d0) * dx
+        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+    end do
+end subroutine
 
 ! function u_analytical(currentTime, dimX, dimY) result(u_a)
 !     implicit none
