@@ -1,30 +1,21 @@
-2025-08-12
-
-Consistency not respected at inlet. If let run for 100 iterations anyway, inconsistency increases with time and depth inlet increases to non physical values.
-
+2026-10-04
 ---
+Found error at the outlet boundary: I assigned a uniform value of h for all nodes at the boundary (4.5 m). However, the boundary condition is actually h + zb = 5 m. 
+Since zb = f(x,y), it is not unifrom along the right boundary. Therefore, h is not uniform along the boundary either. 
+Correction: modify the inlet-outlet boundary conditions for h to refer to h + zb. 
 
 Modifications since last version:
-- moved ho variable from main.f90 to to Mu_LaB_SWE.f90
-
-- defined pi in the setup subroutine
-
-- defined constants for initializing flow field later in code
-
-- defined initial u such that the discharge is continuous over the entire domain (u = q_in/(h*domainY))
-
-- wrote a logical function check_consistency. can only computate east direction for the moment
-
-- replaced the inflow consistency check lines by a call to check_consistency function
+- fixed the Einstein summation equations
+- corrected number of nodes to have correct number of nodes for full bounceback instead of modified bounceback
+- corrected bed geometry generation to use correct cartesian positions
+- modified the inlet-outlet boundary conditions for h to refer to h + zb
+- ran stationary case which now shows no irregularities or instabilities
 
 ---
 
+
 Potential next step(s):
-
-- remove complexities: cylinder geometry, shear stress term
-
-- determine what causes instability in inlet condition (according to Ru (2023), the kinetic scheme currently used should still work)
-
-- Update iterative process to define initial depth over entire domain and avoid shocks
-
-- Determine way to display solid nodes so they have no value on paraview
+- run convergence analysis on seamount case Li et al. (2019)
+	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
+	- run one case for each force scheme and compare to analytical solution
+	- write script automating convergence analysis and run it

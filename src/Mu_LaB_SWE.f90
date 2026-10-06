@@ -1,22 +1,23 @@
-!----------------------------------------------------------! 
-!                       LABSWE.f90 
-! This module written in FORTRAN 90 implements the lattice 
-! Boltzmann method for shallow water equations (LABSWE), 
-! based on the 9-speed square lattices. It is adapted from 
+!----------------------------------------------------------!
+!                       LABSWE.f90
+! This module written in FORTRAN 90 implements the lattice
+! Boltzmann method for shallow water equations (LABSWE),
+! based on the 9-speed square lattices. It is adapted from
 ! the sample code presented in appendix B of
-! Zhou, J. G. (2004). Lattice Boltzmann methods for shallow 
-! water flows. Springer. 
+! Zhou, J. G. (2004). Lattice Boltzmann methods for shallow
+! water flows. Springer.
 ! https://doi.org/10.1007/978-3-662-08276-8
 ! Contrary to the sample code, the time step and lattice
-! spacing do not have to be taken as units. Also the 
-! module provides periodic boundary conditions, 
-! inflow-outflow boundary conditions in the x direction 
-! boundaries and no-slip boundary conditions in y direction 
-! boundaries. 
-! S. Fiset, Montreal, 2025 
+! spacing do not have to be taken as units. Also the
+! module provides periodic boundary conditions,
+! inflow-outflow boundary conditions in the x direction
+! boundaries and no-slip boundary conditions in y direction
+! boundaries.
+! S. Fiset, Montreal, 2025
 ! ----------------------------------------------------------!
 !                   List of Major Variables
-! a, x, y, b, i, j, k - Loop integers
+! a, x, y, i, j, k - Loop integers
+! B, C - Variables for the source term definition
 ! domainX, domainY - Domain's size in x and y directions [m]
 ! dt - time step [s]
 ! dx, dy - lattice spacing in x and y directions [m]
@@ -34,6 +35,7 @@
 ! Lx, Ly - Total lattice numbers in x and y directions [-]
 ! nu - Molecular viscosity  [m^2/s]
 ! q_in - Inflow discharge [m^2/s]
+! S - Source term [m/s]
 ! tau - Relaxation time [-]
 ! time - Amount of time elapsed since start of simulation [s]
 ! u, v - x and y components of flow velocity [m/s]
@@ -41,44 +43,65 @@
 ! zb - bed geometry
 module Mu_LaB_SWE
 
-        implicit none 
+        implicit none
 
-        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
+        integer:: Lx,Ly,x,y,a,current_iteration, i,j,k,xf,yf,xb,yb
         integer, dimension(2):: hIndex
+        integer, dimension(2,9) :: e_unit
         logical:: stopSim, tauOk, velOk, celOk, FrOk
         character:: BCInflow, BCOutflow
-        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, & 
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
-        double precision, dimension(9):: ex,ey, eMax
+        character(3):: forcing_scheme
+        character(len=2) :: bc_macro_string
+        character(len=4) :: bc_pos_string
+        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e4,&
+        & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
+        & inlet_value, outlet_value
+        double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
+        double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall
+        double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
+        double precision, dimension(3):: L1_error,L2_error
+        double precision, dimension(2,9):: e_vec
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
+        double precision, dimension(4,2) :: is_not_in_out
+        double precision, allocatable, dimension(:,:):: h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
         & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
-        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
-    
-contains 
+        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u,u_vecLast
+        double precision, allocatable, dimension(:,:,:,:) :: force
 
-subroutine setup 
-    
+contains
+
+subroutine setup
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
 
     ex = (/ 1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0,  0.0d0,  1.0d0, 0.0d0 /)
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
-    
+
+    e_unit(:,:) = reshape([1,0, 1,1, 0,1, -1,1, -1,0, -1,-1, 0,-1, 1,-1, 0,0], (/2, 9/) ) ! unit lattice velocities
+    !e_unit(:,:) = reshape([1,2,3,4,5,6,7,8,9, 10,11,12,13,14,15,16,17,18], (/2, 9/) ) ! debug
+
     ex(9) = 0.0d0; ey(9) = 0.0d0
-    eMax = gacl*h(1,3)/3.0d0
-    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
-    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
-    eMax = eMax/-(ex*u(1,3) + ey*v(1,3))
-    eMax = 6.0d0*eMax
+    e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
+    e_vec = e*e_vec ! scale for non unit lattice velocity
+
+!    eMax = gacl*h(1,3)/3.0d0
+!    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
+!    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
+!    eMax = eMax/(-(ex*u(1,3) + ey*v(1,3)))
+!    eMax = 6.0d0*eMax
     do a=1,9
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
-    ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
+    !ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
+
+    ! declare the weights function
+    omega(1:7:2) = 1.0d0/9.0d0
+    omega(2:8:2) = 1.0d0/36.0d0
+    omega(9) = 4.0d0/9.0d0
 
     ! constants to limit random error
     one_24th_e2=1.0d0/(24.0d0*e*e)
@@ -88,13 +111,22 @@ subroutine setup
     one_8th_e4 = 1.0d0/(8.0d0*e*e*e*e)
     five_6th_g_e2 = 5.0d0*gacl*one_6th_e2
     two_3rd_e2 = 2.0d0*one_3rd_e2
+    do a = 1,9
+            e_squared(a) = e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a)
+            e_fourth(a) = (e_vec(1,a)*e_vec(1,a) + e_vec(2,a)*e_vec(2,a))**2
+    end do
+    nine_4 = 9.0d0/4.0d0
+    nine_2e4 = 9.0d0/(2.0d0*e**4.0d0)
+    three_e2 = 3.0d0/(e**2.0d0)
+    three_2e2 = 0.5d0*three_e2
 
     dt_6e2=dt/(6.0d0*e*e)
+    one_minus_one_2tau = 1.0d0 - 1.0d0/(2.0d0 * tau)
 
     ! determine initial inlet depth and velocity
     ! h(1,:) = 1.0d-3 ! m, initial depth at inlet
     ! h(1,:) = 2.0d0 ! m, initial depth at inlet
-    ! u(1,:) = q_in/h(1,:) ! m/s, initial velocity at inlet
+    ! u_vec(1,1,:) = q_in/h(1,:) ! m/s, initial velocity at inlet
 
     ! initialize the depth over the entire domain
     ! do x = 1, Lx
@@ -102,20 +134,20 @@ subroutine setup
     ! end do
 
     ! commented do loop and moved compute_feq out of it for MMS
-    
-    ! compute the equilibrium distribution function feq 
+
+    ! compute the equilibrium distribution function feq
     call compute_feq
-    
+
     ! initDepth: do
-    !     ! compute the equilibrium distribution function feq 
+    !     ! compute the equilibrium distribution function feq
     !     call compute_feq
 
     !     ftemp = feq ! initialize the temporary distribution function
 
-    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then 
+    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then
     !         h = h + 1.0d-3 ! m, increase the depth at inlet by 1 mm
     !         ! commented because MMS requires new velocity inlet condition
-    !         ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
+    !         ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
     !     else
     !         print*, "Inlet consistency satisfied."
     !         exit initDepth ! exit loop if consistency is satisfied
@@ -125,112 +157,183 @@ subroutine setup
 
     stopSim = .false. ! reset stopSim flag before starting the simulation
 
-    ! Set the initial distribution function to feq 
+    ! Set the initial distribution function to feq
     f = feq
     return
 end subroutine setup
 
-subroutine update_body_force   
-    ! interpolate values of h centred between each nodes to evaluate centred slope body force
-    ! do x = 2, 2*Lx
-    !     if (mod(x,2) == 0) then
-    !         hCentered(x,:) = h(x/2,Ly/2)
-    !     else
-    !         hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
-    !     end if
+function calculate_body_force(alpha, x_node, y_node) result(body_forces)
 
-    !     ! if ( x>190 .AND. x<210 ) then !debug
-    !     !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
-    !     ! end if!debug
-    ! end do
+    integer, intent(in):: alpha, x_node, y_node
+    double precision   :: body_forces(2)
 
-    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0 
-    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0 
+    h_bar = 0.5d0 * ( h(x_node,y_node) + h(x_node+e_unit(1,alpha),y_node+e_unit(2,alpha)) )
 
-    hCentered = centred_interpolation(h,Lx,Ly)
-    uCentered = centred_interpolation(u,Lx,Ly)
-    vCentered = centred_interpolation(v,Lx,Ly)
+    body_forces(1) = - gacl * h_bar * ((h(x_node+e_unit(1,alpha),y_node) + zb(x_node+e_unit(1,alpha),y_node)) &
+    &- (h(x_node,y_node) + zb(x_node,y_node)))/dx * e_unit(1,alpha)
 
-    ! ! bed shear stress    
-    ! Cz = hCentered**(1.0d0/6.0d0)/nb ! Chezy coefficient
-    ! Cb = gacl/(Cz*Cz) ! bed friction coefficient
-    ! tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
-    ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
+    body_forces(2) = - gacl * h_bar * ((h(x_node,y_node+e_unit(2,alpha)) + zb(x_node,y_node+e_unit(2,alpha))) &
+    &- (h(x_node,y_node) + zb(x_node,y_node)))/dx * e_unit(2,alpha)
 
-    ! Set body force
-    ! force_x = -hCentered*gacl*dzbdx !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_x = 0.0d0 ! debug
-    ! force_x = force_x_MMS  !debug ! MMS
-    force_y = 0.0d0  !-tau_by !debug ! m^2/s^2, bed shear stress
-    ! force_y = force_y_MMS !debug ! m^2/s^2 MMS
+end function calculate_body_force
+
+subroutine update_body_force
+
+    ! centred nodes
+    do y = 2, Ly-1
+        do x = 2, Lx-1
+            do a = 1, 9
+                force(:,a,x,y) = calculate_body_force(a,x,y)
+            end do
+        end do
+    end do
+
+
+    ! left border
+    do y = 2, Ly-1
+        ! do not do directions 4, 5 and 6 because no body force needs to be calculated
+        do a = 1, 3
+            force(:,a,1,y) = calculate_body_force(a,1,y)
+        end do
+
+        do a = 7, 8
+            force(:,a,1,y) = calculate_body_force(a,1,y)
+        end do
+    end do
+
+    ! right border
+    do y=2,Ly-1
+        ! do not do directions 1, 2 and 8 because no body force needs to be calculated
+        do a = 3,7
+            force(:,a,Lx,y) = calculate_body_force(a,Lx,y)
+        end do
+    end do
+
+    ! bottom border
+    do x = 2, Lx-1
+        ! do not do directions 6, 7 and 8 because no body force needs to be calculated
+        do a = 1, 5
+            force(:,a,x,1) = calculate_body_force(a,x,1)
+        end do
+    end do
+
+    ! top border
+    do x = 2, Lx-1
+        ! do not do directions 2, 3 and 4 because no body force needs to be calculated
+
+        force(:,1,x,Ly) = calculate_body_force(1,x,Ly)
+
+        do a = 5, 8
+            force(:,a,x,Ly) = calculate_body_force(a,x,Ly)
+        end do
+    end do
+
+    ! corners
+
+    ! bottom left, only do directions 1, 2 and 3
+    do a = 1,3
+        force(:,a,1,1) = calculate_body_force(a,1,1)
+    end do
+
+    ! top left, only do directions 1, 7 and 8
+    force(:,1,1,Ly) = calculate_body_force(1,1,Ly)
+
+    do a = 7,8
+        force(:,a,1,Ly) = calculate_body_force(a,1,Ly)
+    end do
+
+    ! bottom right, only do directions 4, 5 and 6
+    do a = 3, 5
+        force(:,a,Lx,1) = calculate_body_force(a,Lx,1)
+    end do
+
+    ! top right, only do directions 5, 6 and 7
+    do a = 5, 7
+        force(:,a,Lx,Ly) = calculate_body_force(a,Lx,Ly)
+    end do
+
+    ! initialise
+    S = 0.0d0
+
+    do a = 1,8
+        S(a,:,:) = 3.0d0 * omega(a) * (&
+        & (e_vec(1,a)/e_squared(a)*B &
+        &+ (3.0d0* (e_vec(1,a)*u(1,:,:) + e_vec(2,a)*u(2,:,:))/e_fourth(a)*e_vec(1,a) - u(1,:,:)/e_squared(a))*C )*force(1,a,:,:)&
+        &+(e_vec(2,a)/e_squared(a)*B &
+        &+ (3.0d0* (e_vec(1,a)*u(1,:,:) + e_vec(2,a)*u(2,:,:))/e_fourth(a)*e_vec(2,a) - u(2,:,:)/e_squared(a))*C )*force(2,a,:,:)&
+        &)
+    end do
+
 end subroutine update_body_force
 
 subroutine collide_stream
 
-    ! This calculates distribution function with the LABSWE 
+    ! This calculates distribution function with the LABSWE
 
-    do y = 1, Ly 
+    do y = 1, Ly
         yf = y + 1
         yb = y -1
-    
+
         do x = 1, Lx
             xf = x + 1
             xb = x -1
             ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
 
             ! Following 2 lines Implement periodic BCs in x direction
-            ! if (xf > Lx) xf = xf - Lx 
-            ! if (xb < 1) xb = Lx + xb 
-            
-            ! Following 2 lines Implement periodic BCs in y direction
-            if (yf > Ly) yf = yf - Ly
-            if (yb < 1) yb = Ly + yb 
+            ! if (xf > Lx) xf = xf - Lx
+            ! if (xb < 1) xb = Lx + xb
 
-            ! start streaming and collision 
-            if (xf<=Lx) then ! periodic in y direction
+            ! Following 2 lines Implement periodic BCs in y direction
+!            if (yf > Ly) yf = yf - Ly
+!            if (yb < 1) yb = Ly + yb
+
+            ! start streaming and collision
+            if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
+                & + dt*S(1,x,y)
             end if
-            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
-                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
+            if (xf<=Lx .and. yf<=Ly) then
+                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau&
+                & + dt*S(2,x,y)
             end if
-            ! if (yf<=Ly) ! periodic in y direction
-            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
-            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
-                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
+            if (yf<=Ly) then
+                ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
+                & + dt*S(3,x,y)
             end if
-            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
-            if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
-                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
+
+            if (xb>=1 .and. yf<=Ly) then
+                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau&
+                & + dt*S(4,x,y)
             end if
-            ! if (yb>=1) ! periodic in y direction
-            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
-            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
-                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
+            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau&
+                & + dt*S(5,x,y)
+            if (xb>=1 .and. yb>=1) then
+                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau&
+                & + dt*S(6,x,y)
             end if
-            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
-            
-        end do 
+            if (yb>=1) then
+                ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
+                & + dt*S(7,x,y)
+            end if
+            if (xf<=Lx .and. yb>=1) then
+                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau&
+                & + dt*S(8,x,y)
+            end if
+            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau
+
+        end do
     end do
 
 return
 end subroutine collide_stream
 
 subroutine solution
-    
+
     ! save last timestep
     hLast = h
-    uLast = u
-    vLast = v
-    
-    ! compute physical variables h, u and v
+    u_vecLast = u
+
+    ! compute physical variables h, u_vec
 
     ! Set the distribution function f
     f = ftemp
@@ -238,14 +341,13 @@ subroutine solution
     ! compute the velocity and depth
     h = 0.0d0
     u = 0.0d0
-    v = 0.0d0
     do a = 1, 9
         h(:,:) = h(:,:) + f(a,:,:)
-        u(:,:) = u(:,:) + ex(a)*f(a,:,:)
-        v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
+        u(1,:,:) = u(1,:,:) + e_vec(1,a)*f(a,:,:)
+        u(2,:,:) = u(2,:,:) + e_vec(2,a)*f(a,:,:)
     end do
-    u = u/h
-    v = v/h
+    u(1,:,:) = (u(1,:,:) + 0.5d0*dt*force(1,1,:,:))/h(:,:) ! add BG corrective term l*dt*F_i and divide by depth
+    u(2,:,:) = (u(2,:,:) + 0.5d0*dt*force(3,2,:,:))/h(:,:)
 
     return
 
@@ -254,181 +356,302 @@ end subroutine solution
 subroutine compute_feq
     ! this computes the local equilibrium distribution function
 
-    do a = 1, 8 
-        ! if (mod(a,2) == 0) then 
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +& 
-            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+& 
-            & ey(a)*v(:,:))+h(:,:)*one_8th_e4& 
-            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
-            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
-            & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+& 
-            & v(:,:)*v(:,:)) 
-        ! end if
+    ! initialise
+    feq(:,:,:) = 0.0d0
 
-        if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
+    do a = 1, 8
+!       first term
+        do i = 1,2
+            feq(a,:,:) = feq(a,:,:) + three_e2*e_vec(i,a)*u(i,:,:)
+        end do
+!       second term
+        do i = 1,2
+            do j = 1,2
+                feq(a,:,:) = feq(a,:,:) + nine_2e4*e_vec(i,a)*u(i,:,:)*e_vec(j,a)*u(j,:,:)
+            end do
+        end do
+!       third term
+        do i = 1,2
+            feq(a,:,:) = feq(a,:,:) - three_2e2 * u(i,:,:)*u(i,:,:)
+        end do
+
+        feq(a,:,:) = feq(a,:,:) * omega(a) * h(:,:)
     end do
-    feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
-             & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+    feq(9,:,:) = omega(9) * h(:,:)* (nine_4 - three_2e2*(u(1,:,:)*u(1,:,:) + u(2,:,:)*u(2,:,:)))
+    feq(9,:,:) = omega(9) * h(:,:)* (nine_4)
     return
 end subroutine compute_feq
 
 subroutine Noslip_BC
+! this is for noslip boundary with modified Bounce back scheme (Guo & Shu, 2013)
 
-    ! this is for noslip boundary with Bounce back scheme
-
-    ! for lower boundary
-    do a = 2, 4 
-        ftemp(a,:,1) = ftemp(a+4,:,1) 
+    ! left boundary
+    do a = 1,2
+        ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(a,1,:)
     end do
-    
-    ! for upper boundary
-    do a = 6, 8 
-        ftemp(a,:,Ly) = ftemp(a-4,:,Ly) 
+    ftemp(8,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(8,1,:)
+
+    ! right boundary
+    ftemp(4,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(8,Lx,:) + is_not_wall(index(bc_pos_string, "r"))*ftemp(4,Lx,:)
+    do a = 5, 6
+        ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_not_wall(index(bc_pos_string, "r"))*ftemp(a,Lx,:)
     end do
 
-    ! for cylinder boundary
-    ! do x = 1, Lx !debug
-    !     do y = 1, Ly !debug
-    !         if (C(x,y) == 0.5) then ! boundary node !debug
-    !             xf = x + 1
-    !             xb = x - 1
-    !             yf = y + 1
-    !             yb = y - 1
+    ! bottom boundary
+    do a = 2, 4
+        ftemp(a,:,1) = is_wall(index(bc_pos_string, "b"))*ftemp(a+4,:,1) + is_not_wall(index(bc_pos_string, "b"))*ftemp(a,:,1)
+    end do
 
-    !             ! apply bounce back scheme
-    !             if (C(xf,y)  == 1) ftemp(5,x,y) = ftemp(1,x,y) ! E
-    !             if (C(xf,yf) == 1) ftemp(6,x,y) = ftemp(2,x,y) ! NE
-    !             if (C(x,yf)  == 1) ftemp(7,x,y) = ftemp(3,x,y) ! N
-    !             if (C(xb,yf) == 1) ftemp(8,x,y) = ftemp(4,x,y) ! NW
-    !             if (C(xb,y)  == 1) ftemp(1,x,y) = ftemp(5,x,y) ! W
-    !             if (C(xb,yb) == 1) ftemp(2,x,y) = ftemp(6,x,y) ! SW
-    !             if (C(x,yb)  == 1) ftemp(3,x,y) = ftemp(7,x,y) ! S
-    !             if (C(xf,yb) == 1) ftemp(4,x,y) = ftemp(8,x,y) ! SE
-    !         end if
-    !     end do
-    ! end do
+    ! top boundary
+    do a = 6, 8
+        ftemp(a,:,Ly) = is_wall(index(bc_pos_string, "t")) * ftemp(a-4,:,Ly) + is_not_wall(index(bc_pos_string, "t"))*ftemp(a,:,Ly)
+    end do
 
-    return 
-end subroutine Noslip_BC 
+end subroutine Noslip_BC
 
 subroutine Slip_BC
 
     ! this is for slip boundary with Bounce back scheme
 
     ! for lower boundary
-    ftemp(2,:,1) = ftemp(8,:,1) 
-    ftemp(3,:,1) = ftemp(7,:,1) 
-    ftemp(4,:,1) = ftemp(6,:,1) 
-    
+    ftemp(2,:,1) = ftemp(8,:,1)
+    ftemp(3,:,1) = ftemp(7,:,1)
+    ftemp(4,:,1) = ftemp(6,:,1)
+
     ! for upper boundary
-    ftemp(8,:,Ly) = ftemp(2,:,Ly) 
+    ftemp(8,:,Ly) = ftemp(2,:,Ly)
     ftemp(7,:,Ly) = ftemp(3,:,Ly)
     ftemp(6,:,Ly) = ftemp(4,:,Ly)
 
-    return 
-end subroutine Slip_BC 
+    return
+end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
+
+    ! determine inlet and outlet values first
+    ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
+
+    ! depth
+    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value-zb(1,:)) &
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value-zb(1,:) )&
+    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)
+
+    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(Lx,:) )&
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(Lx,:) )&
+    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)
+
+    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,1))&
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,1))&
+    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)
+
+    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,Ly))&
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,Ly))&
+    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)
+
+    ! velocity
+
+    u(1,1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "u"))*u(1,1,:)
+
+    u(1,Lx,:) = is_inlet(index(bc_pos_string, "r"))* is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "u"))  * u(1,Lx,:)
+
+    u(2,:,1)  = is_inlet(index(bc_pos_string, "b"))* is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "u"))*u(2,:,1)
+
+    u(2,:,Ly) = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "u"))*inlet_value &
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "u"))*outlet_value &
+    &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "u"))*u(2,:,Ly)
+
+    ! discharge
+    ! tbd?
+
+    ! hard-coded because generalising for every direction is not worth the time, especially considering indexation method will be implemented soon
+    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
+    u(2,1,:) = 0.0d0
+    u(2,Lx,:) = 0.0d0
+
+    ! left inlet-outlet
+    ftemp(1,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (ftemp(5,1,:) + 2.0d0 * h(1,:) * u(1,1,:)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(1,1,:)
+
+    ftemp(2,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0 * (ftemp(7,1,:) - ftemp(3,1,:) )) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
+
+    ftemp(8,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0 * (ftemp(3,1,:) - ftemp(7,1,:) )) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
+
+    ! right
+    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(5,Lx,:)
+
+    ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) + 3.0d0*u(2,Lx,:)))/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(6,Lx,:)
+
+    ftemp(4,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) - 3.0d0 * u(2,Lx,:)))/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0 * (ftemp(7,Lx,:) - ftemp(3,Lx,:)))&
+    &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(4,Lx,:)
+
+    ! bottom
+    ftemp(3,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (ftemp(7,:,1) + 2.0d0*h(:,1)*u(2,:,1)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(3,:,1)
+
+    ftemp(2,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) + 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(6,:,1)+ 0.5d0*(ftemp(5,:,1) - ftemp(1,:,1))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(2,:,1)
+
+    ftemp(4,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) - 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(8,:,1)+ 0.5d0*(ftemp(1,:,1) - ftemp(5,:,1))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(4,:,1)
+
+    ! top
+    ftemp(7,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (ftemp(3,:,Ly) - 2.0d0*h(:,Ly)*u(2,:,Ly)/(3.0d0*e)) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(7,:,Ly)
+
+    ftemp(6,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) + 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(2,:,Ly)+ 0.5d0*(ftemp(1,:,Ly) - ftemp(5,:,Ly))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(6,:,Ly)
+
+    ftemp(8,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) - 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(4,:,Ly)+ 0.5d0*(ftemp(5,:,Ly) - ftemp(1,:,Ly))) &
+    &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(8,:,Ly)
+
     ! macroscopic values
     ! h(1,:) = h(2,:)
     ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    h(1,:) = hAnal(1,:)
-    ! u(1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
-    ! u(1,:) = uAnal(1,:)
-    ! u(Lx,:) = uAnal(Lx,:)
-    ! u(1,:) = q_in/h(1,:)
-    ! u(Lx,:) = q_in/h(Lx,:)
-    v(1,:) = vAnal(1,:)
-    v(Lx,:) = vAnal(Lx,:)
-    u(1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
+    ! h(1,:) = 5.0d0 - zb(1,:)
+    ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
+    ! u_vec(1,1,:) = uAnal(1,:)
+    ! u_vec(1,Lx,:) = uAnal(Lx,:)
+    ! u_vec(1,1,:) = q_in/h(1,:)
+    ! u_vec(1,Lx,:) = q_in/h(Lx,:)
+    ! u_vec(2,1,:) = vAnal(1,:)
+    ! u_vec(2,Lx,:) = vAnal(Lx,:)
+    ! u(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
     ! uAnal = u_analytical(time, Lx, Ly)
-    ! u(1,:) = uAnal(1,:)
+    ! u_vec(1,1,:) = uAnal(1,:)
 
-    h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(Lx,:)/e)
-    u(Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
-        &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
+    ! h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
+    ! u(1,Lx,:) = 0.0d0
+    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(1,Lx,:)/e)
+    ! u_vec(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
+    !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
 
-    if ( BCInflow == "i" ) then
-        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
-        ! do a = 3, 7
-        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-        ! end do
-        ! consInRgt(1,:) = h(1,:)*u(1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-        ! do j = 1, Ly
-        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-        !         print*, "consistency fails at node",1,j
-        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
-        !         stopSim = .true.
-        !     end if
-        ! end do
+!    if ( BCInflow == "i" ) then
+!        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
+!        ! do a = 3, 7
+!        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
+!        ! end do
+!        ! consInRgt(1,:) = h(1,:)*u_vec(1,1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
+!        ! do j = 1, Ly
+!        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
+!        !         print*, "consistency fails at node",1,j
+!        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
+!        !         stopSim = .true.
+!        !     end if
+!        ! end do
+!
+!        ! if ( .not. stopSim ) then
+!
+!        ! consistence check
+!        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
+!        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
+!            ! Following lines implement inflow BC (Zhou, p.59)
+!            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,1,:)/(3.0d0*e)
+!            ftemp(2,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
+!            ftemp(8,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
+!        end if
+!    elseif (BCInflow == "n") then
+!            ! Neumann BC at the inflow (p. 58)
+!            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
+!            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
+!            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
+!    else
+!        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
+!        print*, "***Hint: the condition must be written all in lower case.***"
+!    end if
 
-        ! if ( .not. stopSim ) then
-        
-        ! consistence check
-        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
-        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
-            ! Following lines implement inflow BC (Zhou, p.59)
-            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,:)/(3.0d0*e)
-            ftemp(2,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-            ftemp(8,1,:) = h(1,:)*u(1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
-        end if
-    elseif (BCInflow == "n") then
-            ! Neumann BC at the inflow (p. 58)
-            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
-            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
-            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
-    else
-        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
-        print*, "***Hint: the condition must be written all in lower case.***"
-    end if
-
-    if ( BCOutflow == "o" ) then
-        ! consistence check
-        consOutLft(1,:) = h(Lx,:)
-        do a = 1, 9
-            if (a >= 4 .and. a <=6 ) cycle
-            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
-        end do
-        consOutRgt(1,:) = -h(Lx,:)*u(Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
-        do j = 1, Ly
-            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
-                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
-                ! stopSim = .true. "" ! debug
-            end if
-        end do
-
-        ! if ( .not. stopSim ) then
-        if ( .TRUE. ) then ! debug
-            ! Following lines implement outflow BC (Zhou, p.60)
-            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(Lx,:)/(3.0d0*e)
-            ftemp(4,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-            ftemp(6,Lx,:) = -h(Lx,:)*u(Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
-        end if
-    elseif (BCOutflow == "n") then
-        ! Neumann BC at outflow (p. 58)
-        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
-        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
-        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
-    else
-        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
-        print*, "***Hint: the condition must be written all in lower case.***"
-    end if
+!    if ( BCOutflow == "o" ) then
+!        ! consistence check
+!        consOutLft(1,:) = h(Lx,:)
+!        do a = 1, 9
+!            if (a >= 4 .and. a <=6 ) cycle
+!            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
+!        end do
+!        consOutRgt(1,:) = -h(Lx,:)*u(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
+!        do j = 1, Ly
+!            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
+!                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
+!                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
+!                ! stopSim = .true. "" ! debug
+!            end if
+!        end do
+!
+!        ! if ( .not. stopSim ) then
+!        if ( .TRUE. ) then ! debug
+!            ! Following lines implement outflow BC (Zhou, p.60)
+!            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:)/(3.0d0*e)
+!            ftemp(4,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
+!            ftemp(6,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
+!        end if
+!    elseif (BCOutflow == "n") then
+!        ! Neumann BC at outflow (p. 58)
+!        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
+!        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
+!        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
+!    else
+!        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
+!        print*, "***Hint: the condition must be written all in lower case.***"
+!    end if
 end subroutine Inflow_Outflow_BC
+
+subroutine corners
+    ! bottom left
+
+    ! make sure depth has the correct value if it is not specified at the flow boundary
+    h(1,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(2,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(1,1)
+
+    ftemp(4,1,1) = 0.5d0 * (h(1,1) - sum((/ftemp(1:3,1,1),ftemp(5:7,1,1),ftemp(9,1,1)/)))
+    ftemp(8,1,1) = ftemp(4,1,1)
+
+    ! top right
+    h(Lx,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx-1,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx,Ly)
+
+    ftemp(4,Lx,Ly) = 0.5d0 * (h(Lx,Ly) - sum((/ftemp(1:3,Lx,Ly),ftemp(5:7,Lx,Ly),ftemp(9,Lx,Ly)/)))
+    ftemp(8,Lx,Ly) = ftemp(4,1,1)
+
+    ! top left
+    h(1,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(2,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(1,Ly)
+
+    ftemp(2,1,Ly) = 0.5d0 * (h(1,Ly) - sum((/ftemp(1,1,Ly),ftemp(3:5,1,Ly),ftemp(7,1,Ly),ftemp(9,1,Ly)/)))
+    ftemp(6,1,Ly) = ftemp(2,1,Ly)
+
+    ! bottom right
+    h(Lx,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx-1,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx,1)
+
+    ftemp(2,1,Ly) = 0.5d0 * (h(Lx,1) - sum((/ftemp(1,Lx,1),ftemp(3:5,Lx,1),ftemp(7,Lx,1),ftemp(9,Lx,1)/)))
+    ftemp(6,1,Ly) = ftemp(2,Lx,1)
+
+end subroutine
 
 subroutine ensure_results_directory
     implicit none
-    logical :: exists
+    logical :: exists!, ierr
     integer :: ierr
     character(len=100) :: cmd
 
     inquire(file='./results', exist=exists)
 
     if (.not. exists) then
-        cmd = 'mkdir ".\results"'
-        ierr = system(cmd)
+        cmd = 'mkdir "./results"'
+        call EXECUTE_COMMAND_LINE(cmd, exitstat=ierr)
+!        ierr = system(cmd)
         if (ierr /= 0) then
             print *, 'Error: Could not create the directory.'
             stop
@@ -451,8 +674,8 @@ subroutine write_csv
     ! integer, dimension(8) :: d
     character(len=19) :: formatted_time
     ! call date_and_time (values=d)
-    
-    
+
+
     call date_and_time(DATE=date, TIME=t, ZONE=zone)
     formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
                & //'T'//                             &
@@ -488,22 +711,41 @@ subroutine write_csv
     ! Write CSV header
     write(67, '(A)') 'x (nodes),y (nodes),x (m),y (m),h + zb (m),zb (m),h (m),u (m/s),v (m/s), q (m^2/s)&
     &, h analytical (m), u analytical (m/s), h analytical + zb (m) ,&
-    ! to add MMS source terms
     & Fx (m^2/s^2), Fy (m^2/s^2)&
+    & ,L1 h, L1 u, L1 v, L2 h, L2 u, L2 v&
     &'
 
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F20.14,","),3(F20.14,","),7(F20.14,","), &
-            ! to add MMS source terms
-            & F20.14, F20.14   &
-            & )') &
-                x, y, &
-                dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
-                h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
-                u(x,y), v(x,y), h(x,y)*u(x,y), hAnal(x,y), uAnal(x,y),  hAnal(x,y) + zb(2*x,2*y) ,&
-                & force_x(2*x,2*y), force_y(2*x,2*y)
+            IF (x == 1 .AND. y == 1) THEN
+                write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),6(E20.14,","), &
+                ! source terms
+                ! & F20.14, F20.14,&!
+                & 2(E20.14,","),&
+
+                ! errors
+                ! &, 5(F20.14,","), F20.14& !
+                & 5(E20.14,","), E20.14&
+                & )') &
+                    x, y, &
+                    dx*(DBLE(x-1)), dy*(DBLE(y-1)), &
+                    h(x,y) + zb(x,y), zb(x,y), h(x,y), &
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
+                    & force_x(x,y), force_y(x,y) &
+                    & ,L1_error(1), L1_error(2), L1_error(3), L2_error(1), L2_error(2), L2_error(3)
+            ELSE
+                write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),7(E20.14,","), &
+                ! source terms
+                ! & F20.14, F20.14,&!
+                & E20.14&
+                & )') &
+                    x, y, &
+                    dx*(DBLE(x)-1), dy*(DBLE(y)-1), &
+                    h(x,y) + zb(x,y), zb(x,y), h(x,y), &
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
+                    & force_x(x,y), force_y(x,y)
+            end IF
         end do
     end do
     close(67)
@@ -513,10 +755,12 @@ subroutine sleep_seconds(n)
     integer, intent(in) :: n
     character(len=20) :: command
     write(command, '(A,I0,A)') 'timeout /T ', n, ' >nul'
-    call system(command)
+    call EXECUTE_COMMAND_LINE(command)
 end subroutine sleep_seconds
 
 subroutine end_simulation
+
+
     tauOk = .false.
     velOk = .false.
     celOk = .false.
@@ -528,8 +772,8 @@ subroutine end_simulation
     FrMax = 0
     do x=1,Lx
         do y=1,Ly
-            if (u(x,y)**2+v(x,y)**2>uMax2) uMax2 = u(x,y)**2+v(x,y)**2 
-            Fr = (u(x,y)**2 + v(x,y)**2)/h(x,y)
+            if (u(1,x,y)**2+u(2,x,y)**2>uMax2) uMax2 = u(1,x,y)**2+u(2,x,y)**2
+            Fr = (u(1,x,y)**2 + u(2,x,y)**2)/h(x,y)
             if (Fr>FrMax) then
                 FrMax=Fr
                 i=x;j=y
@@ -543,34 +787,34 @@ subroutine end_simulation
     if (gacl*hMax<e*e) celOk = .true. ! stability condition 3
     if (FrMax   < 1)   FrOk  = .true. ! stability condition 4
     Ma = sqrt(uMax2)/(1.0d0/sqrt(3.0d0)*e)
-    print*, "tau =",tau 
+    print*, "tau =",tau
     if (tauOk) then
-        print*, "tau ok!"
+        print*, "tau ok"
     else
         print*, "tau NOT OKAY!!"
     end if
     print*, "u_ju_j/e^2 =", uMax2/(e*e)
     if (velOk) then
-        print*, "velocity ok!"
+        print*, "velocity ok"
     else
         print*, "velocity NOT OKAY!!"
     end if
     print*, "gh/e^2 =", gacl*hMax/(e*e)
     if (celOk) then
-        print*, "celerity ok!"
+        print*, "celerity ok"
     else
         print*, "celerity NOT OKAY!!"
     end if
     print*, "Fr max = ",FrMax, "at node:",i,j
     if (FrOk) then
-        print*, "Froude ok!"
+        print*, "Froude ok"
     else
         print*, "Froude NOT OKAY!!"
     end if
     print*, "Ma max = ",Ma!, "at node:",uIndex
     if (Ma<0.3) then
-        print*, "Mach ok!"
-    else 
+        print*, "Mach ok"
+    else
         print*, "Mach NOT OKAY!!"
     end if
 end subroutine end_simulation
@@ -587,28 +831,47 @@ function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     double precision, intent(in)    :: originalArray(:,:)
     double precision                :: outputArray(2*dimX+1, 2*dimY+1)
 
-    do i = 2, 2*dimX
-        if (mod(i,2) == 0) then
-            outputArray(i,:) = originalArray(i/2,:)
-        else
-            outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
-             + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
-        end if
+    ! both node's coordinates are even (no interpolation needed)
+    do x = 2, 2*dimX, 2
+        do y=2,2*dimY, 2
+            outputArray(x,y) = originalArray(x/2,y/2)
+        end do
     end do
 
+    ! x position is even, but y is odd
+    do x = 2, 2*dimX, 2
+        do y=3, 2*dimY-1, 2
+            outputArray(x,y) = 0.5d0 * (originalArray(x/2, (y+1)/2) + originalArray(x/2, (y-1)/2))
+        end do
+    end do
+
+    ! x position is odd, but y is even
+    do x = 3, 2*dimX-1, 2
+        do y=2, 2*dimX, 2
+!            outputArray(x,y) =
+        end do
+    end do
+
+    outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
+            & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
+            ! print*, "hCentered(",i,",:) =", (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)& ! debug
+            ! & + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0 ! debug
+            ! print*, "hCentered(2,:) =", outputArray(i/2,:) ! debug
+
     outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
-        & + 3.0d0*originalArray(3,dimY/2))/8.0d0 
+        & + 3.0d0*originalArray(3,dimY/2))/8.0d0
     outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
          + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
+
 end function centred_interpolation
 
 subroutine analytical_solution(currentTime, dimX, dimY)
     implicit none
     integer,          intent(in)    :: dimX, dimY
     double precision, intent(in)    :: currentTime
-    hAnal = H_part + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3+0.5d0))
     do i = 1, Lx
         position_x = DBLE(i - 0.5d0) * dx
+        hAnal(i,:) = H_part(2*i,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
         uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
     end do
 end subroutine
@@ -674,7 +937,7 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
     else
 
     end if
-    
+
 end function check_consistency
 
 logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
@@ -718,16 +981,32 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
     end if
   end function check_convergence
 
+
+subroutine calculate_errors
+    !depth error
+    L1_error(1) = L1_error(1) + SUM(ABS(h - hAnal))
+    L2_error(1) = L2_error(1) + SUM((h - hAnal)*(h - hAnal))/(Lx*Ly)
+
+    ! x velocity error
+    L1_error(2) = L1_error(2) + SUM(ABS(u(1,:,:) - uAnal))
+    L2_error(2) = L2_error(2) + SUM((u(1,:,:) - uAnal)*(u(1,:,:) - uAnal))
+
+    ! y velocity error
+    L1_error(3) = L1_error(3) + SUM(ABS(u(2,:,:) - vAnal))
+    L2_error(3) = L2_error(3) + SUM((u(2,:,:) - vAnal)*(u(2,:,:) - vAnal))
+
+end subroutine calculate_errors
+
 subroutine MMS_analytic_solution
     ! double precision:: phi
     double precision, dimension(3):: phi_0,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
     double precision, allocatable, dimension(:,:,:) :: phi,phi_1
-    
+
     allocate (phi(3,Lx,Ly), phi_1(3,Lx,Ly))
-    
+
     ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
     nu_MMS = 1.0d-2
-    
+
     phi_0   = [2.0d0, 0.0d0, 0.0d0]
     phi_k   = [0.0d0, 0.0d0, 0.0d0]
     phi_x   = [0.0d0, 0.0d0, 0.0d0]
@@ -737,22 +1016,22 @@ subroutine MMS_analytic_solution
     a_phiy  = [1.0d0, 1.2d0, 1.0d0]
     a_phixy = [1.25d0, 0.2d0, 0.9d0]
 
-    
+
     do i = 1, Lx
         position_x = DBLE(i - 0.5d0) * dx
         do j = 1, Ly
             position_y = DBLE(j - 0.5d0) * dy
-            
+
             ! phi_1(:,i,j) = phi_k(:) &
             ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
             ! & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
             ! & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
-            
+
             ! BC_coeff(1) = (position_x - 0.0d0)*(position_x - 0.0d0) * (domainX - position_x) ! depth
             ! ! BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
             ! BC_coeff(2) = 1 ! u-velocity
             ! BC_coeff(3) = 1 ! v-velocity
-            
+
             ! phi(:,i,j) = phi_0(:) + phi_1(:,i,j) * BC_coeff(:)
 
             ! if (phi(1,i,j) >= 0) then
@@ -766,10 +1045,10 @@ subroutine MMS_analytic_solution
 
             ! directly from Sympy code
             hAnal(i,j) = (2.0d0/3.0d0)*dsin(6.2831853071795865d0*position_x/domainX) + 2.0d0
-            if (hAnal(i,j) < 0) then 
+            if (hAnal(i,j) < 0) then
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.
-                exit 
+                exit
             end if
             uAnal(i,j) = 0.0d0
             vAnal(i,j) = 0.0d0
