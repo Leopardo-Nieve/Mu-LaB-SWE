@@ -38,7 +38,7 @@ program main
     integer:: itera_no
     double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
-    character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
+    character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2, slip_pos1, slip_pos2
     character(len=3), dimension(2) :: all_forcing_schemes
     character(len=1), dimension(2) :: inlet, outlet
     logical:: steadyFlow
@@ -61,6 +61,8 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
     call CFG_add(my_cfg, "simulation_parameters%wall_pos1", "bottom", "wall_pos1")
     call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
+    call CFG_add(my_cfg, "simulation_parameters%slip_pos1", "bottom", "slip_pos1")
+    call CFG_add(my_cfg, "simulation_parameters%slip_pos2", "top", "slip_pos2")
     call CFG_add(my_cfg, "simulation_parameters%inlet", ["u","d"], "inlet")
     call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
     call CFG_add(my_cfg, "simulation_parameters%outlet", ["u","d"], "outlet")
@@ -90,6 +92,8 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
     call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
     call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
+    call CFG_get(my_cfg, "simulation_parameters%slip_pos1", slip_pos1)
+    call CFG_get(my_cfg, "simulation_parameters%slip_pos2", slip_pos2)
     call CFG_get(my_cfg, "simulation_parameters%inlet", inlet)
     call CFG_get(my_cfg, "simulation_parameters%inlet_value", inlet_value)
     call CFG_get(my_cfg, "simulation_parameters%outlet", outlet)
@@ -142,6 +146,8 @@ program main
     is_outlet = 0.0d0
     is_wall = 0.0d0
     is_not_wall = 1.0d0 ! assume not a wall until assigned otherwise
+    is_slip = 0.0d0
+    is_not_slip = 1.0d0
     is_not_in_out = 1.0d0 ! assume not an inlet or boundary condition until assigned otherwise
 
     is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
@@ -154,6 +160,11 @@ program main
     is_not_wall(index(bc_pos_string, wall_pos1)) = 0.0d0
     is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
     is_not_wall(index(bc_pos_string, wall_pos2)) = 0.0d0
+
+    is_slip(index(bc_pos_string, slip_pos1)) = 1.0d0
+    is_not_slip(index(bc_pos_string, slip_pos1)) = 0.0d0
+    is_slip(index(bc_pos_string, slip_pos2)) = 1.0d0
+    is_not_slip(index(bc_pos_string, slip_pos2)) = 0.0d0
 
     is_inlet_macro = 0.0d0
     is_outlet_macro = 0.0d0
@@ -325,18 +336,15 @@ program main
         current_iteration = current_iteration + 1
 
         call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
-        ! print *,  "passed analytical_solution" ! debug
 
         ! Update the body force with the current h
         call update_body_force
-        ! print *,  "passed update_body_force" ! debug
 
-        ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision)
-         call Noslip_BC
+        ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision) and use slip at slip boundary nodes (elastic collision)
+         call walls
 
         ! Streaming and collision steps
         call collide_stream
-        ! print *,  "passed collide_stream" ! debug
 
 
         do i=1,Lx
@@ -354,8 +362,6 @@ program main
 
         ! Apply Inflow and Outflow BC
         call Inflow_Outflow_BC
-        ! print *,  "passed Inflow_Outflow_BC" ! debug
-
 
         ! make sure no population is NaN
         do i = 1, Lx
@@ -370,7 +376,7 @@ program main
         end do
 
         ! Apply corner boundary conditions
-        call corners
+!        call corners
 
         ! do a=1,9 ! debug
             ! do y= 1, Ly ! debug
@@ -380,13 +386,11 @@ program main
 
         ! Calculate h, u & v
         if (.not. stopSim) call solution
-        ! print *,  "passed solution" ! debug
 
         if (.NOT. steadyFlow) call calculate_errors
 
         ! Update the feq
         call compute_feq
-        ! print *,  "passed compute_feq" ! debug
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
         & h(Lx/2,Ly/2)

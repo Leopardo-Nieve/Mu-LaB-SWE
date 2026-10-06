@@ -1,21 +1,17 @@
-2026-10-04
+2026-10-06
 ---
-Found error at the outlet boundary: I assigned a uniform value of h for all nodes at the boundary (4.5 m). However, the boundary condition is actually h + zb = 5 m. 
-Since zb = f(x,y), it is not unifrom along the right boundary. Therefore, h is not uniform along the boundary either. 
-Correction: modify the inlet-outlet boundary conditions for h to refer to h + zb. 
+for tidal inlet, make it so the second entry (dirichlet, neumann) can also be tidal. That way, h_in can be modified to be h_tidal and have a pseudo boolean variable to check if it is applied in Inflow-Outflow subroutine
 
 Modifications since last version:
-- fixed the Einstein summation equations
-- corrected number of nodes to have correct number of nodes for full bounceback instead of modified bounceback
-- corrected bed geometry generation to use correct cartesian positions
-- modified the inlet-outlet boundary conditions for h to refer to h + zb
-- ran stationary case which now shows no irregularities or instabilities
-
+- for debugging, used dx = 175 m to accelerate simulation time
+- modified treatment of walls to include slip conditions
+- commented call to corners subroutine
 ---
 
 
 Potential next step(s):
-- run convergence analysis on seamount case Li et al. (2019)
-	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
+- run convergence analysis on 1D tidal flow case Li et al. (2019)
+	- modify inlet and outlet boundary conditions
 	- run one case for each force scheme and compare to analytical solution
 	- write script automating convergence analysis and run it
+		- modify domainY in parameters.cfg to be equal to 50*dx at each new case

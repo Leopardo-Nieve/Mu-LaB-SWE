@@ -58,7 +58,7 @@ module Mu_LaB_SWE
         & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
         & inlet_value, outlet_value
         double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
-        double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall
+        double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall, is_slip, is_not_slip
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
         double precision, dimension(3):: L1_error,L2_error
         double precision, dimension(2,9):: e_vec
@@ -382,32 +382,38 @@ subroutine compute_feq
     return
 end subroutine compute_feq
 
-subroutine Noslip_BC
+subroutine walls
 ! this is for noslip boundary with modified Bounce back scheme (Guo & Shu, 2013)
 
     ! left boundary
     do a = 1,2
-        ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(a,1,:)
+        ftemp(a,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(a+4,1,:) + is_slip(index(bc_pos_string, "l"))*ftemp(6-a,1,:) &
+        & + (is_not_wall(index(bc_pos_string, "l")) * is_not_slip(index(bc_pos_string, "l")))*ftemp(a,1,:)
     end do
-    ftemp(8,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(4,1,:) + is_not_wall(index(bc_pos_string, "l"))*ftemp(8,1,:)
+    ftemp(8,1,:) = is_wall(index(bc_pos_string, "l"))*ftemp(4,1,:) + is_slip(index(bc_pos_string, "l"))* ftemp(6,1,:) &
+    & + (is_not_wall(index(bc_pos_string, "l")) * is_not_slip(index(bc_pos_string, "l")))*ftemp(8,1,:)
 
     ! right boundary
-    ftemp(4,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(8,Lx,:) + is_not_wall(index(bc_pos_string, "r"))*ftemp(4,Lx,:)
+    ftemp(4,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(8,Lx,:) + is_slip(index(bc_pos_string, "r"))*ftemp(2,Lx,:) &
+    & + (is_not_wall(index(bc_pos_string, "r")) * is_not_slip(index(bc_pos_string, "r")))*ftemp(4,Lx,:)
     do a = 5, 6
-        ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_not_wall(index(bc_pos_string, "r"))*ftemp(a,Lx,:)
+        ftemp(a,Lx,:) = is_wall(index(bc_pos_string, "r"))*ftemp(a-4,Lx,1) + is_slip(index(bc_pos_string, "r"))*ftemp(6-a,Lx,:) &
+        & + (is_not_wall(index(bc_pos_string, "r")) * is_not_slip(index(bc_pos_string, "r")))*ftemp(a,Lx,:)
     end do
 
     ! bottom boundary
     do a = 2, 4
-        ftemp(a,:,1) = is_wall(index(bc_pos_string, "b"))*ftemp(a+4,:,1) + is_not_wall(index(bc_pos_string, "b"))*ftemp(a,:,1)
+        ftemp(a,:,1) = is_wall(index(bc_pos_string, "b"))*ftemp(a+4,:,1) + is_slip(index(bc_pos_string, "b"))*ftemp(10-a,:,1) &
+        & + (is_not_wall(index(bc_pos_string, "b")) * is_not_slip(index(bc_pos_string, "b")))*ftemp(a,:,1)
     end do
 
     ! top boundary
     do a = 6, 8
-        ftemp(a,:,Ly) = is_wall(index(bc_pos_string, "t")) * ftemp(a-4,:,Ly) + is_not_wall(index(bc_pos_string, "t"))*ftemp(a,:,Ly)
+        ftemp(a,:,Ly) = is_wall(index(bc_pos_string, "t")) * ftemp(a-4,:,Ly) + is_slip(index(bc_pos_string, "t"))*ftemp(10-a,:,Ly) &
+        &+ (is_not_wall(index(bc_pos_string, "t")) * is_not_slip(index(bc_pos_string, "t")))*ftemp(a,:,Ly)
     end do
 
-end subroutine Noslip_BC
+end subroutine walls
 
 subroutine Slip_BC
 
