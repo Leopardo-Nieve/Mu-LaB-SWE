@@ -67,7 +67,7 @@ module Mu_LaB_SWE
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, dimension(4,2) :: is_not_in_out
         double precision, allocatable, dimension(:,:):: h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+        & force_x,force_y,H_part,zb,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
         double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u,u_vecLast
@@ -472,7 +472,12 @@ subroutine Inflow_Outflow_BC
     ! tbd?
 
     ! hard-coded because generalising for every direction is not worth the time, especially considering indexation method will be implemented soon
-    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
+    u(1,1,:) = e - e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+
+    !debug
+    print*, "e:", e, "/=", e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+
+!    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
     u(2,1,:) = 0.0d0
     u(2,Lx,:) = 0.0d0
 
@@ -487,7 +492,7 @@ subroutine Inflow_Outflow_BC
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
 
     ! right
-    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
+    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(5,Lx,:)
 
     ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) + 3.0d0*u(2,Lx,:)))/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))) &

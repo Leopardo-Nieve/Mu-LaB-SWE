@@ -1,13 +1,11 @@
 2026-10-06
 ---
-for tidal inlet, make it so the second entry (dirichlet, neumann) can also be tidal. That way, h_in can be modified to be h_tidal and have a pseudo boolean variable to check if it is applied in Inflow-Outflow subroutine
+code is unstable, generating NaNs at around 3000 timesteps. At the timestep before NaNs are generated, the y-profiles of macroscopic values are erratic and not uniform, contrary to expected.
+I remember the slip boundary condition creating some instabilities in the past, so I think trying periodic conditions for the bottom and top boundaries could fix the issue.
 
 Modifications since last version:
-- deleted No_Slip subroutine
-- modified bed geometry to match tidal flow case (Li et al. 2019)
-- modified boundary conditions to use tidal depth at inlet and u = 0 at outlet
-- tidal inlet does not seem to be working
-- did not check if outlet boundary condition is respected
+- corrected velocity condition boundary conditions (was applied at right boundary because of previous case, but not at right boundary which it was supposed to)
+- removed the dzdbx variable from the code
 ---
 
 
