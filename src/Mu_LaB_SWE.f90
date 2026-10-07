@@ -286,38 +286,38 @@ subroutine collide_stream
             ! if (xb < 1) xb = Lx + xb
 
             ! Following 2 lines Implement periodic BCs in y direction
-!            if (yf > Ly) yf = yf - Ly
-!            if (yb < 1) yb = Ly + yb
+            if (yf > Ly) yf = yf - Ly
+            if (yb < 1) yb = Ly + yb
 
             ! start streaming and collision
             if (xf<=Lx) then
                 ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
                 & + dt*S(1,x,y)
             end if
-            if (xf<=Lx .and. yf<=Ly) then
+            if (xf<=Lx) then ! .and. yf<=Ly) then
                 ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau&
                 & + dt*S(2,x,y)
             end if
-            if (yf<=Ly) then
+            if (.true.) then !yf<=Ly) then
                 ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau&
                 & + dt*S(3,x,y)
             end if
 
-            if (xb>=1 .and. yf<=Ly) then
+            if (xb>=1) then ! .and. yf<=Ly) then
                 ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau&
                 & + dt*S(4,x,y)
             end if
             if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau&
                 & + dt*S(5,x,y)
-            if (xb>=1 .and. yb>=1) then
+            if (xb>=1) then ! .and. yb>=1) then
                 ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau&
                 & + dt*S(6,x,y)
             end if
-            if (yb>=1) then
+            if (.true.) then ! yb>=1) then
                 ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau&
                 & + dt*S(7,x,y)
             end if
-            if (xf<=Lx .and. yb>=1) then
+            if (xf<=Lx) then ! .and. yb>=1) then
                 ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau&
                 & + dt*S(8,x,y)
             end if
@@ -475,7 +475,7 @@ subroutine Inflow_Outflow_BC
     u(1,1,:) = e - e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
 
     !debug
-    print*, "e:", e, "/=", e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+!    print*, "e:", e, "/=", e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
 
 !    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
     u(2,1,:) = 0.0d0

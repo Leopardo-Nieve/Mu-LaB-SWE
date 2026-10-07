@@ -3,9 +3,11 @@
 code is unstable, generating NaNs at around 3000 timesteps. At the timestep before NaNs are generated, the y-profiles of macroscopic values are erratic and not uniform, contrary to expected.
 I remember the slip boundary condition creating some instabilities in the past, so I think trying periodic conditions for the bottom and top boundaries could fix the issue.
 
+even after activating periodic bc's, the inlet boundary condition seems to cause an instability, and the y-profiles are not uniform. 
+created a new branch which tests with periodic BC's until I find the cause of the instability.
+
 Modifications since last version:
-- corrected velocity condition boundary conditions (was applied at right boundary because of previous case, but not at right boundary which it was supposed to)
-- removed the dzdbx variable from the code
+- applied periodic boundary conditions to the bottom and top boundaries instead of slip boundaries
 ---
 
 

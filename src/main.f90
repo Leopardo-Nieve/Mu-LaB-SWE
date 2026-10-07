@@ -369,20 +369,20 @@ program main
 
 
         ! debug to find timestep where values no longer uniform in y
-        do x = 1, Lx
-            do y = 2, Ly
-                if (h(x,1) /= h(x,y)) then
-                    print*, "h(", x, "1) /= h(",x,y,")"
-                    print*, h(x,1), "/=", h(x,y)
-                    stopSim = .true.
-                end if
-                if (u(1,x,1) /= u(1,x,y)) then
-                    print*, "u(", x, "1) /= u(",x,y,")"
-                    print*, u(1,x,1), "/=", u(1,x,y)
-                    stopSim = .true.
-                end if
-            end do
-        end do
+!        do x = 1, Lx
+!            do y = 2, Ly
+!                if (h(x,1) /= h(x,y)) then
+!                    print*, "h(", x, "1) /= h(",x,y,")"
+!                    print*, h(x,1), "/=", h(x,y)
+!                    stopSim = .true.
+!                end if
+!                if (u(1,x,1) /= u(1,x,y)) then
+!                    print*, "u(", x, "1) /= u(",x,y,")"
+!                    print*, u(1,x,1), "/=", u(1,x,y)
+!                    stopSim = .true.
+!                end if
+!            end do
+!        end do
 
 
 
