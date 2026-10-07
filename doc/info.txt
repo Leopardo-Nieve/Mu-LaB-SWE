@@ -1,10 +1,14 @@
 2026-10-06
 ---
 code is unstable, generating NaNs at around 3000 timesteps. At the timestep before NaNs are generated, the y-profiles of macroscopic values are erratic and not uniform, contrary to expected.
-I remember the slip boundary condition creating some instabilities in the past, so I think trying periodic conditions for the bottom and top boundaries could fix the issue.
 
 even after activating periodic bc's, the inlet boundary condition seems to cause an instability, and the y-profiles are not uniform. 
 created a new branch which tests with periodic BC's until I find the cause of the instability.
+
+the issue seems to come from the velocity at the inlet. at first, it is of order 10^-7 instead of 0. I traced this back to the discrepancy between the depth at the inlet (assigned from the boundary condition)
+and ftemp(9) (which is only impacted from the current time steps collision step, **independent** of the newly updated depth).
+
+I might be applying the boundary condition incorrectly since it varies with time. 
 
 Modifications since last version:
 - applied periodic boundary conditions to the bottom and top boundaries instead of slip boundaries

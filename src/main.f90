@@ -392,7 +392,7 @@ program main
         call compute_feq
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' h_num:',&
-        & h(1,Ly/2), " h_anal:", hAnal(1,Ly/2), " u_num:", u(1,Lx,Ly/2)
+        & h(1,Ly/2), " h_anal:", hAnal(1,Ly/2)!, " u_num:", u(1,Lx,Ly/2)
         ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
 
         do i=1,Lx

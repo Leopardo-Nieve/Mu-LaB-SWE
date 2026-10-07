@@ -475,7 +475,9 @@ subroutine Inflow_Outflow_BC
     u(1,1,:) = e - e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
 
     !debug
-!    print*, "e:", e, "/=", e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+    print*, "e:", e, "/=", e/h(1,Ly/2) * (ftemp(3,1,Ly/2) + ftemp(7,1,Ly/2) + 2.0d0*(ftemp(4,1,Ly/2) + ftemp(5,1,Ly/2) + ftemp(6,1,Ly/2)) + ftemp(9,1,Ly/2))
+    print*, "0=", 1.0d0 - 1/h(1,Ly/2) * (ftemp(3,1,Ly/2) + ftemp(7,1,Ly/2) + 2.0d0*(ftemp(4,1,Ly/2) + ftemp(5,1,Ly/2) + ftemp(6,1,Ly/2)) + ftemp(9,1,Ly/2))
+    print*, "f9/h=", ftemp(9,1,Ly/2)/h(1,Ly/2)
 
 !    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
     u(2,1,:) = 0.0d0
