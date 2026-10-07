@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <BrowseTracker_layout_file>
 	<ActiveTarget name="bin/main" />
-	<File name="doc/parameters.cfg" open="1" top="0" tabpos="3">
-		<Cursor position="1247" topLine="15" />
-		<BrowseMarks positions="" />
-	</File>
-	<File name="src/Mu_LaB_SWE.f90" open="1" top="1" tabpos="1">
-		<Cursor position="16707" topLine="84" />
-		<BrowseMarks positions="3842,7200,7869,10320,12346,12984,13831,15568,27966,31749,32419,35743,35966,37577,37810,39481" />
-	</File>
 	<File name="src/m_config.f90" open="0" top="0" tabpos="0">
 		<Cursor position="20443" topLine="506" />
 	</File>
+	<File name="doc/parameters.cfg" open="1" top="0" tabpos="3">
+		<Cursor position="368" topLine="0" />
+	</File>
+	<File name="src/Mu_LaB_SWE.f90" open="1" top="1" tabpos="1">
+		<Cursor position="20836" topLine="235" />
+		<BrowseMarks positions="7196,7865,10316,12401,13039,13886,15629,28545,32328,32998,36322,36545,38156,38389,40060,40984" />
+	</File>
 	<File name="src/main.f90" open="1" top="0" tabpos="2">
-		<Cursor position="13584" topLine="358" />
-		<BrowseMarks positions="" />
+		<Cursor position="15202" topLine="352" />
 	</File>
 </BrowseTracker_layout_file>
