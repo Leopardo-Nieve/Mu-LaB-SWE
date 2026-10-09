@@ -54,9 +54,9 @@ module Mu_LaB_SWE
         character(len=2) :: bc_macro_string
         character(len=4) :: bc_pos_string
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,one_minus_one_2tau,nine_4,nine_2e4,&
-        & three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,&
-        & inlet_value, outlet_value
+        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,&
+        &one_minus_one_2tau,nine_4,nine_2e4,three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,&
+        &epsilon,nb,position_x,position_y,nu_MMs,B,C,h_bar,inlet_value,outlet_value
         double precision, dimension(2) :: is_inlet_macro, is_outlet_macro
         double precision, dimension(4) :: is_inlet, is_outlet, is_wall, is_not_wall
         double precision, dimension(9):: ex,ey, eMax, omega, e_squared, e_fourth
@@ -432,20 +432,27 @@ subroutine Inflow_Outflow_BC
     ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
 
     ! depth
-    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value-zb(1,:)) &
+    h(1,:)  = is_inlet(index(bc_pos_string, "l"))*is_inlet_macro(index(bc_macro_string, "h"))&
+    &*(inlet_value-zb(1,:)) &
     &+ is_outlet(index(bc_pos_string, "l"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value-zb(1,:) )&
     &+ is_not_in_out(index(bc_pos_string, "l"),index(bc_macro_string, "h"))*h(1,:)
 
-    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(Lx,:) )&
-    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(Lx,:) )&
+    h(Lx,:)  = is_inlet(index(bc_pos_string, "r"))*is_inlet_macro(index(bc_macro_string, "h"))&
+    &*(inlet_value - zb(Lx,:) )&
+    &+ is_outlet(index(bc_pos_string, "r"))*is_outlet_macro(index(bc_macro_string, "h"))&
+    &*(outlet_value - zb(Lx,:) )&
     &+ is_not_in_out(index(bc_pos_string, "r"),index(bc_macro_string, "h"))*h(Lx,:)
 
-    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,1))&
-    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,1))&
+    h(:,1)  = is_inlet(index(bc_pos_string, "b"))*is_inlet_macro(index(bc_macro_string, "h"))&
+    &*(inlet_value - zb(:,1))&
+    &+ is_outlet(index(bc_pos_string, "b"))*is_outlet_macro(index(bc_macro_string, "h"))&
+    &*(outlet_value - zb(:,1))&
     &+ is_not_in_out(index(bc_pos_string, "b"),index(bc_macro_string, "h"))*h(:,1)
 
-    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))*(inlet_value - zb(:,Ly))&
-    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))*(outlet_value - zb(:,Ly))&
+    h(:,Ly)  = is_inlet(index(bc_pos_string, "t"))*is_inlet_macro(index(bc_macro_string, "h"))&
+    &*(inlet_value - zb(:,Ly))&
+    &+ is_outlet(index(bc_pos_string, "t"))*is_outlet_macro(index(bc_macro_string, "h"))&
+    &*(outlet_value - zb(:,Ly))&
     &+ is_not_in_out(index(bc_pos_string, "t"),index(bc_macro_string, "h"))*h(:,Ly)
 
     ! velocity
@@ -470,48 +477,61 @@ subroutine Inflow_Outflow_BC
     ! tbd?
 
     ! hard-coded because generalising for every direction is not worth the time, especially considering indexation method will be implemented soon
-    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
+    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:)&
+    &+ ftemp(8,Lx,:))+ ftemp(9,Lx,:))
     u(2,1,:) = 0.0d0
     u(2,Lx,:) = 0.0d0
 
     ! left inlet-outlet
-    ftemp(1,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (ftemp(5,1,:) + 2.0d0 * h(1,:) * u(1,1,:)/(3.0d0*e)) &
+    ftemp(1,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l")))&
+    &*(ftemp(5,1,:) + 2.0d0 * h(1,:) * u(1,1,:)/(3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(1,1,:)
 
-    ftemp(2,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0 * (ftemp(7,1,:) - ftemp(3,1,:) )) &
+    ftemp(2,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l")))&
+    &*(h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0 * (ftemp(7,1,:) - ftemp(3,1,:) )) &
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
 
-    ftemp(8,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l"))) * (h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0 * (ftemp(3,1,:) - ftemp(7,1,:) )) &
+    ftemp(8,1,:) = (is_inlet(index(bc_pos_string, "l")) + is_outlet(index(bc_pos_string, "l")))&
+    &*(h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0 * (ftemp(3,1,:) - ftemp(7,1,:) )) &
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
 
     ! right
-    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
+    ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
+    &*(-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(5,Lx,:)
 
-    ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) + 3.0d0*u(2,Lx,:)))/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))) &
+    ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
+    &*(-(h(Lx,:)*(u(1,Lx,:) + 3.0d0*u(2,Lx,:)))/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(6,Lx,:)
 
-    ftemp(4,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r"))) * (-(h(Lx,:)*(u(1,Lx,:) - 3.0d0 * u(2,Lx,:)))/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0 * (ftemp(7,Lx,:) - ftemp(3,Lx,:)))&
+    ftemp(4,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
+    &*(-(h(Lx,:)*(u(1,Lx,:) - 3.0d0 * u(2,Lx,:)))/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0 * (ftemp(7,Lx,:) - ftemp(3,Lx,:)))&
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(4,Lx,:)
 
     ! bottom
-    ftemp(3,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (ftemp(7,:,1) + 2.0d0*h(:,1)*u(2,:,1)/(3.0d0*e)) &
+    ftemp(3,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b")))&
+    &*(ftemp(7,:,1) + 2.0d0*h(:,1)*u(2,:,1)/(3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(3,:,1)
 
-    ftemp(2,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) + 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(6,:,1)+ 0.5d0*(ftemp(5,:,1) - ftemp(1,:,1))) &
+    ftemp(2,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b")))&
+    &*(h(:,1)*(u(2,:,1) + 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(6,:,1)+ 0.5d0*(ftemp(5,:,1) - ftemp(1,:,1))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(2,:,1)
 
-    ftemp(4,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b"))) * (h(:,1)*(u(2,:,1) - 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(8,:,1)+ 0.5d0*(ftemp(1,:,1) - ftemp(5,:,1))) &
+    ftemp(4,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b")))&
+    &* (h(:,1)*(u(2,:,1) - 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(8,:,1)+ 0.5d0*(ftemp(1,:,1) - ftemp(5,:,1))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(4,:,1)
 
     ! top
-    ftemp(7,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (ftemp(3,:,Ly) - 2.0d0*h(:,Ly)*u(2,:,Ly)/(3.0d0*e)) &
+    ftemp(7,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t")))&
+    &*(ftemp(3,:,Ly) - 2.0d0*h(:,Ly)*u(2,:,Ly)/(3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(7,:,Ly)
 
-    ftemp(6,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) + 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(2,:,Ly)+ 0.5d0*(ftemp(1,:,Ly) - ftemp(5,:,Ly))) &
+    ftemp(6,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t")))&
+    &*(-h(:,Ly)*(u(2,:,Ly) + 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(2,:,Ly)+ 0.5d0*(ftemp(1,:,Ly) - ftemp(5,:,Ly))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(6,:,Ly)
 
-    ftemp(8,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t"))) * (-h(:,Ly)*(u(2,:,Ly) - 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(4,:,Ly)+ 0.5d0*(ftemp(5,:,Ly) - ftemp(1,:,Ly))) &
+    ftemp(8,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t")))&
+    &*(-h(:,Ly)*(u(2,:,Ly) - 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(4,:,Ly)+ 0.5d0*(ftemp(5,:,Ly) - ftemp(1,:,Ly))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(8,:,Ly)
 
     ! macroscopic values
@@ -607,33 +627,53 @@ subroutine corners
     ! bottom left
 
     ! make sure depth has the correct value if it is not specified at the flow boundary
-    h(1,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,2) &
-    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(2,1) &
-    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(1,1)
+    h(1,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(2,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) &
+    &+ is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(1,1)
 
     ftemp(4,1,1) = 0.5d0 * (h(1,1) - sum((/ftemp(1:3,1,1),ftemp(5:7,1,1),ftemp(9,1,1)/)))
     ftemp(8,1,1) = ftemp(4,1,1)
 
     ! top right
-    h(Lx,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,Ly-1) &
-    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx-1,Ly) &
-    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx,Ly)
+    h(Lx,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx-1,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) &
+    &+ is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx,Ly)
 
     ftemp(4,Lx,Ly) = 0.5d0 * (h(Lx,Ly) - sum((/ftemp(1:3,Lx,Ly),ftemp(5:7,Lx,Ly),ftemp(9,Lx,Ly)/)))
     ftemp(8,Lx,Ly) = ftemp(4,1,1)
 
     ! top left
-    h(1,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,Ly-1) &
-    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(2,Ly) &
-    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(1,Ly)
+    h(1,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,Ly-1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "t")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "t")) ) * h(2,Ly) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "l")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "l")) &
+    &+ is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "t")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(1,Ly)
 
     ftemp(2,1,Ly) = 0.5d0 * (h(1,Ly) - sum((/ftemp(1,1,Ly),ftemp(3:5,1,Ly),ftemp(7,1,Ly),ftemp(9,1,Ly)/)))
     ftemp(6,1,Ly) = ftemp(2,1,Ly)
 
     ! bottom right
-    h(Lx,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,2) &
-    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx-1,1) &
-    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) + is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) + is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx,1)
+    h(Lx,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "r")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "r")) ) * h(Lx,2) &
+    & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) &
+    &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx-1,1) &
+    & + ( is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "r")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "r")) &
+    &+ is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) &
+    &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx,1)
 
     ftemp(2,1,Ly) = 0.5d0 * (h(Lx,1) - sum((/ftemp(1,Lx,1),ftemp(3:5,Lx,1),ftemp(7,Lx,1),ftemp(9,Lx,1)/)))
     ftemp(6,1,Ly) = ftemp(2,Lx,1)
