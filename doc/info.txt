@@ -1,15 +1,9 @@
-2026-10-04
+2026-10-13
 ---
-Found error at the outlet boundary: I assigned a uniform value of h for all nodes at the boundary (4.5 m). However, the boundary condition is actually h + zb = 5 m. 
-Since zb = f(x,y), it is not unifrom along the right boundary. Therefore, h is not uniform along the boundary either. 
-Correction: modify the inlet-outlet boundary conditions for h to refer to h + zb. 
+Started simulating the case for convergence analysis. Modified the analytical solution to match the case.
 
 Modifications since last version:
-- fixed the Einstein summation equations
-- corrected number of nodes to have correct number of nodes for full bounceback instead of modified bounceback
-- corrected bed geometry generation to use correct cartesian positions
-- modified the inlet-outlet boundary conditions for h to refer to h + zb
-- ran stationary case which now shows no irregularities or instabilities
+- modified the analytical solution to match the case
 
 ---
 

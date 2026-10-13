@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<BrowseTracker_layout_file>
+	<ActiveTarget name="bin/main" />
+	<File name="src/Mu_LaB_SWE.f90" open="1" top="0" tabpos="1">
+		<Cursor position="40497" topLine="211" />
+		<BrowseMarks positions="7196,7865,10316,12401,13039,13886,15629,28545,32328,32998,36322,36545,38156,38389,40060,40989,43001,44536,45067" />
+	</File>
+	<File name="src/m_config.f90" open="0" top="0" tabpos="0">
+		<Cursor position="20443" topLine="506" />
+	</File>
+	<File name="src/main.f90" open="1" top="1" tabpos="2">
+		<Cursor position="10056" topLine="193" />
+		<BrowseMarks positions="" />
+	</File>
+	<File name="doc/parameters.cfg" open="1" top="0" tabpos="3">
+		<Cursor position="570" topLine="0" />
+		<BrowseMarks positions="" />
+	</File>
+</BrowseTracker_layout_file>
