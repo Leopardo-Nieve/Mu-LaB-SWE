@@ -206,7 +206,14 @@ program main
     end do
     zb = 5.0d0 - h
 
-
+    do x = 1, Lx
+        position_x = dble(x-1) * dx
+        do y = 1, Ly
+            position_y = dble(y-1) * dy
+            hAnal(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
+        end do
+    end do
+    uAnal = 0.0d0
 
     ! determine boundary nodes
     ! do x = 1, Lx
@@ -324,7 +331,7 @@ program main
         time = time+dt
         current_iteration = current_iteration + 1
 
-        call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
+!        call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
         ! print *,  "passed analytical_solution" ! debug
 
         ! Update the body force with the current h

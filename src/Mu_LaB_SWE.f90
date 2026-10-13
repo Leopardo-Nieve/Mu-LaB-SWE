@@ -909,19 +909,11 @@ subroutine analytical_solution(currentTime, dimX, dimY)
     implicit none
     integer,          intent(in)    :: dimX, dimY
     double precision, intent(in)    :: currentTime
-!    do i = 1, Lx
-!        position_x = DBLE(i - 0.5d0) * dx
-!        hAnal(i,:) = H_part(2*i,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-!        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
-!    end do
-    do x = 1, Lx
-        position_x = dble(x-1) * dx
-        do y = 1, Ly
-            position_y = dble(y-1) * dy
-            hAnal(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
-        end do
+    do i = 1, Lx
+        position_x = DBLE(i - 0.5d0) * dx
+        hAnal(i,:) = H_part(2*i,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(i,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
     end do
-    uAnal = 0.0d0
 end subroutine
 
 ! function u_analytical(currentTime, dimX, dimY) result(u_a)
