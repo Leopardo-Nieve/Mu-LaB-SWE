@@ -25,8 +25,8 @@ from matplotlib.colors import TwoSlopeNorm
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-CONV_DIR  = "./results/convergence_spatial"
-OUT_DIR   = "./results/convergence_spatial"
+CONV_DIR  = "./results/convergence"
+OUT_DIR   = "./results/convergence"
 
 COL_X     = "x (m)"
 COL_Y     = "y (m)"
@@ -62,7 +62,12 @@ for r, dx, path in entries:
 # ---------------------------------------------------------------------------
 def plot_level(r, dx, csv_path, save_path):
     df = pd.read_csv(csv_path, skipinitialspace=True)
-    df.columns = df.columns.str.strip()
+#    pd.to_numeric(df.columns, errors='coerce')
+#    df.COL_HANAL.str.astype(float)
+#    df.COL_UANAL.str.astype(float)
+#    print(f"h_num = {df[COL_H].values}")
+#    print(f"h_anal = {df[COL_HANAL].values}")
+    #df.columns = df.columns.str.astype(float
 
     x_vals = df[COL_X].values
     y_vals = df[COL_Y].values
