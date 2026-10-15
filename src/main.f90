@@ -331,6 +331,7 @@ program main
         time = time+dt
         current_iteration = current_iteration + 1
 
+        !!! COMMENTED FOR 2D STATIONNARY CASE BECAUSE SOLUTION IS CONSTANT WITH TIME AND DEFINED EARLIER
 !        call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
         ! print *,  "passed analytical_solution" ! debug
 
