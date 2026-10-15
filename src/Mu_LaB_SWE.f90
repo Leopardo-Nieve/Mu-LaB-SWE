@@ -67,10 +67,10 @@ module Mu_LaB_SWE
         ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
         double precision, dimension(4,2) :: is_not_in_out
         double precision, allocatable, dimension(:,:):: h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-        & force_x,force_y,H_part,zb,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+        & force_x,force_y,H_part,zb,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,vAnal,&
         & force_x_MMS,force_y_MMS!&
         ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
-        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u,u_vecLast
+        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp,S,u,u_vecLast,uAnal
         double precision, allocatable, dimension(:,:,:,:) :: force
 
 contains
@@ -331,10 +331,6 @@ end subroutine collide_stream
 
 subroutine solution
 
-    ! save last timestep
-    hLast = h
-    u_vecLast = u
-
     ! compute physical variables h, u_vec
 
     ! Set the distribution function f
@@ -417,13 +413,16 @@ subroutine walls
 
 end subroutine walls
 
-subroutine Inflow_Outflow_BC
+subroutine Inflow_Outflow_BC_macro
 
     ! determine inlet and outlet values first
     ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
 
     ! precalculated the current tidal value
     h_t = h_tidal(time)
+
+    !debug
+!    h_t = h_tidal(0.0d0)
 
     ! depth
     h(1,:)  = is_bc_type(index(bc_pos_string, "l"),index(bc_type_string, "d")) &                                        ! is Dirichlet BC
@@ -470,12 +469,16 @@ subroutine Inflow_Outflow_BC
 
     ! discharge
     ! tbd?
+end subroutine Inflow_Outflow_BC_macro
 
+subroutine Inflow_Outflow_BC_meso
+    ! other macro quantities
     ! hard-coded because generalising for every direction is not worth the time, especially considering indexation method will be implemented soon
     u(1,1,:) = e - e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+    h(Lx,:) = (ftemp(9,Lx,:) + ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:) ))/(1.0d0+u(1,Lx,:))
 
     !debug
-    print*, "e:", e, "/=", e/h(1,:) * (ftemp(3,1,:) + ftemp(7,1,:) + 2.0d0*(ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:)) + ftemp(9,1,:))
+!    print*, "e:", e, "/=", e/h(1,Ly/2) * (ftemp(3,1,Ly/2) + ftemp(7,1,Ly/2) + 2.0d0*(ftemp(4,1,Ly/2) + ftemp(5,1,Ly/2) + ftemp(6,1,Ly/2)) + ftemp(9,1,Ly/2))
 
 !    u(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:) + ftemp(7,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))+ ftemp(9,Lx,:))
     u(2,1,:) = 0.0d0
@@ -608,7 +611,7 @@ subroutine Inflow_Outflow_BC
 !        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
 !        print*, "***Hint: the condition must be written all in lower case.***"
 !    end if
-end subroutine Inflow_Outflow_BC
+end subroutine Inflow_Outflow_BC_meso
 
 subroutine corners
     ! bottom left
@@ -738,8 +741,8 @@ subroutine write_csv
                     x, y, &
                     dx*(DBLE(x-1)), dy*(DBLE(y-1)), &
                     h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
-                    & force_x(x,y), force_y(x,y) &
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(1,x,y), hAnal(x,y) + zb(x,y),&
+                    & force(1,1,x,y), force(2,3,x,y) &
                     & ,L1_error(1), L1_error(2), L1_error(3), L2_error(1), L2_error(2), L2_error(3)
             ELSE
                 write(67,'(2(I5,","),2(E20.14,","),3(E20.14,","),7(E20.14,","), &
@@ -750,8 +753,8 @@ subroutine write_csv
                     x, y, &
                     dx*(DBLE(x)-1), dy*(DBLE(y)-1), &
                     h(x,y) + zb(x,y), zb(x,y), h(x,y), &
-                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(x,y), hAnal(x,y) + zb(x,y),&
-                    & force_x(x,y), force_y(x,y)
+                    u(1,x,y), u(2,x,y), h(x,y)*u(1,x,y), hAnal(x,y), uAnal(1,x,y), hAnal(x,y) + zb(x,y),&
+                    & force(1,1,x,y), force(2,3,x,y)
             end IF
         end do
     end do
@@ -879,7 +882,8 @@ subroutine analytical_solution(currentTime, dimX, dimY)
     do x = 1, Lx
         position_x = dble(x-1) * dx
         hAnal(x,:) = H_part(x,Ly/2) + 4.0d0 - 4.0d0*dsin(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
-        uAnal(i,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(x,:))*dcos(pi*(4.0d0*time/86.4d3 + 0.5d0))
+        uAnal(1,x,:) = (position_x - 14.0d3)*pi/(5.4d3*hAnal(x,:))*dcos(pi*(4.0d0*currentTime/86.4d3 + 0.5d0))
+        uAnal(2,x,:) = 0.0d0
     end do
 end subroutine
 
@@ -995,8 +999,8 @@ subroutine calculate_errors
     L2_error(1) = L2_error(1) + SUM((h - hAnal)*(h - hAnal))/(Lx*Ly)
 
     ! x velocity error
-    L1_error(2) = L1_error(2) + SUM(ABS(u(1,:,:) - uAnal))
-    L2_error(2) = L2_error(2) + SUM((u(1,:,:) - uAnal)*(u(1,:,:) - uAnal))
+    L1_error(2) = L1_error(2) + SUM(ABS(u(1,:,:) - uAnal(1,:,:)))
+    L2_error(2) = L2_error(2) + SUM((u(1,:,:) - uAnal(1,:,:))*(u(1,:,:) - uAnal(1,:,:)))
 
     ! y velocity error
     L1_error(3) = L1_error(3) + SUM(ABS(u(2,:,:) - vAnal))
@@ -1057,7 +1061,7 @@ subroutine MMS_analytic_solution
                 stopSim = .TRUE.
                 exit
             end if
-            uAnal(i,j) = 0.0d0
+            uAnal(1,i,j) = 0.0d0
             vAnal(i,j) = 0.0d0
         end do
     end do

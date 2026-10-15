@@ -193,7 +193,7 @@ program main
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(Lx,Ly),zb(Lx,Ly), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
-        & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
+        & hAnal(Lx,Ly),uAnal(2,Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
         & u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
 
@@ -315,7 +315,14 @@ program main
         time = time+dt
         current_iteration = current_iteration + 1
 
+        ! save last timestep
+        hLast = h
+        u_vecLast = u
+
         call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
+
+        ! Apply Inflow and Outflow BC
+        call Inflow_Outflow_BC_macro
 
         ! Update the body force with the current h
         call update_body_force
@@ -338,10 +345,7 @@ program main
             end do
         end do
 
-
-
-        ! Apply Inflow and Outflow BC
-        call Inflow_Outflow_BC
+        call Inflow_Outflow_BC_meso ! update populations
 
         ! make sure no population is NaN
         do i = 1, Lx
@@ -367,29 +371,26 @@ program main
         ! Calculate h, u & v
         if (.not. stopSim) call solution
 
-
-        ! debug to find timestep where values no longer uniform in y
-        do x = 1, Lx
-            do y = 2, Ly
-                if (h(x,1) /= h(x,y)) then
-                    print*, "h(", x, "1) /= h(",x,y,")"
-                    print*, h(x,1), "/=", h(x,y)
-                    stopSim = .true.
-                end if
-                if (u(1,x,1) /= u(1,x,y)) then
-                    print*, "u(", x, "1) /= u(",x,y,")"
-                    print*, u(1,x,1), "/=", u(1,x,y)
-                    stopSim = .true.
-                end if
-            end do
-        end do
-
-
-
-        if (.NOT. steadyFlow) call calculate_errors
-
         ! Update the feq
         call compute_feq
+
+        ! debug to find timestep where values no longer uniform in y
+!        do x = 1, Lx
+!            do y = 2, Ly
+!                if (h(x,1) /= h(x,y)) then
+!                    print*, "h(", x, "1) /= h(",x,y,")"
+!                    print*, h(x,1), "/=", h(x,y)
+!                    stopSim = .true.
+!                end if
+!                if (u(1,x,1) /= u(1,x,y)) then
+!                    print*, "u(", x, "1) /= u(",x,y,")"
+!                    print*, u(1,x,1), "/=", u(1,x,y)
+!                    stopSim = .true.
+!                end if
+!            end do
+!        end do
+
+        if (.NOT. steadyFlow) call calculate_errors ! cumulative error if transient simulation
 
         write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' h_num:',&
         & h(1,Ly/2), " h_anal:", hAnal(1,Ly/2), " u_num:", u(1,Lx,Ly/2)
@@ -428,6 +429,8 @@ program main
         end if
 
     end do timStep
+
+    if (steadyFlow) call calculate_errors ! error at end of simulation if steady simulation
 
     call ensure_results_directory ! ensures "../results" exists as a directory
     write(6,*)

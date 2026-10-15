@@ -1,11 +1,25 @@
-2026-10-06
+2026-10-14
 ---
-code is unstable, generating NaNs at around 3000 timesteps. At the timestep before NaNs are generated, the y-profiles of macroscopic values are erratic and not uniform, contrary to expected.
-I remember the slip boundary condition creating some instabilities in the past, so I think trying periodic conditions for the bottom and top boundaries could fix the issue.
+code is unstable, generating NaNs at around 4000 timesteps. The velocity profile is uniformly 0, which is not the close to the analytical solution. I have yet to figure out why
 
 Modifications since last version:
-- corrected velocity condition boundary conditions (was applied at right boundary because of previous case, but not at right boundary which it was supposed to)
-- removed the dzdbx variable from the code
+- divided Inflow_Outflow_BC subroutine into Inflow_Outflow_BC_macro (assigned macro variables) and Inflow_Outflow_BC_meso (other macro variables as well as unknown populations at boundary after streaming
+
+- added the calculation of the depth at the outlet
+
+- corrected the calculation of the analytical velocity
+
+- changed the order of steps in the algorithm: 
+	1. assign known macroscopic variables at inlet and outlet boundaries
+	2. body force updated
+	3. etc, nothing changed
+	4. calculate unknown populations at inlet and outlet
+
+- added condition for errors to be calculated outside of time loop for steady simulations
+
+- corrected the writing of the body force vectors in the csv file
+
+- changed the dimensions of uAnal to incorporate both cartesian directions in one variable
 ---
 
 
