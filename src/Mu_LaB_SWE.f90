@@ -53,7 +53,7 @@ module Mu_LaB_SWE
         character(3):: forcing_scheme
         character(len=2) :: bc_macro_string
         character(len=4) :: bc_pos_string
-        character(len=30) :: project_name
+        character(len=50) :: project_name
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,&
         &one_minus_one_2tau,nine_4,nine_2e4,three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,&
@@ -75,6 +75,21 @@ module Mu_LaB_SWE
 contains
 
 subroutine setup
+    character(len=100) :: cmd, fpath
+    integer :: ierr
+
+    ! create directory for eventual results
+    project_name = trim(append_timestamp(project_name, len_trim(project_name)))
+    fpath = './data/'//trim(project_name)
+    cmd = 'mkdir '//trim(fpath)
+    call EXECUTE_COMMAND_LINE(cmd, exitstat=ierr)
+!    ierr = system(cmd)
+    if (ierr /= 0) then
+        print *, 'Error: Could not create the directory.'
+        stop
+    else
+        print *, 'Directory "',trim(fpath), '" created successfully.'
+    end if
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
@@ -681,28 +696,35 @@ subroutine corners
 
 end subroutine
 
-subroutine ensure_results_directory
+subroutine ensure_directory(original_path, N_characters)
     implicit none
+
+    character(1024), intent(in) :: original_path
+    integer, intent(in) :: N_characters
+
+    character(:), allocatable :: fixed_path
     logical :: exists!, ierr
     integer :: ierr
     character(len=100) :: cmd
 
-    inquire(file='./results', exist=exists)
+    allocate(character(N_characters) :: fixed_path)
+
+    fixed_path = original_path(1:N_characters) ! eliminates the erroneous characters added to the string when calling (caused by a bug?)
+
+    inquire(file=trim(fixed_path), exist=exists)
 
     if (.not. exists) then
-        cmd = 'mkdir "./results"'
+        cmd = 'mkdir '//trim(fixed_path)
         call EXECUTE_COMMAND_LINE(cmd, exitstat=ierr)
 !        ierr = system(cmd)
         if (ierr /= 0) then
             print *, 'Error: Could not create the directory.'
             stop
         else
-            print *, 'Directory ".\results" created successfully.'
+            print *, 'Directory "',trim(fixed_path), '" created successfully.'
         end if
-    ! else
-    !     print *, 'Directory "..\results" already exists.'
     end if
-end subroutine ensure_results_directory
+end subroutine ensure_directory
 
 subroutine validate_project_name(string)
     character(len=1), intent(in) :: string
@@ -717,32 +739,13 @@ end subroutine
 
 subroutine write_csv
     implicit none
-    integer :: io, try, project_name_len
+    integer :: io, try
     integer, parameter :: max_tries = 2
     character(len=100) :: fpath
-    character(len=8)     :: date
-    character(len=10)    :: t ! time
-    character(len=5)     :: zone
-    ! integer, dimension(8) :: d
-    character(len=19) :: formatted_time
-    character(:), allocatable :: proj_name_len_order, project_name_format
-    ! call date_and_time (values=d)
-
-    project_name_len = len_trim(project_name)
-!    allocate (proj_name_len_order(len_trim(project_name_len)))
-    allocate (character(2) :: project_name_format)
-
-    write (project_name_format, "(A3)") "A16"
-    print*, "Project name format: ", project_name_format
-
-    call date_and_time(DATE=date, TIME=t, ZONE=zone)
-    formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
-               & //'T'//                             &
-               & t(1:2)//'-'//t(3:4)//'-'//t(5:6)
 
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv'
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv.'//current_iteration
-    write(fpath, "(A8,A50,A5,A5,A5,I9.5)"), './data/', project_name, "/", formatted_time, '.csv.', current_iteration
+    write(fpath, "(A,A,A1,I9.9,A5)"), './data/', trim(project_name), "/", current_iteration, '.csv'
     ! debug fix number of spaces for each character
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
     print*, "path: ", fpath !debug
@@ -813,6 +816,35 @@ subroutine write_csv
     end do
     close(67)
 end subroutine write_csv
+
+function append_timestamp(old_string, N_characters) result(string_w_timestamp)
+    character(1024), intent(in) :: old_string
+    integer, intent(in) :: N_characters
+    character(1024) :: string_w_timestamp
+
+    character(len=8)     :: date
+    character(len=10)    :: t ! time
+    character(len=5)     :: zone
+    ! integer, dimension(8) :: d
+    character(len=19) :: formatted_time
+    character(:), allocatable :: allocated_string
+
+    allocate(character(N_characters) :: allocated_string)
+
+    allocated_string = trim(old_string(1:N_characters))
+
+    ! call date_and_time (values=d)
+
+    call date_and_time(DATE=date, TIME=t, ZONE=zone)
+    formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
+               & //'T'//                             &
+               & t(1:2)//'-'//t(3:4)//'-'//t(5:6)
+
+    string_w_timestamp = trim(allocated_string)
+
+    string_w_timestamp = trim(string_w_timestamp)//"-"//formatted_time
+
+end function append_timestamp
 
 subroutine sleep_seconds(n)
     integer, intent(in) :: n

@@ -110,6 +110,12 @@ program main
         call validate_project_name(forbidden_characters(i:i))
     end do
 
+    ! ensure project name does not exceed the 30 character limit
+    if (len_trim(project_name) > 30) then
+        print*, "Your project name exceeds the 30 character limit. Please shorten it."
+        stopSim = .true.
+    end if
+
     !   body force scheme
     if (forcing_scheme == "BG ") then
         B = 1.0d0-1.0d0/(2.0d0*tau)
@@ -229,9 +235,9 @@ program main
     uAnal = 0.0d0
 
     ! slightly modify inital depth profile to allow for convergence analysis
-    do x = 0.4*Lx+1, 0.6*Lx
+    do x = NINT(0.4*Lx+1), NINT(0.6*Lx)
         position_x = dble(x-1) * dx
-        do y = 0.4*Ly+1, 0.6*Ly
+        do y = NINT(0.4*Ly+1), NINT(0.6*Ly)
             position_y = dble(y-1) * dy
             ! debug: made the additional term 0 to see if it causes the instability
             h(x,y) = 5.0d0 - zb(x,y) - 1.0d-3*dsin(2.0d0*pi*position_x/(0.2d0*domainX))*dsin(2.0d0*pi*position_y/(0.2d0*domainY))
@@ -457,7 +463,8 @@ program main
 
     end do timStep
 
-    call ensure_results_directory ! ensures "../results" exists as a directory
+    ! debug
+    call ensure_directory("./results", len_trim("./results")) ! ensures "./results" exists as a directory
     write(6,*)
     ! write(6,*)' Writing results in file: result.dat ... '
     ! open(66,file='../results/result.dat',status='unknown')    ! run from \src
