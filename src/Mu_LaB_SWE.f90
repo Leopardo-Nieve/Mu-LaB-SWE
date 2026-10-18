@@ -53,6 +53,7 @@ module Mu_LaB_SWE
         character(3):: forcing_scheme
         character(len=2) :: bc_macro_string
         character(len=4) :: bc_pos_string
+        character(len=30) :: project_name
         double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,uOut, &
         &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,&
         &one_minus_one_2tau,nine_4,nine_2e4,three_e2,three_2e2, gacl = 9.81,hMax,uMax2,FrMax,Fr,Ma,consCriter,pi,&
@@ -703,9 +704,20 @@ subroutine ensure_results_directory
     end if
 end subroutine ensure_results_directory
 
+subroutine validate_project_name(string)
+    character(len=1), intent(in) :: string
+
+    if (scan(project_name, string) > 0) then
+        print*, "Your project name contains the character '", string ,"'. &
+    & Please choose a different project name in the parameters.cfg file."
+        stopSim = .true.
+    end if
+
+end subroutine
+
 subroutine write_csv
     implicit none
-    integer :: io, try
+    integer :: io, try, project_name_len
     integer, parameter :: max_tries = 2
     character(len=100) :: fpath
     character(len=8)     :: date
@@ -713,16 +725,27 @@ subroutine write_csv
     character(len=5)     :: zone
     ! integer, dimension(8) :: d
     character(len=19) :: formatted_time
+    character(:), allocatable :: proj_name_len_order, project_name_format
     ! call date_and_time (values=d)
 
+    project_name_len = len_trim(project_name)
+!    allocate (proj_name_len_order(len_trim(project_name_len)))
+    allocate (character(2) :: project_name_format)
+
+    write (project_name_format, "(A3)") "A16"
+    print*, "Project name format: ", project_name_format
 
     call date_and_time(DATE=date, TIME=t, ZONE=zone)
     formatted_time = date(1:4)//'-'//date(5:6)//'-'//date(7:8) &
                & //'T'//                             &
                & t(1:2)//'-'//t(3:4)//'-'//t(5:6)
 
-    fpath = './results/'//formatted_time//'.csv'
+!    fpath = './data/'//project_name//"/"//formatted_time//'.csv'
+!    fpath = './data/'//project_name//"/"//formatted_time//'.csv.'//current_iteration
+    write(fpath, "(A8,A50,A5,A5,A5,I9.5)"), './data/', project_name, "/", formatted_time, '.csv.', current_iteration
+    ! debug fix number of spaces for each character
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
+    print*, "path: ", fpath !debug
 
     try = 1
     do

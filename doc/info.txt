@@ -1,14 +1,23 @@
-2026-10-13
+2026-10-18
 ---
-Started simulating the case for convergence analysis. Modified the analytical solution to match the case.
+Modified the inital conditions to permit some flow and allow us to perform an convergence analysis. 
+However, there seems to be a non-physical accumulation in the corners. It is very slight, but noticeable. My guess is there is a bit of momentum which is fed there from the initial flow, but isn't able to dissipate, so it concentrates there until instability is reached.
+This seems to follow from these two observations:
+1. The lower the amplitude of the initial condition variation, the more timesteps it takes to create NaNs;
+2. When there is no variation in the initial condition, no instability is reached, even after 1 x 10^^5 timesteps. 
+
+Next, I'll modify the write_csv subroutine so it has the same base name for all files produced at specific checkpoints, but the end of the file name will be the current iteration. That way, we cna have animations and track the change through time. This will also help diagnosing during debugging. 
 
 Modifications since last version:
-- modified the analytical solution to match the case
-
+- slightly modified initial conditions towards middle of domain to create unsteady case
+- added lines for entry validation of project name
+- added some lines to modify write_csv subroutines to allow checkpointing during simulation, but did not complete it
 ---
 
 
 Potential next step(s):
+- remove one indent space from all lines in src/main.f90 to reduce line truncations likelihood.
+
 - run convergence analysis on seamount case Li et al. (2019)
 	- modify bed geometry (remove the dx/2 offset when analysing geometry and assigning initial values)
 	- run one case for each force scheme and compare to analytical solution

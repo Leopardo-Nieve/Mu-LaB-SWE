@@ -39,6 +39,7 @@ program main
     double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
     character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
+    character(len=9) :: forbidden_characters
     character(len=3), dimension(2) :: all_forcing_schemes
     character(len=1), dimension(2) :: inlet, outlet
     logical:: steadyFlow
@@ -65,6 +66,8 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
     call CFG_add(my_cfg, "simulation_parameters%outlet", ["u","d"], "outlet")
     call CFG_add(my_cfg, "simulation_parameters%outlet_value", 0.0d0, "outlet_value")
+    call CFG_add(my_cfg, "simulation_parameters%project_name", "default_project", "project_name")
+
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -94,9 +97,31 @@ program main
     call CFG_get(my_cfg, "simulation_parameters%inlet_value", inlet_value)
     call CFG_get(my_cfg, "simulation_parameters%outlet", outlet)
     call CFG_get(my_cfg, "simulation_parameters%outlet_value", outlet_value)
+    call CFG_get(my_cfg, "simulation_parameters%project_name", project_name)
 
     ! initialize stopSim to let the simulation run
     stopSim = .false.
+
+    ! entry validation
+    !   project name
+    forbidden_characters = '<>:"/\|?*'
+
+    do i = 1, len_trim(forbidden_characters)
+        call validate_project_name(forbidden_characters(i:i))
+    end do
+
+    !   body force scheme
+    if (forcing_scheme == "BG ") then
+        B = 1.0d0-1.0d0/(2.0d0*tau)
+        C = 0
+    elseif (forcing_scheme == "GZS") then
+        B = 1.0d0-1.0d0/(2.0d0*tau)
+        C = 1.0d0-1.0d0/(2.0d0*tau)
+    else
+        print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
+        stopSim = .true.
+    end if
+
 
     ! initialize epsilon to let the simulation run
     if ( steadyFlow ) then
@@ -121,18 +146,6 @@ program main
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-
-
-    if (forcing_scheme == "BG ") then
-        B = 1.0d0-1.0d0/(2.0d0*tau)
-        C = 0
-    elseif (forcing_scheme == "GZS") then
-        B = 1.0d0-1.0d0/(2.0d0*tau)
-        C = 1.0d0-1.0d0/(2.0d0*tau)
-    else
-        print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
-        stopSim = .true.
-    end if
 
     bc_pos_string = "lrbt"
     bc_macro_string = "hu" ! depth (h), velocity (u)
@@ -214,6 +227,16 @@ program main
         end do
     end do
     uAnal = 0.0d0
+
+    ! slightly modify inital depth profile to allow for convergence analysis
+    do x = 0.4*Lx+1, 0.6*Lx
+        position_x = dble(x-1) * dx
+        do y = 0.4*Ly+1, 0.6*Ly
+            position_y = dble(y-1) * dy
+            ! debug: made the additional term 0 to see if it causes the instability
+            h(x,y) = 5.0d0 - zb(x,y) - 1.0d-3*dsin(2.0d0*pi*position_x/(0.2d0*domainX))*dsin(2.0d0*pi*position_y/(0.2d0*domainY))
+        end do
+    end do
 
     ! determine boundary nodes
     ! do x = 1, Lx
