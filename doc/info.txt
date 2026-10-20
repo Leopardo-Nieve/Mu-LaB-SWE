@@ -1,4 +1,4 @@
-2026-10-18
+2026-10-20
 ---
 Modified the inital conditions to permit some flow and allow us to perform an convergence analysis. 
 However, there seems to be a non-physical accumulation in the corners. It is very slight, but noticeable. My guess is there is a bit of momentum which is fed there from the initial flow, but isn't able to dissipate, so it concentrates there until instability is reached.
@@ -9,11 +9,8 @@ This seems to follow from these two observations:
 Next, I'll modify the write_csv subroutine so it has the same base name for all files produced at specific checkpoints, but the end of the file name will be the current iteration. That way, we cna have animations and track the change through time. This will also help diagnosing during debugging. 
 
 Modifications since last version:
-- enforced entry validation condition for project not to exceed 30 characters
-- added lines of code in the setup subroutine that create a directory for the raw data of the current simulation
-- modified the subroutine that ensures the existence of the ./results directory to accept a string argument to work for any directory name
-- created a subroutine that appends the current time and date to a string
-- modified write_csv to be add a file in the previously created raw data directory. This allows it to write data at checkpoints during computation. TO BE TESTED ON A LINUX DEVICE (supercomputer, ideally)
+- modified the write statement for the string that is used in the make command (the formatting for '.csv' was mistakenly (A5) because of the '.csv.' used previously)
+
 ---
 
 

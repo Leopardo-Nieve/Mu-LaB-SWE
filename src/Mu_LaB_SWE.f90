@@ -745,7 +745,7 @@ subroutine write_csv
 
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv'
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv.'//current_iteration
-    write(fpath, "(A,A,A1,I9.9,A5)"), './data/', trim(project_name), "/", current_iteration, '.csv'
+    write(fpath, "(A,A,A1,I8.8,A4)"), './data/', trim(project_name), "/", current_iteration, '.csv'
     ! debug fix number of spaces for each character
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
     print*, "path: ", fpath !debug
