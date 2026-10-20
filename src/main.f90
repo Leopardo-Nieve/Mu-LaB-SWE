@@ -35,7 +35,7 @@ program main
     type(CFG_t)           :: my_cfg
 
     ! declare local working variables
-    integer:: itera_no
+    integer:: itera_no, per_checkpoint
     double precision :: uo, vo,simTime, r, H0, xc, yc, L
     character:: td*24 ! get date for output
     character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
@@ -53,6 +53,7 @@ program main
     call CFG_add(my_cfg, "simulation_parameters%forcing_scheme", "BG ", "all_forcing_schemes")
     call CFG_add(my_cfg, "simulation_parameters%simTime", 500.0d0, "simTime")
     call CFG_add(my_cfg, "simulation_parameters%itera_no", NINT(4e8), "itera_no")
+    call CFG_add(my_cfg, "simulation_parameters%per_checkpoint", 50, "per_checkpoint")
     call CFG_add(my_cfg, "simulation_parameters%domainX", 14.0d3, "domainX")
     call CFG_add(my_cfg, "simulation_parameters%domainY", 70.0d0, "domainY")
     call CFG_add(my_cfg, "simulation_parameters%dx", 14.0d0, "dx")
@@ -84,6 +85,7 @@ program main
     forcing_scheme = trim(forcing_scheme)
     call CFG_get(my_cfg, "simulation_parameters%simTime", simTime)
     call CFG_get(my_cfg, "simulation_parameters%itera_no", itera_no)
+    call CFG_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint)
     call CFG_get(my_cfg, "simulation_parameters%domainX", domainX)
     call CFG_get(my_cfg, "simulation_parameters%domainY", domainY)
     call CFG_get(my_cfg, "simulation_parameters%dx", dx)
@@ -143,6 +145,7 @@ program main
 !    print*, "Chosen forcing scheme: ", forcing_scheme
 !    print*, "Simulation time: ", simTime
 !    print*, "Iteration number: ", itera_no
+    print*, "Period of checkpoints:", per_checkpoint
 !    print*, "Domain x: ", domainX
 !    print*, "Domain y: ", domainY
 !    print*, "dx: ", dx
@@ -451,9 +454,14 @@ program main
                 end if
             end do
         end do
+
+	! debug
+	print*, "mod ", current_iteration, per_checkpoint
         if (current_iteration >= itera_no .or. time >= simTime) then
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
+	elseif (mod(current_iteration, per_checkpoint) == 0) then
+	    call write_csv
         end if
         if (stopSim .or. check_convergence(h,hLast,epsilon)) then
             if (steadyFlow) call calculate_errors ! only calculate final timestep, do not calculate twice if not steady

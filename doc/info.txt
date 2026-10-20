@@ -10,6 +10,8 @@ Next, I'll modify the write_csv subroutine so it has the same base name for all 
 
 Modifications since last version:
 - modified the write statement for the string that is used in the make command (the formatting for '.csv' was mistakenly (A5) because of the '.csv.' used previously)
+- added line to ensure ./data directory exists before creating the raw data directory inside it
+- added lines that write a csv file at each checkpoint
 
 ---
 

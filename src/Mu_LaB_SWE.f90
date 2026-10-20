@@ -79,6 +79,7 @@ subroutine setup
     integer :: ierr
 
     ! create directory for eventual results
+    call ensure_directory("./data", len_trim("./data"))
     project_name = trim(append_timestamp(project_name, len_trim(project_name)))
     fpath = './data/'//trim(project_name)
     cmd = 'mkdir '//trim(fpath)
@@ -748,8 +749,6 @@ subroutine write_csv
     write(fpath, "(A,A,A1,I8.8,A4)"), './data/', trim(project_name), "/", current_iteration, '.csv'
     ! debug fix number of spaces for each character
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
-    print*, "path: ", fpath !debug
-
     try = 1
     do
         ! Try to open file explicitly for writing
