@@ -145,7 +145,7 @@ program main
 !    print*, "Chosen forcing scheme: ", forcing_scheme
 !    print*, "Simulation time: ", simTime
 !    print*, "Iteration number: ", itera_no
-    print*, "Period of checkpoints:", per_checkpoint
+!    print*, "Period of checkpoints:", per_checkpoint
 !    print*, "Domain x: ", domainX
 !    print*, "Domain y: ", domainY
 !    print*, "dx: ", dx
@@ -455,8 +455,6 @@ program main
             end do
         end do
 
-	! debug
-	print*, "mod ", current_iteration, per_checkpoint
         if (current_iteration >= itera_no .or. time >= simTime) then
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
