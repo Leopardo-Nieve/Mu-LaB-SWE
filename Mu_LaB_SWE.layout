@@ -2,41 +2,50 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="bin/main" />
-	<File name="src\main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="8968" topLine="160" />
-		</Cursor>
-		<Folding>
-			<Collapse line="359" />
-			<Collapse line="378" />
-		</Folding>
-	</File>
-	<File name="src\m_config.f90" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="src/m_config.f90" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="20443" topLine="506" />
 		</Cursor>
 	</File>
-	<File name="src\Mu_LaB_SWE.f90" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-1" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="12829" topLine="171" />
-		</Cursor>
-		<Folding>
-			<Collapse line="164" />
-			<Collapse line="179" />
-			<Collapse line="268" />
-			<Collapse line="355" />
-			<Collapse line="384" />
-			<Collapse line="411" />
-			<Collapse line="591" />
-			<Collapse line="836" />
-			<Collapse line="867" />
-			<Collapse line="952" />
-			<Collapse line="992" />
-		</Folding>
-	</File>
-	<File name="doc\parameters.cfg" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="doc/parameters.cfg" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
 			<Cursor1 position="348" topLine="0" />
 		</Cursor>
+	</File>
+	<File name="src/Mu_LaB_SWE.f90" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="-1" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="32411" topLine="84" />
+		</Cursor>
+		<Folding>
+			<Collapse line="76" />
+			<Collapse line="163" />
+			<Collapse line="181" />
+			<Collapse line="196" />
+			<Collapse line="267" />
+			<Collapse line="285" />
+			<Collapse line="346" />
+			<Collapse line="372" />
+			<Collapse line="384" />
+			<Collapse line="401" />
+			<Collapse line="428" />
+			<Collapse line="445" />
+			<Collapse line="574" />
+			<Collapse line="642" />
+			<Collapse line="699" />
+			<Collapse line="729" />
+			<Collapse line="818" />
+			<Collapse line="867" />
+			<Collapse line="921" />
+			<Collapse line="984" />
+		</Folding>
+	</File>
+	<File name="src/main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="8968" topLine="0" />
+		</Cursor>
+		<Folding>
+			<Collapse line="25" />
+			<Collapse line="360" />
+		</Folding>
 	</File>
 </CodeBlocks_layout_file>

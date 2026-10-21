@@ -99,7 +99,6 @@ subroutine setup
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
 
     e_unit(:,:) = reshape([1,0, 1,1, 0,1, -1,1, -1,0, -1,-1, 0,-1, 1,-1, 0,0], (/2, 9/) ) ! unit lattice velocities
-    !e_unit(:,:) = reshape([1,2,3,4,5,6,7,8,9, 10,11,12,13,14,15,16,17,18], (/2, 9/) ) ! debug
 
     ex(9) = 0.0d0; ey(9) = 0.0d0
     e_vec(1,:) = ex(:); e_vec(2,:) = ey(:)
@@ -113,7 +112,6 @@ subroutine setup
     do a=1,9
         if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
     end do
-    !ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
     ! declare the weights function
     omega(1:7:2) = 1.0d0/9.0d0
@@ -140,37 +138,8 @@ subroutine setup
     dt_6e2=dt/(6.0d0*e*e)
     one_minus_one_2tau = 1.0d0 - 1.0d0/(2.0d0 * tau)
 
-    ! determine initial inlet depth and velocity
-    ! h(1,:) = 1.0d-3 ! m, initial depth at inlet
-    ! h(1,:) = 2.0d0 ! m, initial depth at inlet
-    ! u_vec(1,1,:) = q_in/h(1,:) ! m/s, initial velocity at inlet
-
-    ! initialize the depth over the entire domain
-    ! do x = 1, Lx
-    !     h(x,:) = ho - zb(2*x,Ly/2) ! different array dimension
-    ! end do
-
-    ! commented do loop and moved compute_feq out of it for MMS
-
     ! compute the equilibrium distribution function feq
     call compute_feq
-
-    ! initDepth: do
-    !     ! compute the equilibrium distribution function feq
-    !     call compute_feq
-
-    !     ftemp = feq ! initialize the temporary distribution function
-
-    !     if ( .NOT. check_consistency("east",h,u,e,consCriter,Ly,.FALSE.) ) then
-    !         h = h + 1.0d-3 ! m, increase the depth at inlet by 1 mm
-    !         ! commented because MMS requires new velocity inlet condition
-    !         ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, update the velocity at inlet
-    !     else
-    !         print*, "Inlet consistency satisfied."
-    !         exit initDepth ! exit loop if consistency is satisfied
-    !     end if
-    !     print*, "Initial depth at inlet:", h(1,Ly/2)
-    ! end do initDepth
 
     stopSim = .false. ! reset stopSim flag before starting the simulation
 
@@ -444,7 +413,6 @@ subroutine Slip_BC
 end subroutine Slip_BC
 
 subroutine Inflow_Outflow_BC
-
     ! determine inlet and outlet values first
     ! if the value at the boundary is the specified boundary condition, then its value will be updated. otherwise, it will maintain its current value
 
@@ -512,9 +480,10 @@ subroutine Inflow_Outflow_BC
     &*(h(1,:) * u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0 * (ftemp(3,1,:) - ftemp(7,1,:) )) &
     &+ minval(is_not_in_out(index(bc_pos_string, "l"),:)) * ftemp(2,1,:)
 
+
     ! right
     ftemp(5,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
-    &*(-ftemp(1,Lx,:) + 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
+    &*(ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:) / (3.0d0*e)) &
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(5,Lx,:)
 
     ftemp(6,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
@@ -524,6 +493,7 @@ subroutine Inflow_Outflow_BC
     ftemp(4,Lx,:) = (is_inlet(index(bc_pos_string, "r")) + is_outlet(index(bc_pos_string, "r")))&
     &*(-(h(Lx,:)*(u(1,Lx,:) - 3.0d0 * u(2,Lx,:)))/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0 * (ftemp(7,Lx,:) - ftemp(3,Lx,:)))&
     &+ minval(is_not_in_out(index(bc_pos_string, "r"),:)) * ftemp(4,Lx,:)
+
 
     ! bottom
     ftemp(3,:,1) = (is_inlet(index(bc_pos_string, "b")) + is_outlet(index(bc_pos_string, "b")))&
@@ -538,6 +508,7 @@ subroutine Inflow_Outflow_BC
     &* (h(:,1)*(u(2,:,1) - 3.0d0*u(1,:,1))/(6.0d0*e) + ftemp(8,:,1)+ 0.5d0*(ftemp(1,:,1) - ftemp(5,:,1))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "b"),:)) * ftemp(4,:,1)
 
+
     ! top
     ftemp(7,:,Ly) = (is_inlet(index(bc_pos_string, "t")) + is_outlet(index(bc_pos_string, "t")))&
     &*(ftemp(3,:,Ly) - 2.0d0*h(:,Ly)*u(2,:,Ly)/(3.0d0*e)) &
@@ -551,99 +522,12 @@ subroutine Inflow_Outflow_BC
     &*(-h(:,Ly)*(u(2,:,Ly) - 3.0d0*u(1,:,Ly))/(6.0d0*e) + ftemp(4,:,Ly)+ 0.5d0*(ftemp(5,:,Ly) - ftemp(1,:,Ly))) &
     &+ minval(is_not_in_out(index(bc_pos_string, "t"),:)) * ftemp(8,:,Ly)
 
-    ! macroscopic values
-    ! h(1,:) = h(2,:)
-    ! h(Lx,:) = hOut ! m, fixed depth at outflow
-    ! h(1,:) = 5.0d0 - zb(1,:)
-    ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inflow velocity
-    ! u_vec(1,1,:) = uAnal(1,:)
-    ! u_vec(1,Lx,:) = uAnal(Lx,:)
-    ! u_vec(1,1,:) = q_in/h(1,:)
-    ! u_vec(1,Lx,:) = q_in/h(Lx,:)
-    ! u_vec(2,1,:) = vAnal(1,:)
-    ! u_vec(2,Lx,:) = vAnal(Lx,:)
-    ! u(1,1,:) = e - e/h(1,:)*(ftemp(3,1,:)+ftemp(7,1,:)+ftemp(9,1,:)+2.0d0*(ftemp(4,1,:)+ftemp(5,1,:)+ftemp(6,1,:)))
-    ! uAnal = u_analytical(time, Lx, Ly)
-    ! u_vec(1,1,:) = uAnal(1,:)
-
-    ! h(Lx,:) = hAnal(Lx,:) ! m, fixed depth at outflow
-    ! u(1,Lx,:) = 0.0d0
-    ! h(Lx,:) = ftemp(3,Lx,:) + ftemp(7,Lx,:) + ftemp(9,Lx,:) + 2.0d0*(ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:))/(1+u(1,Lx,:)/e)
-    ! u_vec(1,Lx,:) = -e + e/h(Lx,:)*(ftemp(3,Lx,:)+ftemp(7,Lx,:)+ftemp(9,Lx,:)&
-    !     &+2.0d0*(ftemp(1,Lx,:)+ftemp(2,Lx,:)+ftemp(8,Lx,:))) ! consistency check equation
-
-!    if ( BCInflow == "i" ) then
-!        ! consInLft(1,:) = h(1,:)-ftemp(9,1,:) ! left side of the consistence equation
-!        ! do a = 3, 7
-!        !     consInLft(1,:) = consInLft(1,:) - ftemp(a,1,:)
-!        ! end do
-!        ! consInRgt(1,:) = h(1,:)*u_vec(1,1,:)/e + ftemp(4,1,:) + ftemp(5,1,:) + ftemp(6,1,:) ! right side of the consistence equation
-!        ! do j = 1, Ly
-!        !     if ( abs(consInLft(1,j) - consInRgt(1,j)) > consCriter ) then
-!        !         print*, "consistency fails at node",1,j
-!        !         print*,consInLft(1,j),"/=", consInRgt(1,j)
-!        !         stopSim = .true.
-!        !     end if
-!        ! end do
-!
-!        ! if ( .not. stopSim ) then
-!
-!        ! consistence check
-!        ! if ( check_consistency("east",h,u,e,consCriter,Ly)) then
-!        if ( .TRUE. ) then !debug to omit consistency errors (continuity equation optional?)
-!            ! Following lines implement inflow BC (Zhou, p.59)
-!            ftemp(1,1,:) = ftemp(5,1,:) + 2.0d0*h(1,:)*u(1,1,:)/(3.0d0*e)
-!            ftemp(2,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(6,1,:) + 0.5d0*(ftemp(7,1,:) - ftemp(3,1,:))
-!            ftemp(8,1,:) = h(1,:)*u(1,1,:)/(6.0d0*e) + ftemp(4,1,:) + 0.5d0*(ftemp(3,1,:) - ftemp(7,1,:))
-!        end if
-!    elseif (BCInflow == "n") then
-!            ! Neumann BC at the inflow (p. 58)
-!            ftemp(1,1,:) = ftemp(1,2,:) ! neigbouring population
-!            ftemp(2,1,:) = ftemp(2,2,:) ! neigbouring population
-!            ftemp(8,1,:) = ftemp(8,2,:) ! neigbouring population
-!    else
-!        print*, "`BCInflow` variable incorrectly defined as:", BCInflow
-!        print*, "***Hint: the condition must be written all in lower case.***"
-!    end if
-
-!    if ( BCOutflow == "o" ) then
-!        ! consistence check
-!        consOutLft(1,:) = h(Lx,:)
-!        do a = 1, 9
-!            if (a >= 4 .and. a <=6 ) cycle
-!            consOutLft(1,:) = consOutLft(1,:) - ftemp(a,Lx,:)
-!        end do
-!        consOutRgt(1,:) = -h(Lx,:)*u(1,Lx,:)/e + ftemp(1,Lx,:) + ftemp(2,Lx,:) + ftemp(8,Lx,:)
-!        do j = 1, Ly
-!            if ( abs(consOutLft(1,j) - consOutRgt(1,j)) > consCriter ) then
-!                ! print*, "consistence fails at node",Lx,j ! commented because not important if continuous for MMS (debug)
-!                ! print*,consOutLft(1,j),"/=", consOutRgt(1,j) ! "" debug
-!                ! stopSim = .true. "" ! debug
-!            end if
-!        end do
-!
-!        ! if ( .not. stopSim ) then
-!        if ( .TRUE. ) then ! debug
-!            ! Following lines implement outflow BC (Zhou, p.60)
-!            ftemp(5,Lx,:) = ftemp(1,Lx,:) - 2.0d0*h(Lx,:)*u(1,Lx,:)/(3.0d0*e)
-!            ftemp(4,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(8,Lx,:) + 0.5d0*(ftemp(7,Lx,:) - ftemp(3,Lx,:))
-!            ftemp(6,Lx,:) = -h(Lx,:)*u(1,Lx,:)/(6.0d0*e) + ftemp(2,Lx,:) + 0.5d0*(ftemp(3,Lx,:) - ftemp(7,Lx,:))
-!        end if
-!    elseif (BCOutflow == "n") then
-!        ! Neumann BC at outflow (p. 58)
-!        ftemp(4,Lx,:) = ftemp(4,Lx-1,:) ! neigbouring population
-!        ftemp(5,Lx,:) = ftemp(5,Lx-1,:) ! neigbouring population
-!        ftemp(6,Lx,:) = ftemp(6,Lx-1,:) ! neigbouring population
-!    else
-!        print*, "`BCOutflow` variable incorrectly defined as:", BCOutflow
-!        print*, "***Hint: the condition must be written all in lower case.***"
-!    end if
 end subroutine Inflow_Outflow_BC
 
 subroutine corners
-    ! bottom left
-
     ! make sure depth has the correct value if it is not specified at the flow boundary
+
+    ! bottom left
     h(1,1) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) &
     &+ is_outlet_macro(index(bc_macro_string, "u")) * is_outlet(index(bc_pos_string, "l")) ) * h(1,2) &
     & + ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "b")) &
@@ -667,7 +551,7 @@ subroutine corners
     &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "t")) ) * h(Lx,Ly)
 
     ftemp(4,Lx,Ly) = 0.5d0 * (h(Lx,Ly) - sum((/ftemp(1:3,Lx,Ly),ftemp(5:7,Lx,Ly),ftemp(9,Lx,Ly)/)))
-    ftemp(8,Lx,Ly) = ftemp(4,1,1)
+    ftemp(8,Lx,Ly) = ftemp(4,Lx,Ly)
 
     ! top left
     h(1,Ly) = ( is_inlet_macro(index(bc_macro_string, "u")) * is_inlet(index(bc_pos_string, "l")) &
@@ -692,8 +576,8 @@ subroutine corners
     &+ is_inlet_macro(index(bc_macro_string, "h")) * is_inlet(index(bc_pos_string, "b")) &
     &+ is_outlet_macro(index(bc_macro_string, "h")) * is_outlet(index(bc_pos_string, "b")) ) * h(Lx,1)
 
-    ftemp(2,1,Ly) = 0.5d0 * (h(Lx,1) - sum((/ftemp(1,Lx,1),ftemp(3:5,Lx,1),ftemp(7,Lx,1),ftemp(9,Lx,1)/)))
-    ftemp(6,1,Ly) = ftemp(2,Lx,1)
+    ftemp(2,Lx,1) = 0.5d0 * (h(Lx,1) - sum((/ftemp(1,Lx,1),ftemp(3:5,Lx,1),ftemp(7,Lx,1),ftemp(9,Lx,1)/)))
+    ftemp(6,Lx,1) = ftemp(2,Lx,1)
 
 end subroutine
 
@@ -746,7 +630,7 @@ subroutine write_csv
 
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv'
 !    fpath = './data/'//project_name//"/"//formatted_time//'.csv.'//current_iteration
-    write(fpath, "(A,A,A1,I8.8,A4)"), './data/', trim(project_name), "/", current_iteration, '.csv'
+    write(fpath, "(A,A,A1,A,A5,I8.8)"), './data/', trim(project_name), "/", trim(project_name), '.csv.', current_iteration
     ! debug fix number of spaces for each character
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
     try = 1

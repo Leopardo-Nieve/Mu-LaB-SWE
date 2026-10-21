@@ -25,477 +25,408 @@
 !----------------------------------------------------------!
 program main
 
-    ! call the module LABSWE
-    use ieee_arithmetic  ! Module for IEEE functions
-    use Mu_LaB_SWE
-    use m_config
-    implicit none ! had to write in a second line because VSCode was signalling an error
+! call the module LABSWE
+use ieee_arithmetic  ! Module for IEEE functions
+use Mu_LaB_SWE
+use m_config
+implicit none ! had to write in a second line because VSCode was signalling an error
 
-    ! configuration file
-    type(CFG_t)           :: my_cfg
+! configuration file
+type(CFG_t)           :: my_cfg
 
-    ! declare local working variables
-    integer:: itera_no, per_checkpoint
-    double precision :: uo, vo,simTime, r, H0, xc, yc, L
-    character:: td*24 ! get date for output
-    character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
-    character(len=9) :: forbidden_characters
-    character(len=3), dimension(2) :: all_forcing_schemes
-    character(len=1), dimension(2) :: inlet, outlet
-    logical:: steadyFlow
+! declare local working variables
+integer:: itera_no, per_checkpoint
+double precision :: uo, vo,simTime, r, H0, xc, yc, L
+character:: td*24 ! get date for output
+character(len=1) :: inlet_pos, outlet_pos, wall_pos1, wall_pos2
+character(len=9) :: forbidden_characters
+character(len=3), dimension(2) :: all_forcing_schemes
+character(len=1), dimension(2) :: inlet, outlet
+logical:: steadyFlow
 
-    ! standard values
-    call CFG_add(my_cfg, "physical_constants%nb", 0.012d0, "nb")
-    call CFG_add(my_cfg, "simulation_parameters%steadyFlow", .false., "steadyFlow")
-    call CFG_add(my_cfg, "simulation_parameters%epsilon", 0.0d0, "epsilon")
-    call CFG_add(my_cfg, "simulation_parameters%consCriter", 1.0d-3, "consCriter")
-    call CFG_add(my_cfg, "simulation_parameters%all_forcing_schemes", ["BG ", "GZS"], "all_forcing_schemes")
-    call CFG_add(my_cfg, "simulation_parameters%forcing_scheme", "BG ", "all_forcing_schemes")
-    call CFG_add(my_cfg, "simulation_parameters%simTime", 500.0d0, "simTime")
-    call CFG_add(my_cfg, "simulation_parameters%itera_no", NINT(4e8), "itera_no")
-    call CFG_add(my_cfg, "simulation_parameters%per_checkpoint", 50, "per_checkpoint")
-    call CFG_add(my_cfg, "simulation_parameters%domainX", 14.0d3, "domainX")
-    call CFG_add(my_cfg, "simulation_parameters%domainY", 70.0d0, "domainY")
-    call CFG_add(my_cfg, "simulation_parameters%dx", 14.0d0, "dx")
-    call CFG_add(my_cfg, "simulation_parameters%dt", 0.07d0, "dt")
-    call CFG_add(my_cfg, "simulation_parameters%tau", 1.0d0, "tau")
-    call CFG_add(my_cfg, "simulation_parameters%inlet_pos", "left", "inlet_pos")
-    call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
-    call CFG_add(my_cfg, "simulation_parameters%wall_pos1", "bottom", "wall_pos1")
-    call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
-    call CFG_add(my_cfg, "simulation_parameters%inlet", ["u","d"], "inlet")
-    call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
-    call CFG_add(my_cfg, "simulation_parameters%outlet", ["u","d"], "outlet")
-    call CFG_add(my_cfg, "simulation_parameters%outlet_value", 0.0d0, "outlet_value")
-    call CFG_add(my_cfg, "simulation_parameters%project_name", "default_project", "project_name")
+! standard values
+call CFG_add(my_cfg, "physical_constants%nb", 0.012d0, "nb")
+call CFG_add(my_cfg, "simulation_parameters%steadyFlow", .false., "steadyFlow")
+call CFG_add(my_cfg, "simulation_parameters%epsilon", 0.0d0, "epsilon")
+call CFG_add(my_cfg, "simulation_parameters%consCriter", 1.0d-3, "consCriter")
+call CFG_add(my_cfg, "simulation_parameters%all_forcing_schemes", ["BG ", "GZS"], "all_forcing_schemes")
+call CFG_add(my_cfg, "simulation_parameters%forcing_scheme", "BG ", "all_forcing_schemes")
+call CFG_add(my_cfg, "simulation_parameters%simTime", 500.0d0, "simTime")
+call CFG_add(my_cfg, "simulation_parameters%itera_no", NINT(4e8), "itera_no")
+call CFG_add(my_cfg, "simulation_parameters%per_checkpoint", 50, "per_checkpoint")
+call CFG_add(my_cfg, "simulation_parameters%domainX", 14.0d3, "domainX")
+call CFG_add(my_cfg, "simulation_parameters%domainY", 70.0d0, "domainY")
+call CFG_add(my_cfg, "simulation_parameters%dx", 14.0d0, "dx")
+call CFG_add(my_cfg, "simulation_parameters%dt", 0.07d0, "dt")
+call CFG_add(my_cfg, "simulation_parameters%tau", 1.0d0, "tau")
+call CFG_add(my_cfg, "simulation_parameters%inlet_pos", "left", "inlet_pos")
+call CFG_add(my_cfg, "simulation_parameters%outlet_pos", "right", "outlet_pos")
+call CFG_add(my_cfg, "simulation_parameters%wall_pos1", "bottom", "wall_pos1")
+call CFG_add(my_cfg, "simulation_parameters%wall_pos2", "top", "wall_pos2")
+call CFG_add(my_cfg, "simulation_parameters%inlet", ["u","d"], "inlet")
+call CFG_add(my_cfg, "simulation_parameters%inlet_value", 0.0d0, "inlet_value")
+call CFG_add(my_cfg, "simulation_parameters%outlet", ["u","d"], "outlet")
+call CFG_add(my_cfg, "simulation_parameters%outlet_value", 0.0d0, "outlet_value")
+call CFG_add(my_cfg, "simulation_parameters%project_name", "default_project", "project_name")
 
 
-    ! read parameters.cfg file to update values
-    call CFG_read_file(my_cfg, "doc/parameters.cfg")
+! read parameters.cfg file to update values
+call CFG_read_file(my_cfg, "doc/parameters.cfg")
 
-    r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8, 16, 32
+r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8, 16, 32
 
-    ! define Manning's coefficient
+! define Manning's coefficient
 !    nb = 0.012d0
-    call CFG_get(my_cfg, "physical_constants%nb", nb)
-    call CFG_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow)
-    call CFG_get(my_cfg, "simulation_parameters%consCriter", consCriter)
-    call CFG_get(my_cfg, "simulation_parameters%all_forcing_schemes", all_forcing_schemes)
-    call CFG_get(my_cfg, "simulation_parameters%forcing_scheme", forcing_scheme)
-    forcing_scheme = trim(forcing_scheme)
-    call CFG_get(my_cfg, "simulation_parameters%simTime", simTime)
-    call CFG_get(my_cfg, "simulation_parameters%itera_no", itera_no)
-    call CFG_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint)
-    call CFG_get(my_cfg, "simulation_parameters%domainX", domainX)
-    call CFG_get(my_cfg, "simulation_parameters%domainY", domainY)
-    call CFG_get(my_cfg, "simulation_parameters%dx", dx)
-    call CFG_get(my_cfg, "simulation_parameters%dt", dt)
-    call CFG_get(my_cfg, "simulation_parameters%tau", tau)
-    call CFG_get(my_cfg, "simulation_parameters%inlet_pos", inlet_pos)
-    call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
-    call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
-    call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
-    call CFG_get(my_cfg, "simulation_parameters%inlet", inlet)
-    call CFG_get(my_cfg, "simulation_parameters%inlet_value", inlet_value)
-    call CFG_get(my_cfg, "simulation_parameters%outlet", outlet)
-    call CFG_get(my_cfg, "simulation_parameters%outlet_value", outlet_value)
-    call CFG_get(my_cfg, "simulation_parameters%project_name", project_name)
+call CFG_get(my_cfg, "physical_constants%nb", nb)
+call CFG_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow)
+call CFG_get(my_cfg, "simulation_parameters%consCriter", consCriter)
+call CFG_get(my_cfg, "simulation_parameters%all_forcing_schemes", all_forcing_schemes)
+call CFG_get(my_cfg, "simulation_parameters%forcing_scheme", forcing_scheme)
+forcing_scheme = trim(forcing_scheme)
+call CFG_get(my_cfg, "simulation_parameters%simTime", simTime)
+call CFG_get(my_cfg, "simulation_parameters%itera_no", itera_no)
+call CFG_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint)
+call CFG_get(my_cfg, "simulation_parameters%domainX", domainX)
+call CFG_get(my_cfg, "simulation_parameters%domainY", domainY)
+call CFG_get(my_cfg, "simulation_parameters%dx", dx)
+call CFG_get(my_cfg, "simulation_parameters%dt", dt)
+call CFG_get(my_cfg, "simulation_parameters%tau", tau)
+call CFG_get(my_cfg, "simulation_parameters%inlet_pos", inlet_pos)
+call CFG_get(my_cfg, "simulation_parameters%outlet_pos", outlet_pos)
+call CFG_get(my_cfg, "simulation_parameters%wall_pos1", wall_pos1)
+call CFG_get(my_cfg, "simulation_parameters%wall_pos2", wall_pos2)
+call CFG_get(my_cfg, "simulation_parameters%inlet", inlet)
+call CFG_get(my_cfg, "simulation_parameters%inlet_value", inlet_value)
+call CFG_get(my_cfg, "simulation_parameters%outlet", outlet)
+call CFG_get(my_cfg, "simulation_parameters%outlet_value", outlet_value)
+call CFG_get(my_cfg, "simulation_parameters%project_name", project_name)
 
-    ! initialize stopSim to let the simulation run
-    stopSim = .false.
+! initialize stopSim to let the simulation run
+stopSim = .false.
 
-    ! entry validation
-    !   project name
-    forbidden_characters = '<>:"/\|?*'
+! entry validation
+!   project name
+forbidden_characters = '<>:"/\|?*'
 
-    do i = 1, len_trim(forbidden_characters)
-        call validate_project_name(forbidden_characters(i:i))
+do i = 1, len_trim(forbidden_characters)
+    call validate_project_name(forbidden_characters(i:i))
+end do
+
+! ensure project name does not exceed the 30 character limit
+if (len_trim(project_name) > 30) then
+    print*, "Your project name exceeds the 30 character limit. Please shorten it."
+    stopSim = .true.
+end if
+
+!   body force scheme
+if (forcing_scheme == "BG ") then
+    B = 1.0d0-1.0d0/(2.0d0*tau)
+    C = 0
+elseif (forcing_scheme == "GZS") then
+    B = 1.0d0-1.0d0/(2.0d0*tau)
+    C = 1.0d0-1.0d0/(2.0d0*tau)
+else
+    print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
+    stopSim = .true.
+end if
+
+
+! initialize epsilon to let the simulation run
+if ( steadyFlow ) then
+    call CFG_get(my_cfg, "simulation_parameters%epsilon", epsilon)
+end if
+
+if (per_checkpoint == 0) then
+    per_checkpoint = huge(per_checkpoint)
+end if
+
+!debugging config fortran
+!print*, "Manning constant: ", nb
+!print*, "Steady flow: ", steadyFlow
+!print*, "Epsilon: ", epsilon
+!print*, "Consistency criterion: ", consCriter
+!print*, "All forcing schemes: ", all_forcing_schemes
+!print*, "Chosen forcing scheme: ", forcing_scheme
+!print*, "Simulation time: ", simTime
+!print*, "Iteration number: ", itera_no
+!print*, "Period of checkpoints:", per_checkpoint
+!print*, "Domain x: ", domainX
+!print*, "Domain y: ", domainY
+!print*, "dx: ", dx
+!print*, "dt: ", dt
+!print*, "tau: ", tau
+
+! Boundary conditions for inflow and outflow MUST BE LOWER CASE
+BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+
+bc_pos_string = "lrbt"
+bc_macro_string = "hu" ! depth (h), velocity (u)
+
+
+is_inlet = 0.0d0
+is_outlet = 0.0d0
+is_wall = 0.0d0
+is_not_wall = 1.0d0 ! assume not a wall until assigned otherwise
+is_not_in_out = 1.0d0 ! assume not an inlet or boundary condition until assigned otherwise
+
+is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
+is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
+
+is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
+is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
+
+is_wall(index(bc_pos_string, wall_pos1)) = 1.0d0
+is_not_wall(index(bc_pos_string, wall_pos1)) = 0.0d0
+is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
+is_not_wall(index(bc_pos_string, wall_pos2)) = 0.0d0
+
+is_inlet_macro = 0.0d0
+is_outlet_macro = 0.0d0
+
+is_inlet_macro(index(bc_macro_string, inlet(1))) = 1.0d0
+is_outlet_macro(index(bc_macro_string, outlet(1))) = 1.0d0
+
+current_iteration = 0
+
+! Initialise time
+time = 0
+
+! assign a value of dy
+dy = dx ! m, lattice spacing
+
+! define total number of nodes in x and y directions
+Lx = NINT(domainX/dx)+1; Ly = NINT(domainY/dy)+1 ! nodes
+
+! allocate dimensions for dynamic arrays
+allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(2,Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
+    & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
+    ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
+    & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
+    & H_part(2*Lx+1,2*Ly+1),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
+    & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
+    & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
+    & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
+    & u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
+
+
+! define pi
+pi = dacos(-1.0d0)
+
+! call MMS_analytic_solution ! calculate analytical solution
+if (stopSim) STOP
+
+! define bathymetry
+zb = 0.0d0
+H0 = 4.5d0
+L = 42.0d0
+xc = 0.5d0 * domainX
+yc = 0.5d0 * domainY
+
+do x = 1, Lx
+    position_x = dble(x-1) * dx
+    do y = 1, Ly
+        position_y = dble(y-1) * dy
+        h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
     end do
+end do
+zb = 5.0d0 - h
 
-    ! ensure project name does not exceed the 30 character limit
-    if (len_trim(project_name) > 30) then
-        print*, "Your project name exceeds the 30 character limit. Please shorten it."
-        stopSim = .true.
-    end if
-
-    !   body force scheme
-    if (forcing_scheme == "BG ") then
-        B = 1.0d0-1.0d0/(2.0d0*tau)
-        C = 0
-    elseif (forcing_scheme == "GZS") then
-        B = 1.0d0-1.0d0/(2.0d0*tau)
-        C = 1.0d0-1.0d0/(2.0d0*tau)
-    else
-        print*, "Please select a valid forcing scheme from: ", all_forcing_schemes
-        stopSim = .true.
-    end if
-
-
-    ! initialize epsilon to let the simulation run
-    if ( steadyFlow ) then
-        call CFG_get(my_cfg, "simulation_parameters%epsilon", epsilon)
-    end if
-
-    ! debugging config fortran
-!    print*, "Manning constant: ", nb
-!    print*, "Steady flow: ", steadyFlow
-!    print*, "Epsilon: ", epsilon
-!    print*, "Consistency criterion: ", consCriter
-!    print*, "All forcing schemes: ", all_forcing_schemes
-!    print*, "Chosen forcing scheme: ", forcing_scheme
-!    print*, "Simulation time: ", simTime
-!    print*, "Iteration number: ", itera_no
-!    print*, "Period of checkpoints:", per_checkpoint
-!    print*, "Domain x: ", domainX
-!    print*, "Domain y: ", domainY
-!    print*, "dx: ", dx
-!    print*, "dt: ", dt
-!    print*, "tau: ", tau
-
-    ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
-    BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-    BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-
-    bc_pos_string = "lrbt"
-    bc_macro_string = "hu" ! depth (h), velocity (u)
-
-
-    is_inlet = 0.0d0
-    is_outlet = 0.0d0
-    is_wall = 0.0d0
-    is_not_wall = 1.0d0 ! assume not a wall until assigned otherwise
-    is_not_in_out = 1.0d0 ! assume not an inlet or boundary condition until assigned otherwise
-
-    is_inlet(index(bc_pos_string, inlet_pos)) = 1.0d0
-    is_not_in_out(index(bc_pos_string, inlet_pos),index(bc_macro_string,inlet(1))) = 0.0d0
-
-    is_outlet(index(bc_pos_string, outlet_pos)) = 1.0d0
-    is_not_in_out(index(bc_pos_string, outlet_pos),index(bc_macro_string,outlet(1))) = 0.0d0
-
-    is_wall(index(bc_pos_string, wall_pos1)) = 1.0d0
-    is_not_wall(index(bc_pos_string, wall_pos1)) = 0.0d0
-    is_wall(index(bc_pos_string, wall_pos2)) = 1.0d0
-    is_not_wall(index(bc_pos_string, wall_pos2)) = 0.0d0
-
-    is_inlet_macro = 0.0d0
-    is_outlet_macro = 0.0d0
-
-    is_inlet_macro(index(bc_macro_string, inlet(1))) = 1.0d0
-    is_outlet_macro(index(bc_macro_string, outlet(1))) = 1.0d0
-
-    current_iteration = 0
-
-    ! Initialise time
-    time = 0
-
-    ! assign a value of dy
-    dy = dx ! m, lattice spacing
-
-    ! define total number of nodes in x and y directions
-    Lx = NINT(domainX/dx)+1; Ly = NINT(domainY/dy)+1 ! nodes
-
-    ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(2,Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
-        & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
-        ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
-        & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
-        & H_part(2*Lx+1,2*Ly+1),zb(Lx,Ly),dzbdx(2*Lx+1,2*Ly+1), &
-        & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
-        & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1),S(9,Lx,Ly),force(2,9,Lx,Ly),&
-        & u_vecLast(2,Lx,Ly))!, hIn(Ly), uIn(Ly))
-
-
-    ! define pi
-    pi = dacos(-1.0d0)
-
-    ! call MMS_analytic_solution ! calculate analytical solution
-    if (stopSim) STOP
-
-    ! define bathymetry
-    zb = 0.0d0
-    H0 = 4.5d0
-    L = 42.0d0
-    xc = 0.5d0 * domainX
-    yc = 0.5d0 * domainY
-
-    do x = 1, Lx
-        position_x = dble(x-1) * dx
-        do y = 1, Ly
-            position_y = dble(y-1) * dy
-            h(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
-        end do
+do x = 1, Lx
+    position_x = dble(x-1) * dx
+    do y = 1, Ly
+        position_y = dble(y-1) * dy
+        hAnal(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
     end do
-    zb = 5.0d0 - h
+end do
+uAnal = 0.0d0
 
-    do x = 1, Lx
-        position_x = dble(x-1) * dx
-        do y = 1, Ly
-            position_y = dble(y-1) * dy
-            hAnal(x,y) = 4.5d0 * (1.0d0 - 0.9d0 * dexp( -((position_x-xc)**2.0d0 + (position_y-yc)**2.0d0)/(L**2.0d0)) )
-        end do
+! slightly modify inital depth profile to allow for convergence analysis
+do x = NINT(0.4*Lx+1), NINT(0.6*Lx)
+    position_x = dble(x-1) * dx
+    do y = NINT(0.4*Ly+1), NINT(0.6*Ly)
+        position_y = dble(y-1) * dy
+        ! debug: made the additional term 0 to see if it causes the instability
+        h(x,y) = 5.0d0 - zb(x,y) - 1.0d-3*dsin(2.0d0*pi*position_x/(0.2d0*domainX))*dsin(2.0d0*pi*position_y/(0.2d0*domainY))
     end do
-    uAnal = 0.0d0
+end do
 
-    ! slightly modify inital depth profile to allow for convergence analysis
-    do x = NINT(0.4*Lx+1), NINT(0.6*Lx)
-        position_x = dble(x-1) * dx
-        do y = NINT(0.4*Ly+1), NINT(0.6*Ly)
-            position_y = dble(y-1) * dy
-            ! debug: made the additional term 0 to see if it causes the instability
-            h(x,y) = 5.0d0 - zb(x,y) - 1.0d-3*dsin(2.0d0*pi*position_x/(0.2d0*domainX))*dsin(2.0d0*pi*position_y/(0.2d0*domainY))
-        end do
-    end do
+! constants for initializing flow field.
 
-    ! determine boundary nodes
-    ! do x = 1, Lx
-    !     xf = x + 1
-    !     xb = x - 1
-    !     do y = 1, Ly
-    !         if ( C(x,y) == 1 .OR. C(x,y) == 0.5) then
-    !             cycle ! skip solid and boundary nodes
-    !         end if
+! assign a value for the inlet discharge
+q_in = 4.42d0 ! m^2/s
 
-    !         yf = y + 1
-    !         yb = y - 1
+ho = 5.0d0 ! m, initial water depth
 
-    !         if (C(xf,y) == 1 .OR. &
-    !          & C(xf,yf) == 1 .OR. &
-    !          & C(x,yf)  == 1 .OR. &
-    !          & C(xb,yf) == 1 .OR. &
-    !          & C(xb,y)  == 1 .OR. &
-    !          & C(xb,yb) == 1 .OR. &
-    !          & C(x,yb)  == 1 .OR. &
-    !          & C(xf,yb) == 1) then
-    !             C(x,y) = 0.5 ! m^2/s, boundary node
-    !         end if
-    !     end do
-    ! end do
+uo = 0.0d0
+vo = 0.0d0
+
+! assign a value for the molecular viscosity
+! nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
 
-    ! constants for initializing flow field.
+! calculate the minimum possible value of e such that the stationary population is positive
+! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! assign a value for the inlet discharge
-    q_in = 4.42d0 ! m^2/s
+! define the lattice velocity
+e = dx/dt ! m/s, lattice velocity
 
-    ho = 5.0d0 ! m, initial water depth
-
-    uo = 0.0d0
-    vo = 0.0d0
-
-    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
-    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
-
-    ! constants for boundary conditions
-    ! u_in = 0.3125d0
-    ! u_out = -0.636d0
-    ! q_in = 1d-2 ! debug
-    ! q_in = 0.248*0.5d0 ! m^3/s, inlet discharge, symmetric domain, so divide by 2
-    ! h()
-    ! u_vec(1,1,:) = q_in/(h(1,:)*DBLE(domainY)) ! m/s, inlet velocity
-    ! u_vec(1,1,:) = uAnal(1,:)
-    ! u_vec(1,Lx,:) = uAnal(Lx,:)
-    ! u_vec(1,1,:) = u_in
-    ! u_vec(1,Lx,:) = u_out
-    ! v(1,:) = vAnal(1,:)
-    ! v(Lx,:) = vAnal(Lx,:)
-    ! h(1,:) = 2.0d0
-    ! hOut = 2.0d0 ! m, outflow depth
-    ! h(Lx,:) = hOut ! set outflow depth
-    ! u_vec(1,Lx,:) = 0.0d0
-
-    ! assign a value for the molecular viscosity
-    ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
-
-
-    ! calculate the minimum possible value of e such that the stationary population is positive
-    ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
-
-    ! define the lattice velocity
-    e = dx/dt ! m/s, lattice velocity
-
-    ! print values
-    ! print*, "q inlet =", q_in, "m^2/s"
+! print values
+! print*, "q inlet =", q_in, "m^2/s"
 !    print*, "e =", e, "m/s"
 !    print*, "dt =", dt, "s"
-    ! print *,  "passed dt print" ! debug
+! print *,  "passed dt print" ! debug
 
-    ! calculate the dimensionless relaxation time
-    ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
+! calculate the dimensionless relaxation time
+! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
 
 
-    ! calculate molecular viscosity
-    nu = (tau-0.5d0)*e*dx/3.0d0
+! calculate molecular viscosity
+nu = (tau-0.5d0)*e*dx/3.0d0
 
-    ! initialize the velocities
-    ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
-    ! do i = 2, Lx-2
-    !     u_vec(1,i,:) = (u_vec(1,Lx,:) - u_vec(1,1,:))/Lx * i + u_vec(1,1,:)
-    !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
-    ! end do
+! initialize the velocities
+! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
+! do i = 2, Lx-2
+!     u_vec(1,i,:) = (u_vec(1,Lx,:) - u_vec(1,1,:))/Lx * i + u_vec(1,1,:)
+!     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
+! end do
 
-    u(1,:,:) = uo
-    u(2,:,:) = vo
-    ! print*, "After initializing" ! debug
-    ! print*, "h(1,:) =", h(1,:)" ! debug
-    ! print *,  "reached setup" ! debug
-    ! prepare the calculations
-    call setup
-    ! print*, "After setup"" ! debug
-    ! print*, "u_vec(1,1,:) =", u_vec(1,1,:)" ! debug
-    ! print*, "v(1,:) =", v(1,:)" ! debug
+u(1,:,:) = uo
+u(2,:,:) = vo
+! print*, "After initializing" ! debug
 
-    ! do a=1,9
-    !     do y=1,Ly
-    !         print*, "f(",a,",1,",y,"): ", f(a,1,y)
-    !     end do
-    ! end do
-    ! print *,  "passed setup" ! debug
+! prepare the calculations
+call setup
 
-    !  initialise errors
-    L1_error = 0.0d0
-    L2_error = 0.0d0
+!  initialise errors
+L1_error = 0.0d0
+L2_error = 0.0d0
 
-    ! main loop for time marching
-    timStep: do
+! main loop for time marching
+timStep: do
 
-        time = time+dt
-        current_iteration = current_iteration + 1
+    time = time+dt
+    current_iteration = current_iteration + 1
 
-        !!! COMMENTED FOR 2D STATIONNARY CASE BECAUSE SOLUTION IS CONSTANT WITH TIME AND DEFINED EARLIER
+    !!! COMMENTED FOR 2D STATIONNARY CASE BECAUSE SOLUTION IS CONSTANT WITH TIME AND DEFINED EARLIER
 !        call analytical_solution(time, Lx, Ly) ! update the analytical solution for the current timestep
-        ! print *,  "passed analytical_solution" ! debug
+    ! print *,  "passed analytical_solution" ! debug
 
-        ! Update the body force with the current h
-        call update_body_force
-        ! print *,  "passed update_body_force" ! debug
+    ! Update the body force with the current h
+    call update_body_force
 
-        ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision)
-         call Noslip_BC
+    ! Apply no slip at solid boundary nodes to use the modified bounceback scheme (precollision)
+     call Noslip_BC
 
-        ! Streaming and collision steps
-        call collide_stream
-        ! print *,  "passed collide_stream" ! debug
+    ! Streaming and collision steps
+    call collide_stream
 
-
-        do i=1,Lx
-            do j=1,Ly
-                do a=1,9
-                    if (ieee_is_nan(ftemp(a,i,j))) then
-                        print*, "ftemp",a,i,j,"is not a number"
-                        stopSim = .true.
-                    end if
-                end do
-            end do
-        end do
-
-
-
-        ! Apply Inflow and Outflow BC
-        call Inflow_Outflow_BC
-        ! print *,  "passed Inflow_Outflow_BC" ! debug
-
-
-        ! make sure no population is NaN
-        do i = 1, Lx
-            do j = 1, Ly
-                do a = 1, 9
-                    if ( ieee_is_nan(ftemp(a,i,j)) ) then
-                        print*, "ftemp",a,i,j,"is not a number"
-                        stopSim = .true.
-                    end if
-                end do
-            end do
-        end do
-
-        ! Apply corner boundary conditions
-        call corners
-
-        ! do a=1,9 ! debug
-            ! do y= 1, Ly ! debug
-                ! print*, "f(a,1,",y,"):", f(a,1,y), "ftemp(a,1,",y,")", ftemp(a,1,y) ! debug
-            ! end do ! debug
-        ! end do ! debug
-
-        ! Calculate h, u & v
-        if (.not. stopSim) call solution
-        ! print *,  "passed solution" ! debug
-
-        if (.NOT. steadyFlow) call calculate_errors
-
-        ! Update the feq
-        call compute_feq
-        ! print *,  "passed compute_feq" ! debug
-
-        write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
-        & h(Lx/2,Ly/2)
-        ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
-
-        do i=1,Lx
-            do j = 1, Ly
-
-                ! make sure no u is NaN
-                if (ieee_is_nan(u(1,i,j))) then
-                    print*, "u",i,j,"is not a number"
-                    stopSim = .true.
-                end if
-
-                ! make sure no v is NaN
-                if (ieee_is_nan(u(2,i,j))) then
-                    print*, "v",i,j,"is not a number"
-                    stopSim = .true.
-                end if
-
-                ! make sure no h is NaN
-                if (ieee_is_nan(h(i,j))) then
-                    print*, "h",i,j,"is not a number"
+    do i=1,Lx
+        do j=1,Ly
+            do a=1,9
+                if (ieee_is_nan(ftemp(a,i,j))) then
+                    print*, "ftemp",a,i,j,"is not a number"
                     stopSim = .true.
                 end if
             end do
-        end do
-
-        if (current_iteration >= itera_no .or. time >= simTime) then
-            print*, "Maximum simulation time reached."
-            stopSim = .true. ! stop simulation after desired time reached
-	elseif (mod(current_iteration, per_checkpoint) == 0) then
-	    call write_csv
-        end if
-        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
-            if (steadyFlow) call calculate_errors ! only calculate final timestep, do not calculate twice if not steady
-            call end_simulation
-            exit
-        end if
-
-    end do timStep
-
-    ! debug
-    call ensure_directory("./results", len_trim("./results")) ! ensures "./results" exists as a directory
-    write(6,*)
-    ! write(6,*)' Writing results in file: result.dat ... '
-    ! open(66,file='../results/result.dat',status='unknown')    ! run from \src
-    open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
-    call fdate(td)
-    write(66,*) '# Date: ',td
-    write(66,*) '# Fr =' ,u(1,1,Ly/2)/sqrt(gacl*h(1,Ly/2))
-    write(66,*) '# tau =',tau,', uO =',uo
-    write(66,*) '# Iteration No.: ',current_iteration
-    write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
-    write(66,*) '#      Results of the computations'
-    write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
-                                        & 'u(1,i,j)' , 'u(2,i,j)'
-    write(66,*) '#------------------------------------------'
-
-    do x = 1, Lx
-        do y = 1, Ly
-            write(66,'(2i4,3f12.6)')x,y,h(x,y),u(1,x,y),u(2,x,y)
         end do
     end do
-    close(66)
 
-    ! Add after the existing result.dat write
-    call write_csv
-    write(6,*) ' CSV results written! ... '
+    ! Apply Inflow and Outflow BC
+    call Inflow_Outflow_BC
+    ! print *,  "passed Inflow_Outflow_BC" ! debug
+
+    ! make sure no population is NaN
+    do i = 1, Lx
+        do j = 1, Ly
+            do a = 1, 9
+                if ( ieee_is_nan(ftemp(a,i,j)) ) then
+                    print*, "ftemp",a,i,j,"is not a number"
+                    stopSim = .true.
+                end if
+            end do
+        end do
+    end do
+
+    ! Apply corner boundary conditions
+    call corners
+
+    ! Calculate h, u & v
+    if (.not. stopSim) call solution
+
+    if (.NOT. steadyFlow) call calculate_errors
+
+    ! Update the feq
+    call compute_feq
+
+    write(6,'(I8,A2,F20.14,A2,3(ES26.16,A2))') current_iteration,' ', time, ' ',&
+    & h(Lx/2,Ly/2)
+    ! & h(1,Ly/2), '   ', u_vec(1,1,Ly/2), '   ', v(1,Ly/2) ! commented for debug
+
+    do i=1,Lx
+        do j = 1, Ly
+            ! make sure no u is NaN
+            if (ieee_is_nan(u(1,i,j))) then
+                print*, "u",i,j,"is not a number"
+                stopSim = .true.
+            end if
+
+            ! make sure no v is NaN
+            if (ieee_is_nan(u(2,i,j))) then
+                print*, "v",i,j,"is not a number"
+                stopSim = .true.
+            end if
+
+            ! make sure no h is NaN
+            if (ieee_is_nan(h(i,j))) then
+                print*, "h",i,j,"is not a number"
+                stopSim = .true.
+            end if
+        end do
+    end do
+
+    if (current_iteration >= itera_no .or. time >= simTime) then
+        print*, "Maximum simulation time reached."
+        stopSim = .true. ! stop simulation after desired time reached
+    elseif (mod(current_iteration, per_checkpoint) == 0) then
+        call write_csv
+    end if
+
+    if (stopSim .or. check_convergence(h,hLast,epsilon)) then
+        if (steadyFlow) call calculate_errors ! only calculate final timestep, do not calculate twice if not steady
+        call end_simulation
+        exit
+    end if
+
+end do timStep
+
+! debug
+call ensure_directory("./results", len_trim("./results")) ! ensures "./results" exists as a directory
+write(6,*)
+! write(6,*)' Writing results in file: result.dat ... '
+! open(66,file='../results/result.dat',status='unknown')    ! run from \src
+open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
+call fdate(td)
+write(66,*) '# Date: ',td
+write(66,*) '# Fr =' ,u(1,1,Ly/2)/sqrt(gacl*h(1,Ly/2))
+write(66,*) '# tau =',tau,', uO =',uo
+write(66,*) '# Iteration No.: ',current_iteration
+write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
+write(66,*) '#      Results of the computations'
+write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
+                                    & 'u(1,i,j)' , 'u(2,i,j)'
+write(66,*) '#------------------------------------------'
+
+do x = 1, Lx
+    do y = 1, Ly
+        write(66,'(2i4,3f12.6)')x,y,h(x,y),u(1,x,y),u(2,x,y)
+    end do
+end do
+close(66)
+
+! Add after the existing result.dat write
+call write_csv
+write(6,*) ' CSV results written! ... '
 
 
 end program main
