@@ -1,20 +1,20 @@
-2026-10-21
+2026-10-23
 ---
-Modified the inital conditions to permit some flow and allow us to perform an convergence analysis. 
-The solution seems to converge and is ready for an order of convergence analysis. 
-There were a few erroneous lines that caused the code to be unstable, but they have been corrected.
+Convergence analysis revealed 0th order, even after the previous bug fixes. 
+It is unclear what modification caused us to lose the first order from the tidal case last April. 
+David recommended I return to the code from last April and implement the new body force/source scheme to compare. 
+I think it could be interesting to run the 1D case on this code to compare with the results from April.
 
 Modifications since last version:
-- fixed the right boundary condition ( f(5) = f(1) - 2*h*u_x/(3*e) /= -f(1)+2*h*u_x/(3*e) )
-- fixed top right corner boundary condition ( ftemp(8,Lx,Ly) = ftemp(4,Lx,Ly) /= ftemp(4,1,1) )
-- fixed bottom right corner boundary condition ( was assigning values to ftemp 6 and 2 at node 1,Ly instead of Lx,1 )
-- modified the file name for the csv files created to make paraview animations work
-- removed many commented superfluous lines to declutter the code
-- removed one indent space from all lines in src/main.f90 to reduce line truncations likelihood.
+- modified convergence analysis to work with new data file nomenclature for checkpoint algorithm
 
 ---
 
 
 Potential next step(s):
+- test 1D tidal case with previous code from April and add new source term scheme
+
+- test 1D tidal case with current version of code to compare with April's version
+
 - run convergence analysis on seamount case Li et al. (2019)
 	- run one case for each force scheme and compare to analytical solution
