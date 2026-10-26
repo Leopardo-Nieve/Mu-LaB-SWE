@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH --time=01:00:00
+#SBATCH --mem=180
+
+PROJECT_NAME="convergenceseabed" # maximum 17? characters without underscores? (generates error with write(fpath,...) statement in write_csv
 
 PROJECT_NAME="convergenceseabed" # maximum 17? characters without underscores? (generates error with write(fpath,...) statement in write_csv
 
