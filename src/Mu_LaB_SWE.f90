@@ -731,9 +731,9 @@ subroutine MMS_analytic_solution
 
     
     do i = 1, Lx
-        position_x = dx*i
+	position_x = DBLE(i - 0.5d0) * dx
         do j = 1, Ly
-            position_y = dy*j
+            position_y = DBLE(j - 0.5d0) * dy
             
             ! phi_1(:,i,j) = phi_k(:) &
             ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
@@ -757,7 +757,7 @@ subroutine MMS_analytic_solution
             ! vAnal(i,j) = phi(3,i,j)
 
             ! directly from Sympy code
-            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2
+            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2.0d0
             if (hAnal(i,j) < 0) then 
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.

@@ -36,7 +36,7 @@ program main
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
-    r = 64.0d0 ! convergence ratio. start with 1, then 2, 4, 8
+    r = 4.0d0 ! convergence ratio. start with 1, then 2, 4, 8
 
     ! define Manning's coefficient
     nb = 0.012d0
@@ -50,7 +50,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 1d-6
+        epsilon = 1d-8
     else
         epsilon = 0.0d0
     end if
@@ -102,14 +102,19 @@ program main
     do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
         position_x = dx*(DBLE(x-1)*0.5d0)
         ! commented to debug MMS
-        zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
+        !zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
 
         ! force_x_MMS(x,:) = 0.0d0 ! debug
         
-        force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl*(0.12d0*dsin(6.2831853071795865d0*position_x/&
-        & domainX) + 8.0d0*dcos(6.2831853071795865d0*position_x/domainX))*(&
-        & dsin(6.2831853071795865d0*position_x/domainX) + 3.0d0)/domainX
-        
+	! with bed
+        ! force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl/domainX*(0.12d0*dsin(2.0d0*pi*position_x/domainX) &
+        ! & + 8.0d0*dcos(2.0d0*pi*position_x/domainX))*&
+        ! & (dsin(2.0d0*pi*position_x/domainX) + 3.0d0)
+
+        ! without bed
+        force_x_MMS(x,:) = (8.0d0/9.0d0)*pi*gacl/domainX*(dsin(2.0d0*pi*position_x/domainX) + 3.0d0)&
+         & * dcos(2.0d0*pi*position_x/domainX)
+
         force_y_MMS(x,:) = 0.0d0
 
         ! if ( position_x > 0.8 .and. position_x < 1.2) then
@@ -191,7 +196,7 @@ program main
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define timestep dt
-    dt = 0.01d0/r**2 !s
+    dt = (1.0d0/150.0d0)/r**2 !s
 
     ! define the lattice velocity
     e = dx/dt ! m/s, lattice velocity
@@ -203,7 +208,7 @@ program main
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 1.982d0 
+    tau = 1.5d0 
 
     ! calculate molecular viscosity 
     nu = (tau-0.5d0)*e*dx/3.0d0
