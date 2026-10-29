@@ -41,22 +41,22 @@
 ! zb - bed geometry
 module Mu_LaB_SWE
 
-        implicit none 
+    implicit none 
 
-        integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
-        integer, dimension(2):: hIndex
-        logical:: stopSim, tauOk, velOk, celOk, FrOk
-        character:: BCInflow, BCOutflow
-        double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
-        &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-        & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
-        double precision, dimension(9):: ex,ey, eMax
-        ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-        double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-        & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
-        & force_x_MMS,force_y_MMS!&
-        ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
-        double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
+    integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
+    integer, dimension(2):: hIndex
+    logical:: stopSim, tauOk, velOk, celOk, FrOk
+    character:: BCInflow, BCOutflow
+    double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
+    &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
+    & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon, nb, position_x, position_y, nu_MMs
+    double precision, dimension(9):: ex,ey, eMax
+    ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
+    double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
+    & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+    & force_x_MMS,force_y_MMS!&
+    ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
+    double precision, allocatable, dimension(:,:,:):: f,feq,ftemp 
     
 contains 
 
@@ -131,6 +131,8 @@ subroutine setup
 end subroutine setup
 
 subroutine update_body_force   
+    integer:: ix, iy, ixp1, ixm1
+
     ! interpolate values of h centred between each nodes to evaluate centred slope body force
     ! do x = 2, 2*Lx
     !     if (mod(x,2) == 0) then
@@ -156,66 +158,118 @@ subroutine update_body_force
     ! Cb = gacl/(Cz*Cz) ! bed friction coefficient
     ! tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
+    
+    ! In update_body_force, replace the ix==1 and ix==2*Lx+1 branches with:
+    do ix = 1, 2*Lx+1
+        do iy = 1, 2*Ly+1
+            ixp1 = ix + 1; ixm1 = ix - 1
+            if (ixp1 > 2*Lx+1) ixp1 = ixp1 - 2*Lx
+            if (ixm1 < 1)      ixm1 = ixm1 + 2*Lx
+            force_x(ix,iy) = -gacl * ( &
+                & (hCentered(ixp1,iy)**2 - hCentered(ixm1,iy)**2) / (4.0d0*dx) &
+                & + hCentered(ix,iy)*dzbdx(ix,iy) )
+            force_y(ix,iy) = 0.0d0
+        end do
+    end do
 
     ! Set body force
-    force_x = -hCentered*gacl*dzbdx + force_x_MMS !- tau_bx !debug ! m^2/s^2, bed slope force and bed shear stress
-    force_y = 0.0d0 + force_y_MMS !-tau_by !debug ! m^2/s^2, bed shear stress
+    force_x = force_x + force_x_MMS
+    force_y = force_y + force_y_MMS
 end subroutine update_body_force
 
 subroutine collide_stream
+    double precision :: gzs_pre, eadotea, eadotU, S_alpha
+    integer          :: ix_c, ix_f, ix_b, iy_c, iy_f, iy_b
 
-    ! This calculates distribution function with the LABSWE 
+    gzs_pre = 1.0d0 - 1.0d0/(2.0d0*tau)
 
-    do y = 1, Ly 
-        yf = y + 1
-        yb = y -1
-    
+    do y = 1, Ly
+        yf = y + 1; yb = y - 1
+        if (yf > Ly) yf = yf - Ly
+        if (yb < 1)  yb = Ly + yb
+
         do x = 1, Lx
-            xf = x + 1
-            xb = x -1
-            ! if (C(x,y) == 0 .OR. C(x,y) == 0.5) cycle ! skip solid and boundary nodes
+            xf = x + 1; xb = x - 1
+            if (xf > Lx) xf = xf - Lx
+            if (xb < 1)  xb = Lx + xb
 
-            ! Following 4 lines Implement periodic BCs in x or y directions
-            if (xf > Lx) xf = xf - Lx !remove outlet periodic boundary
-            if (xb < 1) xb = Lx + xb !remove inlet periodic boundary
-            if (yf > Ly) yf = yf - Ly
-            if (yb < 1) yb = Ly + yb 
+            ix_c = 2*x;   ix_f = 2*x + 1; ix_b = 2*x - 1
+            iy_c = 2*y;   iy_f = 2*y + 1; iy_b = 2*y - 1
+            if (ix_f > 2*Lx+1) ix_f = ix_f - 2*Lx
+            if (ix_b < 1)      ix_b = ix_b + 2*Lx
+            if (iy_f > 2*Ly+1) iy_f = iy_f - 2*Ly
+            if (iy_b < 1)      iy_b = iy_b + 2*Ly
 
-            ! start streaming and collision 
-            if (xf<=Lx) then ! periodic in y direction
-                ftemp(1,xf,y) = f(1,x,y)-(f(1,x,y)-feq(1,x,y))/tau&
-                & + dt_6e2*(ex(1)*force_x(2*x+1,2*y)+ey(1)*force_y(2*x+1,2*y))
-            end if
-            if (xf<=Lx) then !if (xf<=Lx .and. yf<=Ly) ! periodic in y direction
-                ftemp(2,xf,yf) = f(2,x,y)-(f(2,x,y)-feq(2,x,y))/tau& 
-                & + dt_6e2*(ex(2)*force_x(2*x+1,2*y+1)+ey(2)*force_y(2*x+1,2*y+1))
-            end if
-            ! if (yf<=Ly) ! periodic in y direction
-            ftemp(3,x,yf) = f(3,x,y)-(f(3,x,y)-feq(3,x,y))/tau& 
-                & + dt_6e2*(ex(3)*force_x(2*x,2*y+1)+ey(3)*force_y(2*x,2*y+1))
-            if (xb>=1) then !if (xb>=1 .and. yf<=Ly) ! periodic in y direction
-                ftemp(4,xb,yf) = f(4,x,y)-(f(4,x,y)-feq(4,x,y))/tau& 
-                & + dt_6e2*(ex(4)*force_x(2*x-1,2*y+1)+ey(4)*force_y(2*x-1,2*y+1))
-            end if
-            if (xb>=1) ftemp(5,xb,y) = f(5,x,y)-(f(5,x,y)-feq(5,x,y))/tau& 
-                & + dt_6e2*(ex(5)*force_x(2*x-1,2*y)+ey(5)*force_y(2*x-1,2*y))
-            if (xb>=1) then !if (xb>=1 .and. yb>=1) ! periodic in y direction
-                ftemp(6,xb,yb) = f(6,x,y)-(f(6,x,y)-feq(6,x,y))/tau& 
-                & + dt_6e2*(ex(6)*force_x(2*x-1,2*y-1)+ey(6)*force_y(2*x-1,2*y-1))
-            end if
-            ! if (yb>=1) ! periodic in y direction
-            ftemp(7,x,yb) = f(7,x,y)-(f(7,x,y)-feq(7,x,y))/tau& 
-                & + dt_6e2*(ex(7)*force_x(2*x,2*y-1)+ey(7)*force_y(2*x,2*y-1))
-            if (xf<=Lx) then !if (xf<=Lx .and. yb>=1) ! periodic in y direction
-                ftemp(8,xf,yb) = f(8,x,y)-(f(8,x,y)-feq(8,x,y))/tau& 
-                & + dt_6e2*(ex(8)*force_x(2*x+1,2*y-1)+ey(8)*force_y(2*x+1,2*y-1))
-            end if
-            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau 
-            
-        end do 
+            ! Direction 1 (E)
+            eadotea = ex(1)*ex(1) + ey(1)*ey(1)
+            eadotU  = ex(1)*u(x,y) + ey(1)*v(x,y)
+            S_alpha = gzs_pre * one_3rd_e2 * dt * ( &
+                & (ex(1)-u(x,y))*force_x(ix_f,iy_c) + (ey(1)-v(x,y))*force_y(ix_f,iy_c) &
+                & + 3.0d0*eadotU*(ex(1)*force_x(ix_f,iy_c)+ey(1)*force_y(ix_f,iy_c))/eadotea )
+            ftemp(1,xf,y) = f(1,x,y) - (f(1,x,y)-feq(1,x,y))/tau + S_alpha
+
+            ! Direction 2 (NE)
+            eadotea = ex(2)*ex(2) + ey(2)*ey(2)
+            eadotU  = ex(2)*u(x,y) + ey(2)*v(x,y)
+            S_alpha = gzs_pre * one_12th_e2 * dt * ( &
+                & (ex(2)-u(x,y))*force_x(ix_f,iy_f) + (ey(2)-v(x,y))*force_y(ix_f,iy_f) &
+                & + 3.0d0*eadotU*(ex(2)*force_x(ix_f,iy_f)+ey(2)*force_y(ix_f,iy_f))/eadotea )
+            ftemp(2,xf,yf) = f(2,x,y) - (f(2,x,y)-feq(2,x,y))/tau + S_alpha
+
+            ! Direction 3 (N)
+            eadotea = ex(3)*ex(3) + ey(3)*ey(3)
+            eadotU  = ex(3)*u(x,y) + ey(3)*v(x,y)
+            S_alpha = gzs_pre * one_3rd_e2 * dt * ( &
+                & (ex(3)-u(x,y))*force_x(ix_c,iy_f) + (ey(3)-v(x,y))*force_y(ix_c,iy_f) &
+                & + 3.0d0*eadotU*(ex(3)*force_x(ix_c,iy_f)+ey(3)*force_y(ix_c,iy_f))/eadotea )
+            ftemp(3,x,yf) = f(3,x,y) - (f(3,x,y)-feq(3,x,y))/tau + S_alpha
+
+            ! Direction 4 (NW)
+            eadotea = ex(4)*ex(4) + ey(4)*ey(4)
+            eadotU  = ex(4)*u(x,y) + ey(4)*v(x,y)
+            S_alpha = gzs_pre * one_12th_e2 * dt * ( &
+                & (ex(4)-u(x,y))*force_x(ix_b,iy_f) + (ey(4)-v(x,y))*force_y(ix_b,iy_f) &
+                & + 3.0d0*eadotU*(ex(4)*force_x(ix_b,iy_f)+ey(4)*force_y(ix_b,iy_f))/eadotea )
+            ftemp(4,xb,yf) = f(4,x,y) - (f(4,x,y)-feq(4,x,y))/tau + S_alpha
+
+            ! Direction 5 (W)
+            eadotea = ex(5)*ex(5) + ey(5)*ey(5)
+            eadotU  = ex(5)*u(x,y) + ey(5)*v(x,y)
+            S_alpha = gzs_pre * one_3rd_e2 * dt * ( &
+                & (ex(5)-u(x,y))*force_x(ix_b,iy_c) + (ey(5)-v(x,y))*force_y(ix_b,iy_c) &
+                & + 3.0d0*eadotU*(ex(5)*force_x(ix_b,iy_c)+ey(5)*force_y(ix_b,iy_c))/eadotea )
+            ftemp(5,xb,y) = f(5,x,y) - (f(5,x,y)-feq(5,x,y))/tau + S_alpha
+
+            ! Direction 6 (SW)
+            eadotea = ex(6)*ex(6) + ey(6)*ey(6)
+            eadotU  = ex(6)*u(x,y) + ey(6)*v(x,y)
+            S_alpha = gzs_pre * one_12th_e2 * dt * ( &
+                & (ex(6)-u(x,y))*force_x(ix_b,iy_b) + (ey(6)-v(x,y))*force_y(ix_b,iy_b) &
+                & + 3.0d0*eadotU*(ex(6)*force_x(ix_b,iy_b)+ey(6)*force_y(ix_b,iy_b))/eadotea )
+            ftemp(6,xb,yb) = f(6,x,y) - (f(6,x,y)-feq(6,x,y))/tau + S_alpha
+
+            ! Direction 7 (S)
+            eadotea = ex(7)*ex(7) + ey(7)*ey(7)
+            eadotU  = ex(7)*u(x,y) + ey(7)*v(x,y)
+            S_alpha = gzs_pre * one_3rd_e2 * dt * ( &
+                & (ex(7)-u(x,y))*force_x(ix_c,iy_b) + (ey(7)-v(x,y))*force_y(ix_c,iy_b) &
+                & + 3.0d0*eadotU*(ex(7)*force_x(ix_c,iy_b)+ey(7)*force_y(ix_c,iy_b))/eadotea )
+            ftemp(7,x,yb) = f(7,x,y) - (f(7,x,y)-feq(7,x,y))/tau + S_alpha
+
+            ! Direction 8 (SE)
+            eadotea = ex(8)*ex(8) + ey(8)*ey(8)
+            eadotU  = ex(8)*u(x,y) + ey(8)*v(x,y)
+            S_alpha = gzs_pre * one_12th_e2 * dt * ( &
+                & (ex(8)-u(x,y))*force_x(ix_f,iy_b) + (ey(8)-v(x,y))*force_y(ix_f,iy_b) &
+                & + 3.0d0*eadotU*(ex(8)*force_x(ix_f,iy_b)+ey(8)*force_y(ix_f,iy_b))/eadotea )
+            ftemp(8,xf,yb) = f(8,x,y) - (f(8,x,y)-feq(8,x,y))/tau + S_alpha
+
+            ! Direction 9 (rest)
+            ftemp(9,x,y) = f(9,x,y) - (f(9,x,y)-feq(9,x,y))/tau
+
+        end do
     end do
-
-return
+    return
 end subroutine collide_stream
 
 subroutine solution
@@ -242,29 +296,26 @@ subroutine solution
     u = u/h
     v = v/h
 
+    ! GZS half-force velocity correction
+    do x = 1, Lx
+        do y = 1, Ly
+            u(x,y) = u(x,y) + 0.5d0*dt*force_x(2*x,2*y)/h(x,y)
+            v(x,y) = v(x,y) + 0.5d0*dt*force_y(2*x,2*y)/h(x,y)
+        end do
+    end do
+
     return
 
 end subroutine solution
 
 subroutine compute_feq
-    ! this computes the local equilibrium distribution function
-
-    do a = 1, 8 
-        ! if (mod(a,2) == 0) then 
-        feq(a,:,:) = gacl*h(:,:)*h(:,:)*one_24th_e2 +& 
-            & h(:,:)*one_12th_e2*(ex(a)*u(:,:)+& 
-            & ey(a)*v(:,:))+h(:,:)*one_8th_e4& 
-            & *(ex(a)*u(:,:)*ex(a)*u(:,:)+& 
-            & 2.0d0*ex(a)*u(:,:)*ey(a)*v(:,:)+& 
-            & ey(a)*v(:,:)*ey(a)*v(:,:))-& 
-            & h(:,:)*one_24th_e2*(u(:,:)*u(:,:)+& 
-            & v(:,:)*v(:,:)) 
-        ! end if
-
-        if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:) ! if odd number index
+    do a = 1, 8
+        feq(a,:,:) = h(:,:)*one_12th_e2*(ex(a)*u(:,:) + ey(a)*v(:,:)) &
+            & + h(:,:)*one_8th_e4*(ex(a)*u(:,:) + ey(a)*v(:,:))**2    &
+            & - h(:,:)*one_24th_e2*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+        if (mod(a,2) /= 0) feq(a,:,:) = 4.0d0*feq(a,:,:)
     end do
-    feq(9,:,:) = h(:,:) - five_6th_g_e2*h(:,:)*h(:,:) - &
-             & two_3rd_e2*h(:,:)*(u(:,:)*u(:,:) + v(:,:)*v(:,:))
+    feq(9,:,:) = h(:,:)*(1.0d0 - two_3rd_e2*(u(:,:)*u(:,:) + v(:,:)*v(:,:)))
     return
 end subroutine compute_feq
 
@@ -578,23 +629,31 @@ end subroutine end_simulation
 
 function centred_interpolation(originalArray, dimX, dimY) result(outputArray)
     implicit none
-    integer,          intent(in)    :: dimX, dimY ! dimesions of the original array (Lx, Ly)
-    double precision, intent(in)    :: originalArray(:,:)
-    double precision                :: outputArray(2*dimX+1, 2*dimY+1)
+    integer,          intent(in) :: dimX, dimY
+    double precision, intent(in) :: originalArray(:,:)
+    double precision             :: outputArray(2*dimX+1, 2*dimY+1)
+    integer                      :: ii, jj, im, ip, jm, jp
 
-    do i = 2, 2*dimX
-        if (mod(i,2) == 0) then
-            outputArray(i,:) = originalArray(i/2,:)
-        else
-            outputArray(i,:) = (-originalArray((i-3)/2,dimY/2)+6.0d0*originalArray((i-1)/2,dimY/2)&
-             + 3.0d0*originalArray((i+1)/2,dimY/2))/8.0d0
-        end if
+    do ii = 1, 2*dimX+1
+        do jj = 1, 2*dimY+1
+            ! Neighbouring node indices with periodic wrapping
+            im = (ii-1)/2; if (im < 1)    im = dimX
+            ip = (ii+1)/2; if (ip > dimX) ip = 1
+            jm = (jj-1)/2; if (jm < 1)    jm = dimY
+            jp = (jj+1)/2; if (jp > dimY) jp = 1
+
+            if (mod(ii,2) == 0 .and. mod(jj,2) == 0) then
+                outputArray(ii,jj) = originalArray(ii/2, jj/2)
+            else if (mod(ii,2) == 0) then
+                outputArray(ii,jj) = 0.5d0*(originalArray(ii/2,jm) + originalArray(ii/2,jp))
+            else if (mod(jj,2) == 0) then
+                outputArray(ii,jj) = 0.5d0*(originalArray(im,jj/2) + originalArray(ip,jj/2))
+            else
+                outputArray(ii,jj) = 0.25d0*(originalArray(im,jm) + originalArray(ip,jm) &
+                    &                       + originalArray(im,jp) + originalArray(ip,jp))
+            end if
+        end do
     end do
-
-    outputArray(1,:)        = (15.0d0*originalArray(1,dimY/2) - 10.0d0*originalArray(2,dimY/2)&
-        & + 3.0d0*originalArray(3,dimY/2))/8.0d0 
-    outputArray(2*dimX+1,:) = (15.0d0*originalArray(dimX,dimY/2)-10.0d0*originalArray(dimX-1,dimY/2)&
-         + 3.0d0*originalArray(dimX-2,dimY/2))/8.0d0
 end function centred_interpolation
 
 ! function h_analytical(currentTime, dimX, dimY) result(h_a)

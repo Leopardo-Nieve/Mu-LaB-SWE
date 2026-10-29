@@ -1,30 +1,25 @@
-2025-08-12
+2026-10-29
 
-Consistency not respected at inlet. If let run for 100 iterations anyway, inconsistency increases with time and depth inlet increases to non physical values.
+Came back to the case where we had 1st order of convergence and applied new source term scheme.
+However, the case is unstable. When simulating at r=4, the solution converged. When simulating at r=1, it simulated for a very long time and then was unstable. 
+Claude recommended I decrease the timestep further, but i don't have time to run that case today. 
 
 ---
 
 Modifications since last version:
-- moved ho variable from main.f90 to to Mu_LaB_SWE.f90
+- modified update_bodyforce to use Li's source term
 
-- defined pi in the setup subroutine
-
-- defined constants for initializing flow field later in code
-
-- defined initial u such that the discharge is continuous over the entire domain (u = q_in/(h*domainY))
-
-- wrote a logical function check_consistency. can only computate east direction for the moment
-
-- replaced the inflow consistency check lines by a call to check_consistency function
+- modified centred interpolation to use periodic nodes
 
 ---
 
 Potential next step(s):
 
-- remove complexities: cylinder geometry, shear stress term
+- make code 2D
 
-- determine what causes instability in inlet condition (according to Ru (2023), the kinetic scheme currently used should still work)
+- generalise boundary conditions (not only periodic)
 
-- Update iterative process to define initial depth over entire domain and avoid shocks
+- use index notation for neighbours (maybe do before generalise boundary conditions?)
 
-- Determine way to display solid nodes so they have no value on paraview
+
+- review turbulence in the context of shallow water equations

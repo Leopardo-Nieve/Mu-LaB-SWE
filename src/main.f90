@@ -36,7 +36,7 @@ program main
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
-    r = 4.0d0 ! convergence ratio. start with 1, then 2, 4, 8
+    r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8
 
     ! define Manning's coefficient
     nb = 0.012d0
@@ -57,7 +57,7 @@ program main
     consCriter = 1.0d-3
     
     current_iteration = 0
-    ! itera_no = 1 !debug
+    !itera_no = 1 !debug
     ! itera_no = 1e4 !debug
     itera_no = NINT(4e8)
         
@@ -271,7 +271,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I5,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
+        write(6,'(I8,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
         do i=1,Lx 
             do j = 1, Ly
