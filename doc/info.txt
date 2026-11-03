@@ -1,8 +1,7 @@
-2026-10-29
+2026-11-03
 
-Came back to the case where we had 1st order of convergence and applied new source term scheme.
-However, the case is unstable. When simulating at r=4, the solution converged. When simulating at r=1, it simulated for a very long time and then was unstable. 
-Claude recommended I decrease the timestep further, but i don't have time to run that case today. 
+Reduced the size of the timestep from 1/150 to 1/600 to improve stability, which worked. However, the order reached was of 0th order. 
+Claude suggested reducing the convergence criterion further, which made simulations extremely slow. I am therefore committing my changes so I can run these cases on the supercomputer instead.
 
 ---
 

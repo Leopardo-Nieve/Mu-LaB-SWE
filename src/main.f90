@@ -50,7 +50,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 1d-8
+        epsilon = 1d-10
     else
         epsilon = 0.0d0
     end if
@@ -196,7 +196,7 @@ program main
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define timestep dt
-    dt = (1.0d0/150.0d0)/r**2 !s
+    dt = (1.0d0/600.0d0)/r**2 !s
 
     ! define the lattice velocity
     e = dx/dt ! m/s, lattice velocity
