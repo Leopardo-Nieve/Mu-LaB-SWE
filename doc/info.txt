@@ -1,24 +1,28 @@
-2026-11-03
+2026-11-05
 
-Reduced the size of the timestep from 1/150 to 1/600 to improve stability, which worked. However, the order reached was of 0th order. 
-Claude suggested reducing the convergence criterion further, which made simulations extremely slow. I am therefore committing my changes so I can run these cases on the supercomputer instead.
+After a long session of back and forth debuggin with Claude, I finally reached the 2nd order of convergence
 
 ---
 
 Modifications since last version:
-- modified update_bodyforce to use Li's source term
+- initial state to match analytical solution (greatly reduces simulation time)
 
-- modified centred interpolation to use periodic nodes
+- modified the calculation of hcentered to have a denominator of 2*dx instead of 4*dx
 
 ---
 
 Potential next step(s):
 
-- make code 2D
+- add QOL changes (Makefile, convergence script, parameters file + checkpoints and m_config.f90, codeblocks project file)
 
-- generalise boundary conditions (not only periodic)
+- make zb nonzero again (to test stability issues from before)
+
+- make modified fullway bounceback
+
+- make code 2D
 
 - use index notation for neighbours (maybe do before generalise boundary conditions?)
 
+- generalise boundary conditions (not only periodic)
 
 - review turbulence in the context of shallow water equations

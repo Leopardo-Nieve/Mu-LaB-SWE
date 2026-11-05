@@ -32,7 +32,8 @@ program main
     
     ! declare local working variables 
     integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r
+    double precision :: uo, vo,simTime, x_r, y_r, radius, r,position_x_p, position_x_m, &
+        & hAnal_ixp1, hAnal_ixm1
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -50,7 +51,7 @@ program main
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = 1d-10
+        epsilon = max(1.0d-6 / DBLE(r)**6, 1.0d-13)
     else
         epsilon = 0.0d0
     end if
@@ -99,8 +100,17 @@ program main
 
     ! define bed geometry
     zb = 0
-    do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
+    
+    do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
+        force_x_MMS(x,:) = +(8.0d0/9.0d0)*pi*gacl/domainX &
+            & *(dsin(2.0d0*pi*position_x/domainX) + 3.0d0) &
+            & *dcos(2.0d0*pi*position_x/domainX)
+        force_y_MMS(x,:) = 0.0d0
+    end do
+
+    !do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
+     !   position_x = dx*(DBLE(x-1)*0.5d0)
         ! commented to debug MMS
         !zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
 
@@ -112,16 +122,16 @@ program main
         ! & (dsin(2.0d0*pi*position_x/domainX) + 3.0d0)
 
         ! without bed
-        force_x_MMS(x,:) = (8.0d0/9.0d0)*pi*gacl/domainX*(dsin(2.0d0*pi*position_x/domainX) + 3.0d0)&
-         & * dcos(2.0d0*pi*position_x/domainX)
+      !  force_x_MMS(x,:) = -(8.0d0/9.0d0)*pi*gacl/domainX*(dsin(2.0d0*pi*position_x/domainX) + 3.0d0) &
+       !     & * dcos(2.0d0*pi*position_x/domainX)
 
-        force_y_MMS(x,:) = 0.0d0
+        !force_y_MMS(x,:) = 0.0d0
 
         ! if ( position_x > 0.8 .and. position_x < 1.2) then
         !     ! zb(x,:) = 0.2d0 - 0.05d0 * (position_x - 10.0d0)**2.0d0 ! bump function
         !     zb(x,:) = 0.2d-1 - 0.05d1 * (position_x - 10.0d-1)**2.0d0 ! bump function resized for 2 m x 2 m domain
         ! end if
-    end do
+!    end do
 
     ! determine boundary nodes
     ! do x = 1, Lx
@@ -162,7 +172,7 @@ program main
     ! initialize the depth 
     do x = 1, Lx
         do y = 1, Ly
-            h(x,y) = ho - zb(2*x,2*y) ! different array dimension
+            h(x,y) = hAnal(x,y) - zb(2*x, 2*y) ! different array dimension
         end do
     end do
 
@@ -219,8 +229,8 @@ program main
     !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
-    u = uo
-    v = vo
+    u = uAnal
+    v = vAnal
     ! prepare the calculations
     call setup
     
@@ -271,7 +281,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I8,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
+        write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
         do i=1,Lx 
             do j = 1, Ly

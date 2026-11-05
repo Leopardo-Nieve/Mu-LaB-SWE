@@ -43,7 +43,7 @@ module Mu_LaB_SWE
 
     implicit none 
 
-    integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb
+    integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb,ix,iy,ixm1,ixp1
     integer, dimension(2):: hIndex
     logical:: stopSim, tauOk, velOk, celOk, FrOk
     character:: BCInflow, BCOutflow
@@ -131,7 +131,6 @@ subroutine setup
 end subroutine setup
 
 subroutine update_body_force   
-    integer:: ix, iy, ixp1, ixm1
 
     ! interpolate values of h centred between each nodes to evaluate centred slope body force
     ! do x = 2, 2*Lx
@@ -166,7 +165,7 @@ subroutine update_body_force
             if (ixp1 > 2*Lx+1) ixp1 = ixp1 - 2*Lx
             if (ixm1 < 1)      ixm1 = ixm1 + 2*Lx
             force_x(ix,iy) = -gacl * ( &
-                & (hCentered(ixp1,iy)**2 - hCentered(ixm1,iy)**2) / (4.0d0*dx) &
+                & (hCentered(ixp1,iy)**2 - hCentered(ixm1,iy)**2) / (2.0d0*dx) &
                 & + hCentered(ix,iy)*dzbdx(ix,iy) )
             force_y(ix,iy) = 0.0d0
         end do
@@ -541,10 +540,7 @@ subroutine write_csv
     ! Write data points
     do x = 1, Lx
         do y = 1, Ly
-            write(67,'(2(I5,","),2(F17.14,","),3(F17.14,","),7(F17.14,","), &
-            ! to add MMS source terms
-            & 2(F17.14,",")   &
-            & )') &
+            write(67,'(2(I5,","),13(ES24.16,","))') &
                 x, y, &
                 dx*(DBLE(x)-0.5d0), dy*(DBLE(y)-0.5d0), &
                 h(x,y) + zb(2*x,2*y), zb(2*x,2*y), h(x,y), &
