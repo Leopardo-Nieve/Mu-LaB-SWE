@@ -1,83 +1,90 @@
-!----------------------------------------------------------! 
-! main.f90 
-! The file main.f90 in FORTRAN 90 is adapted from the book 
-! to use the module LABSWE.f90 to solve basic test 
+!----------------------------------------------------------!
+! main.f90
+! The file main.f90 in FORTRAN 90 is adapted from the book
+! to use the module LABSWE.f90 to solve basic test
 ! 7.2.1: Steady Flow over a Bump. Any FORTRAN-90 compiler
-! may be used to compile, e.g. 
-! "f90 LABSWE.f90 main.f90 -o labswe". 
-! It simulates a steady flow in straight channel with a 
-! defined inflow discharge and outflow depth boundary  
-! conditions in the x direction and periodic boundary 
-! condition in y direction. 
-! Consequently, a steady solution is obtained after 11332 
-! time steps, showing a the expected dip in the surface level profile 
-! above the bump. 
+! may be used to compile, e.g.
+! "f90 LABSWE.f90 main.f90 -o labswe".
+! It simulates a steady flow in straight channel with a
+! defined inflow discharge and outflow depth boundary
+! conditions in the x direction and periodic boundary
+! condition in y direction.
+! Consequently, a steady solution is obtained after 11332
+! time steps, showing a the expected dip in the surface level profile
+! above the bump.
 ! S. Fiset, Montreal, 2025
-!----------------------------------------------------------! 
-! List of Major Variables 
-! ho  - Initial water depth 
+!----------------------------------------------------------!
+! List of Major Variables
+! ho  - Initial water depth
 ! epsilon - Convergence criterion
-! itera_no - Total iteration number or time steps 
+! itera_no - Total iteration number or time steps
 ! simTime - Maximum desired amount of simulation time
 ! time - Amount of time elapsed since start of simulation
 ! simTime - Maximum desired amount of simulation time
-! uo, vo - Initial velocities 
+! uo, vo - Initial velocities
 !----------------------------------------------------------!
-program main 
-    
-    ! call the module LABSWE 
+program main
+
+    ! call the module LABSWE
     use ieee_arithmetic  ! Module for IEEE functions
     use Mu_LaB_SWE
-    implicit none ! had to write in a second line because VSCode was signaling an error
-    
-    ! declare local working variables 
+    use m_config
+    implicit none
+
+    ! configuration file
+    type(CFG_t)           :: my_cfg
+
+    ! declare local working variables
     integer:: itera_no
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r,position_x_p, position_x_m, &
-        & hAnal_ixp1, hAnal_ixm1
+    double precision :: uo, vo,simTime, x_r, y_r, radius, r
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
+
+    ! read parameters.cfg file to update values
+    call CFG_read_file(my_cfg, "doc/parameters.cfg")
 
     r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8
 
     ! define Manning's coefficient
-    nb = 0.012d0
+    !nb = 0.012d0
 
-    steadyFlow = .TRUE. ! if steady define `.true.`, if tidal define `.false.`
+    call CFG_add_get(my_cfg, "simulation_parameters%project_name", project_name, "Name of this project")
+    call CFG_add_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow, "Whether the flow is steady or tidal")
+    call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon_base, "convergence criterion")
+    call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
+    call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
+    call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
+    call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction")
+    call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction")
+    call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing")
+    call CFG_add_get(my_cfg, "simulation_parameters%dt", dt, "time step")
+    call CFG_add_get(my_cfg, "simulation_parameters%tau", tau, "dimensionless relaxation time")
+    call CFG_add_get(my_cfg, "physical_constants%nb", nb, "Manning's coefficient")
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
-    
+
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
     if ( steadyFlow ) then
-        epsilon = max(1.0d-6 / DBLE(r)**6, 1.0d-13)
+        epsilon = max(epsilon_base / DBLE(r)**6.0, 1.0d-13)
     else
         epsilon = 0.0d0
     end if
-    consCriter = 1.0d-3
-    
-    current_iteration = 0
-    !itera_no = 1 !debug
-    ! itera_no = 1e4 !debug
-    itera_no = NINT(4e8)
-        
-    time = 0
-    simTime = 9.0d20 ! s, maximum simulation time, set to a large value for steady flow
 
-    ! define total lattice numbers in x and y directions
-    domainX = 2.0d0 ! m
-    domainY = 2.0d0 ! m
-    
+    current_iteration = 0
+    time = 0
+
     ! assign a value of dx and dy
-    dx = 1.0d-1/r ! m, lattice spacing
+    dx = dx/r ! m, lattice spacing
     dy = dx ! m, lattice spacing
-    
+
     ! define total number of nodes in x and y directions
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),& 
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
@@ -86,7 +93,7 @@ program main
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))!, hIn(Ly), uIn(Ly))
 
-    
+
     ! define pi
     pi = dacos(-1.0d0)
 
@@ -100,7 +107,7 @@ program main
 
     ! define bed geometry
     zb = 0
-    
+
     do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
         force_x_MMS(x,:) = +(8.0d0/9.0d0)*pi*gacl/domainX &
@@ -115,7 +122,7 @@ program main
         !zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
 
         ! force_x_MMS(x,:) = 0.0d0 ! debug
-        
+
 	! with bed
         ! force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl/domainX*(0.12d0*dsin(2.0d0*pi*position_x/domainX) &
         ! & + 8.0d0*dcos(2.0d0*pi*position_x/domainX))*&
@@ -144,7 +151,7 @@ program main
 
     !         yf = y + 1
     !         yb = y - 1
-            
+
     !         if (C(xf,y) == 1 .OR. &
     !          & C(xf,yf) == 1 .OR. &
     !          & C(x,yf)  == 1 .OR. &
@@ -159,17 +166,17 @@ program main
     ! end do
 
 
-    ! constants for initializing flow field. 
-    
+    ! constants for initializing flow field.
+
     ! assign a value for the inlet discharge
     q_in = 4.42d0 ! m^2/s
-    
+
     ! ho = 2.0d0 ! m, initial water depth
     ho = hAnal(1,Ly/2) ! m, initial water depth
     uo = 0.0d0
     vo = 0.0d0
 
-    ! initialize the depth 
+    ! initialize the depth
     do x = 1, Lx
         do y = 1, Ly
             h(x,y) = hAnal(x,y) - zb(2*x, 2*y) ! different array dimension
@@ -197,16 +204,16 @@ program main
     ! hOut = 2.0d0 ! m, outflow depth
     ! h(Lx,:) = hOut ! set outflow depth
     ! u(Lx,:) = 0.0d0
-    
+
     ! assign a value for the molecular viscosity
     ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
 
-    
+
     ! calculate the minimum possible value of e such that the stationary population is positive
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
     ! define timestep dt
-    dt = (1.0d0/600.0d0)/r**2 !s
+    dt = dt/r**2 !s
 
     ! define the lattice velocity
     e = dx/dt ! m/s, lattice velocity
@@ -218,9 +225,9 @@ program main
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 1.5d0 
+    tau = 1.5d0
 
-    ! calculate molecular viscosity 
+    ! calculate molecular viscosity
     nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! initialize the velocities
@@ -233,7 +240,7 @@ program main
     v = vAnal
     ! prepare the calculations
     call setup
-    
+
     ! main loop for time marching
     timStep: do
 
@@ -259,7 +266,7 @@ program main
 
         ! Apply no slip at solid boundary nodes
         ! call Noslip_BC
-        
+
         ! Apply Inflow and Outflow BC
         ! call Inflow_Outflow_BC
 
@@ -283,15 +290,15 @@ program main
 
         write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
-        do i=1,Lx 
+        do i=1,Lx
             do j = 1, Ly
-                
+
                 ! make sure no u is NaN
                 if (ieee_is_nan(u(i,j))) then
                     print*, "u",i,j,"is not a number"
                     stopSim = .true.
                 end if
-                
+
                 ! make sure no v is NaN
                 if (ieee_is_nan(v(i,j))) then
                     print*, "v",i,j,"is not a number"
@@ -310,37 +317,36 @@ program main
             stopSim = .true. ! stop simulation after desired time reached
         end if
         if (stopSim .or. check_convergence(h,hLast,epsilon)) then
-            call end_simulation 
+            call end_simulation
             exit
         end if
 
     end do timStep
 
-    call ensure_results_directory ! ensures "../results" exists as a directory
-    write(6,*) 
-    ! write(6,*)' Writing results in file: result.dat ... ' 
+    call ensure_directory("./results", len_trim("./results")) ! ensures "./results" exists as a directory    write(6,*)
+    ! write(6,*)' Writing results in file: result.dat ... '
     ! open(66,file='../results/result.dat',status='unknown')    ! run from \src
     open(66,file='./results/result.dat',status='unknown')       ! run from \Mu-LaB-SWE
-    td=fdate() 
-    write(66,*) '# Date: ',td 
-    write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2)) 
-    write(66,*) '# tau =',tau,', uO =',uo 
-    write(66,*) '# Iteration No.: ',current_iteration 
-    write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly 
-    write(66,*) '#      Results of the computations' 
-    write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',& 
-                                        & 'u(i,j)' , 'v(i,j)' 
-    write(66,*) '#------------------------------------------' 
+    td=fdate()
+    write(66,*) '# Date: ',td
+    write(66,*) '# Fr =' ,u(1,Ly/2)/sqrt(gacl*h(1,Ly/2))
+    write(66,*) '# tau =',tau,', uO =',uo
+    write(66,*) '# Iteration No.: ',current_iteration
+    write(66,'(1X,A6,I3,A9,I3)') '# Lx = ', Lx, ' Ly = ', Ly
+    write(66,*) '#      Results of the computations'
+    write(66,'(1X,A3,A4,A11,2A12) ') '# x','y','h(i,j)',&
+                                        & 'u(i,j)' , 'v(i,j)'
+    write(66,*) '#------------------------------------------'
 
-    do x = 1, Lx 
-        do y = 1, Ly 
-            write(66,'(2i4,3f12.6)')x,y,h(x,y),u(x,y) ,v(x,y) 
-        end do 
-    end do 
-    close(66) 
+    do x = 1, Lx
+        do y = 1, Ly
+            write(66,'(2i4,3f12.6)')x,y,h(x,y),u(x,y) ,v(x,y)
+        end do
+    end do
+    close(66)
 
     ! Add after the existing result.dat write
     call write_csv
     write(6,*) ' CSV results written! ... '
-    
-end program main 
+
+end program main

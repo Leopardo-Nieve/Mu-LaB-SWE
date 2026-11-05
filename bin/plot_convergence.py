@@ -31,7 +31,7 @@ COL_UANAL = "u analytical (m/s)"
  
 STUDIES = [
     {
-        "dir":      "./results/convergence_spatial",
+        "dir":      "./results/convergence",
         "pattern":  re.compile(r"^r\d+_dx([\d.]+)\.csv$"),
         "x_label":  "Δx (m)",
         "x_name":   "dx",

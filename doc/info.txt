@@ -1,19 +1,33 @@
 2026-11-05
 
-After a long session of back and forth debuggin with Claude, I finally reached the 2nd order of convergence
+added some of the QOL improvements, but not all
 
 ---
 
 Modifications since last version:
-- initial state to match analytical solution (greatly reduces simulation time)
+- added m_config and parameters file
 
-- modified the calculation of hcentered to have a denominator of 2*dx instead of 4*dx
+- readded ensure_results function to generally check for the presence of a directory
+
+- now writing results in ./data, each case in its separate directory
+
+- added append_timestep funciton
+
+- added Makefile
+
+- added convergence analysis script (to be tested)
+
+- added codeblocks project files
 
 ---
 
 Potential next step(s):
 
-- add QOL changes (Makefile, convergence script, parameters file + checkpoints and m_config.f90, codeblocks project file)
+- add QOL changes (codeblocks project file)
+
+- test convergence analysis
+
+- checkpoints
 
 - make zb nonzero again (to test stability issues from before)
 
