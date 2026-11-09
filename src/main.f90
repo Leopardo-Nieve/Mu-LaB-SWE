@@ -36,7 +36,7 @@ program main
 
     ! declare local working variables
     integer:: itera_no, per_checkpoint
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r
+    double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -112,14 +112,31 @@ program main
     y_r    = 5.0d0 ! m, position of the bump in y
     radius = 4.0d0 ! m, radius of the bump
 
-    ! define bed geometry
+    ! define bathymetry
     zb = 0
+
+!    do x = 1, 2*Lx+1
+!        position_x = dx*(DBLE(x-1)*0.5d0)
+!        force_x_MMS(x,:) = +(8.0d0/9.0d0)*pi*gacl/domainX &
+!            & *(dsin(2.0d0*pi*position_x/domainX) + 3.0d0) &
+!            & *dcos(2.0d0*pi*position_x/domainX)
+!        force_y_MMS(x,:) = 0.0d0
+!    end do
+
+    ! Define bed geometry on half-node grid
+    do x = 1, 2*Lx+1
+        position_x = dx*(DBLE(x-1)*0.5d0)
+        zb(x,:)    = 0.3d0*dsin(4.0d0*pi*position_x/domainX)
+        dzbdx(x,:) = 0.3d0*(4.0d0*pi/domainX)*dcos(4.0d0*pi*position_x/domainX)
+    end do
+
+    ! MMS body force
 
     do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
-        force_x_MMS(x,:) = +(8.0d0/9.0d0)*pi*gacl/domainX &
-            & *(dsin(2.0d0*pi*position_x/domainX) + 3.0d0) &
-            & *dcos(2.0d0*pi*position_x/domainX)
+        hAnal_x  = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) + 2.0d0
+        dhanal_dx = (4.0d0/3.0d0)*pi/domainX*dcos(2.0d0*pi*position_x/domainX)
+        force_x_MMS(x,:) = gacl * hAnal_x * (dhanal_dx + dzbdx(x,:))
         force_y_MMS(x,:) = 0.0d0
     end do
 
@@ -190,9 +207,9 @@ program main
         end do
     end do
 
-    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
-    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
-    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
+!    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
+!    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
+!    dzbdx(2*Lx+1,:) = (3.0d0 * zb(2*Lx+1,:) - 4.0d0 * zb(2*Lx,:) + zb(2*Lx-1,:)) / (dx)
 
     ! constants for boundary conditions
     ! u_in = 0.3125d0

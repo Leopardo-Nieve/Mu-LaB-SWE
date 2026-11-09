@@ -1,24 +1,20 @@
 2026-11-09
 
-finished adding QOL improvements, now preparing for adding bathymetry (make zb non sero)
+tested with nonzero bathymetry, now preparing for 2D case
 
 ---
 
 Modifications since last version:
 
-- implemented checkpointing system with user input of a period in seconds
-
-- generalised the treatment of file path dividers for both Unix and Windows systems
+- made zb a sinusoidal of period Lx/2 to make sure it is independent from h
 
 ---
 
 Potential next step(s):
 
-- make zb nonzero again (to test stability issues from before)
+- make code 2D
 
 - make modified fullway bounceback
-
-- make code 2D
 
 - use index notation for neighbours (maybe do before generalise boundary conditions?)
 
