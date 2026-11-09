@@ -21,6 +21,12 @@
 				<Option type="1" />
 				<Option compiler="gfortran" />
 			</Target>
+			<Target title="bin/main_Win">
+				<Option platforms="Windows;" />
+				<Option output="bin/main" prefix_auto="1" extension_auto="1" />
+				<Option type="1" />
+				<Option compiler="gfortran" />
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />

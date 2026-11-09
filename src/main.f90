@@ -35,7 +35,7 @@ program main
     type(CFG_t)           :: my_cfg
 
     ! declare local working variables
-    integer:: itera_no
+    integer:: itera_no, per_checkpoint
     double precision :: uo, vo,simTime, x_r, y_r, radius, r
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
@@ -54,6 +54,7 @@ program main
     call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
     call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
+    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint, "period between each checkpoint")
     call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction")
     call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction")
     call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing")
@@ -64,6 +65,12 @@ program main
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
     BCOutflow = "o" ! "o" (outflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
+
+    if (unix()) then
+        filename_separator = "/"
+    else
+        filename_separator = "\\"
+    end if
 
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
@@ -223,6 +230,12 @@ program main
     print*, "e =", e, "m/s"
     print*, "dt =", dt, "s"
 
+    if (per_checkpoint == 0) then
+        per_checkpoint = huge(per_checkpoint)
+    else
+        per_checkpoint = per_checkpoint/dt ! convert from seconds to number of iterations
+    end if
+
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
     tau = 1.5d0
@@ -315,6 +328,8 @@ program main
         if (current_iteration >= itera_no .or. time >= simTime) then
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
+        elseif (mod(current_iteration, per_checkpoint) == 0) then
+            call write_csv
         end if
         if (stopSim .or. check_convergence(h,hLast,epsilon)) then
             call end_simulation

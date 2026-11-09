@@ -47,6 +47,7 @@ module Mu_LaB_SWE
     integer, dimension(2):: hIndex
     logical:: stopSim, tauOk, velOk, celOk, FrOk
     character:: BCInflow, BCOutflow
+    character(len=1) :: filename_separator
     character(len=50) :: project_name
     double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
     &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
@@ -61,14 +62,22 @@ module Mu_LaB_SWE
 
 contains
 
+function unix() result(is_unix)
+    ! test if the operating system is Unix
+    logical :: is_unix
+    character (len=100) :: path
+    call get_environment_variable("PATH",path)
+    is_unix = path(1:1) == "/"
+end function unix
+
 subroutine setup
     character(len=100) :: cmd, fpath
     integer :: ierr
 
     ! create directory for eventual results
-    call ensure_directory("./data", len_trim("./data"))
+    call ensure_directory("data", len_trim("data"))
     project_name = trim(append_timestamp(project_name, len_trim(project_name)))
-    fpath = './data/'//trim(project_name)
+    fpath = 'data'//filename_separator//trim(project_name)
     cmd = 'mkdir '//trim(fpath)
     call EXECUTE_COMMAND_LINE(cmd, exitstat=ierr)
 !    ierr = system(cmd)
@@ -528,7 +537,7 @@ subroutine write_csv
                & t(1:2)//'-'//t(3:4)//'-'//t(5:6)
 
 !    fpath = './results/'//formatted_time//'.csv'
-    write(fpath, "(A,A,A1,A,A5,I8.8)"), './data/', trim(project_name), "/", trim(project_name), '.csv.', current_iteration
+    write(fpath, "(A1,A1,A,A1,A,A1,A,A5,I8.8)"), '.', filename_separator, 'data', filename_separator, trim(project_name), filename_separator, trim(project_name), '.csv.', current_iteration
     write(6,*) ' Writing CSV results in file: '//fpath//" ... "
 
     try = 1

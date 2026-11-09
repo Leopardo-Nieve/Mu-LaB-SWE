@@ -1,33 +1,18 @@
-2026-11-05
+2026-11-09
 
-added some of the QOL improvements, but not all
+finished adding QOL improvements, now preparing for adding bathymetry (make zb non sero)
 
 ---
 
 Modifications since last version:
-- added m_config and parameters file
 
-- readded ensure_results function to generally check for the presence of a directory
+- implemented checkpointing system with user input of a period in seconds
 
-- now writing results in ./data, each case in its separate directory
-
-- added append_timestep funciton
-
-- added Makefile
-
-- added convergence analysis script (to be tested)
-
-- added codeblocks project files
+- generalised the treatment of file path dividers for both Unix and Windows systems
 
 ---
 
 Potential next step(s):
-
-- add QOL changes (codeblocks project file)
-
-- test convergence analysis
-
-- checkpoints
 
 - make zb nonzero again (to test stability issues from before)
 
