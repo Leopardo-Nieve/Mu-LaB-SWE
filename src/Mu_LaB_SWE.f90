@@ -43,7 +43,7 @@ module Mu_LaB_SWE
 
     implicit none
 
-    integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb,ix,iy,ixm1,ixp1
+    integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb,ix,iy,ixm1,ixp1,iym1,iyp1
     integer, dimension(2):: hIndex
     logical:: stopSim, tauOk, velOk, celOk, FrOk
     character:: BCInflow, BCOutflow
@@ -55,7 +55,7 @@ module Mu_LaB_SWE
     double precision, dimension(9):: ex,ey, eMax
     ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
     double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-    & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+    & force_x,force_y,H_part,zb,dzbdx,dzbdy,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
     & force_x_MMS,force_y_MMS!&
     ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
     double precision, allocatable, dimension(:,:,:):: f,feq,ftemp
@@ -183,18 +183,26 @@ subroutine update_body_force
     ! tau_bx = Cb*uCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! x-direction bed shear stress
     ! tau_by = Cb*vCentered*dsqrt(uCentered*uCentered + vCentered*vCentered) ! y-direction bed shear stress
 
-    ! In update_body_force, replace the ix==1 and ix==2*Lx+1 branches with:
-    do ix = 1, 2*Lx+1
-        do iy = 1, 2*Ly+1
-            ixp1 = ix + 1; ixm1 = ix - 1
-            if (ixp1 > 2*Lx+1) ixp1 = ixp1 - 2*Lx
-            if (ixm1 < 1)      ixm1 = ixm1 + 2*Lx
-            force_x(ix,iy) = -gacl * ( &
-                & (hCentered(ixp1,iy)**2 - hCentered(ixm1,iy)**2) / (2.0d0*dx) &
-                & + hCentered(ix,iy)*dzbdx(ix,iy) )
-            force_y(ix,iy) = 0.0d0
-        end do
+        do ix = 1, 2*Lx+1
+            do iy = 1, 2*Ly+1
+                ixp1 = ix + 1; ixm1 = ix - 1
+                if (ixp1 > 2*Lx+1) ixp1 = ixp1 - 2*Lx
+                if (ixm1 < 1)      ixm1 = ixm1 + 2*Lx
+                iyp1 = iy + 1; iym1 = iy - 1
+                if (iyp1 > 2*Ly+1) iyp1 = iyp1 - 2*Ly
+                if (iym1 < 1)      iym1 = iym1 + 2*Ly
+                force_x(ix,iy) = -gacl * ( &
+                    & (hCentered(ixp1,iy)**2 - hCentered(ixm1,iy)**2) / (2.0d0*dx) &
+                    & + hCentered(ix,iy)*dzbdx(ix,iy) )
+                force_y(ix,iy) = -gacl * ( &
+                    & (hCentered(ix,iyp1)**2 - hCentered(ix,iym1)**2) / (2.0d0*dy) &
+                    & + hCentered(ix,iy)*dzbdy(ix,iy) )
+            end do
     end do
+
+    ! debug
+    force_x_MMS = 0.0d0
+    force_y_MMS = 0.0d0
 
     ! Set body force
     force_x = force_x + force_x_MMS
@@ -821,7 +829,6 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
 
     R = dsqrt(R)
     if ( R < epsilonCheck ) then
-        print*, "Solution converges."
         check_convergence = .true.
     else
         check_convergence = .false.
@@ -829,60 +836,27 @@ logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
   end function check_convergence
 
 subroutine MMS_analytic_solution
-    ! double precision:: phi
-    double precision, dimension(3):: phi_0,phi_k,phi_x,phi_y,phi_xy,a_phix,a_phiy,a_phixy,BC_coeff ! MMS constants
-    double precision, allocatable, dimension(:,:,:) :: phi,phi_1
-
-    allocate (phi(3,Lx,Ly), phi_1(3,Lx,Ly))
-
-    ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
-    nu_MMS = 1.0d-2
-
-    phi_0   = [2.0d0, 0.0d0, 0.0d0]
-    phi_k   = [0.0d0, 0.0d0, 0.0d0]
-    phi_x   = [0.0d0, 0.0d0, 0.0d0]
-    phi_y   = [0.0d0, 0.0d0, 0.0d0]
-    phi_xy  = [0.0d0, 0.0d0, 0.0d0]
-    a_phix  = [0.75d0, 5.0d0/3.0d0, 1.5d0]
-    a_phiy  = [1.0d0, 1.2d0, 1.0d0]
-    a_phixy = [1.25d0, 0.2d0, 0.9d0]
-
-
     do i = 1, Lx
-	position_x = DBLE(i - 0.5d0) * dx
+        position_x = DBLE(i - 0.5d0) * dx
         do j = 1, Ly
             position_y = DBLE(j - 0.5d0) * dy
 
-            ! phi_1(:,i,j) = phi_k(:) &
-            ! & + phi_x(:)  * DSIN(a_phix(:)  * pi * position_x / domainX) &
-            ! & + phi_y(:)  * DSIN(a_phiy(:)  * pi * position_y / domainY) &
-            ! & + phi_xy(:) * DSIN(a_phixy(:) * pi * position_x * position_y / (domainX * domainY))
+            hAnal(i,j) = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) &
+                       & *dsin(2.0d0*pi*position_y/domainX) + 2.0d0
+            uAnal(i,j) = (1.0d0/5.0d0)*pi*dsin(2.0d0*pi*position_x/domainX) &
+                       & *dcos(2.0d0*pi*position_y/domainX) &
+                       & /(domainX*((2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) &
+                       & *dsin(2.0d0*pi*position_y/domainX) + 2.0d0))
+            vAnal(i,j) = -1.0d0/5.0d0*pi*dsin(2.0d0*pi*position_y/domainX) &
+                       & *dcos(2.0d0*pi*position_x/domainX) &
+                       & /(domainX*((2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) &
+                       & *dsin(2.0d0*pi*position_y/domainX) + 2.0d0))
 
-            ! BC_coeff(1) = (position_x - 0.0d0)*(position_x - 0.0d0) * (domainX - position_x) ! depth
-            ! ! BC_coeff(2) = (position_y - 0.0d0) * (domainY - position_y) ! u-velocity
-            ! BC_coeff(2) = 1 ! u-velocity
-            ! BC_coeff(3) = 1 ! v-velocity
-
-            ! phi(:,i,j) = phi_0(:) + phi_1(:,i,j) * BC_coeff(:)
-
-            ! if (phi(1,i,j) >= 0) then
-            !     hAnal(i,j) = phi(1,i,j)
-            ! else
-            !     print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
-            !     return
-            ! end if
-            ! uAnal(i,j) = phi(2,i,j)
-            ! vAnal(i,j) = phi(3,i,j)
-
-            ! directly from Sympy code
-            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2.0d0
             if (hAnal(i,j) < 0) then
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.
                 exit
             end if
-            uAnal(i,j) = 0.0d0
-            vAnal(i,j) = 0.0d0
         end do
     end do
 end subroutine MMS_analytic_solution

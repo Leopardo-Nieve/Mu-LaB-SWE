@@ -1,12 +1,15 @@
 2026-11-09
 
-tested with nonzero bathymetry, now preparing for 2D case
+started testing 2D case, but simulation never converged. Upon examination, there seems to be a "leak" of depth into the code caused by the GZS scheme treatment.
+Claude's reasoning seemed shotty, so I am not convinced of the source yet, but there is definitely an issue to be diagnosed.
 
 ---
 
 Modifications since last version:
 
-- made zb a sinusoidal of period Lx/2 to make sure it is independent from h
+- created a 2D MMS solution and generalised the body force treatment to work in 2D
+
+- modified convergence criterion to ensure all 3 macroscopic variables (h, u, v) converge
 
 ---
 

@@ -36,7 +36,9 @@ program main
 
     ! declare local working variables
     integer:: itera_no, per_checkpoint
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx
+    double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx,per_checkpoint_iter,per_checkpoint_time
+    double precision :: tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6,tmp7,tmp8,tmp9,tmp10,tmp11,tmp12,tmp13,tmp14,&
+    & tmp15,tmp16,tmp17,tmp18
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
@@ -54,7 +56,8 @@ program main
     call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
     call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
-    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint, "period between each checkpoint")
+    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint_iter", per_checkpoint_iter, "number of iterations between each checkpoint")
+    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint_time", per_checkpoint_time, "number of seconds between each checkpoint")
     call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction")
     call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction")
     call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing")
@@ -95,7 +98,7 @@ program main
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
-        & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
+        & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1),dzbdy(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
         & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))!, hIn(Ly), uIn(Ly))
@@ -113,31 +116,47 @@ program main
     radius = 4.0d0 ! m, radius of the bump
 
     ! define bathymetry
-    zb = 0
-
-!    do x = 1, 2*Lx+1
-!        position_x = dx*(DBLE(x-1)*0.5d0)
-!        force_x_MMS(x,:) = +(8.0d0/9.0d0)*pi*gacl/domainX &
-!            & *(dsin(2.0d0*pi*position_x/domainX) + 3.0d0) &
-!            & *dcos(2.0d0*pi*position_x/domainX)
-!        force_y_MMS(x,:) = 0.0d0
-!    end do
-
-    ! Define bed geometry on half-node grid
-    do x = 1, 2*Lx+1
-        position_x = dx*(DBLE(x-1)*0.5d0)
-        zb(x,:)    = 0.3d0*dsin(4.0d0*pi*position_x/domainX)
-        dzbdx(x,:) = 0.3d0*(4.0d0*pi/domainX)*dcos(4.0d0*pi*position_x/domainX)
+        ! Define bed geometry on half-node grid (BLOC 2)
+    do ix = 1, 2*Lx+1
+        do iy = 1, 2*Ly+1
+            position_x = dx*(DBLE(ix-1)*0.5d0)
+            position_y = dy*(DBLE(iy-1)*0.5d0)
+            zb(ix,iy)    = (1.0d0/10.0d0)*dsin(4.0d0*pi*position_x/domainX) &
+                         & *dsin(4.0d0*pi*position_y/domainX)
+            dzbdx(ix,iy) = (2.0d0/5.0d0)*pi*dsin(4.0d0*pi*position_y/domainX) &
+                         & *dcos(4.0d0*pi*position_x/domainX)/domainX
+            dzbdy(ix,iy) = (2.0d0/5.0d0)*pi*dsin(4.0d0*pi*position_x/domainX) &
+                         & *dcos(4.0d0*pi*position_y/domainX)/domainX
+        end do
     end do
 
-    ! MMS body force
-
-    do x = 1, 2*Lx+1
-        position_x = dx*(DBLE(x-1)*0.5d0)
-        hAnal_x  = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) + 2.0d0
-        dhanal_dx = (4.0d0/3.0d0)*pi/domainX*dcos(2.0d0*pi*position_x/domainX)
-        force_x_MMS(x,:) = gacl * hAnal_x * (dhanal_dx + dzbdx(x,:))
-        force_y_MMS(x,:) = 0.0d0
+    ! MMS source terms on half-node grid (BLOC 3)
+    do ix = 1, 2*Lx+1
+        do iy = 1, 2*Ly+1
+            position_x = dx*(DBLE(ix-1)*0.5d0)
+            position_y = dy*(DBLE(iy-1)*0.5d0)
+            tmp0 = pi/domainX
+            tmp1 = 4*tmp0
+            tmp2 = position_x*tmp1
+            tmp3 = dsin(tmp2)
+            tmp4 = pi**2
+            tmp5 = (27.0d0/2.0d0)*tmp4
+            tmp6 = 2*tmp0
+            tmp7 = position_x*tmp6
+            tmp8 = dsin(tmp7)
+            tmp9 = position_y*tmp6
+            tmp10 = tmp8*dcos(tmp9)
+            tmp11 = dsin(tmp9)
+            tmp12 = tmp11*tmp8 + 3
+            tmp13 = 360*nu_MMS*tmp12*tmp4
+            tmp14 = tmp11*dcos(tmp7)
+            tmp15 = position_y*tmp1
+            tmp16 = dsin(tmp15)
+            tmp17 = 20*domainX**2*gacl*tmp12**2
+            tmp18 = (1.0d0/225.0d0)*pi/(domainX**3*tmp12)
+            force_x_MMS(ix,iy) = tmp18*(tmp10*tmp13 + tmp17*(10*tmp14 + 3*tmp16*dcos(tmp2)) + tmp3*tmp5)
+            force_y_MMS(ix,iy) = tmp18*(-tmp13*tmp14 + tmp16*tmp5 + tmp17*(10*tmp10 + 3*tmp3*dcos(tmp15)))
+        end do
     end do
 
     !do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
@@ -247,11 +266,14 @@ program main
     print*, "e =", e, "m/s"
     print*, "dt =", dt, "s"
 
-    if (per_checkpoint == 0) then
-        per_checkpoint = huge(per_checkpoint)
+    ! define period between checkpoints in number of iterations
+    if (per_checkpoint_iter > per_checkpoint_time*dt) then
+        per_checkpoint = per_checkpoint_iter
     else
-        per_checkpoint = per_checkpoint/dt ! convert from seconds to number of iterations
+        per_checkpoint = per_checkpoint_time/dt
     end if
+
+    if (per_checkpoint == 0) per_checkpoint = huge(per_checkpoint) ! no checkpoints
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
@@ -282,6 +304,34 @@ program main
 
         ! Streaming and collision steps
         call collide_stream
+
+        ! === DEBUG: check zeroth moment of S_alpha ===
+        ! Σ_α S_α should be zero at every node for mass conservation.
+        ! We measure it as the change in Σ_α ftemp vs Σ_α f (before solution updates f).
+        ! The collision term -(f-feq)/tau conserves mass, so any change in sum(ftemp)
+        ! vs sum(f) comes purely from S_alpha.
+        block
+            double precision :: mass_source_node, max_mass_source, total_mass_source
+            integer :: x_debug, y_debug
+            max_mass_source   = 0.0d0
+            total_mass_source = 0.0d0
+            do i = 1, Lx
+                do j = 1, Ly
+                    mass_source_node = sum(ftemp(:,i,j)) - sum(f(:,i,j))
+                    total_mass_source = total_mass_source + mass_source_node
+                    if (abs(mass_source_node) > abs(max_mass_source)) then
+                        max_mass_source = mass_source_node
+                        x_debug = i
+                        y_debug = j
+                    end if
+                end do
+            end do
+!            write(6,'(A,ES16.8,A,ES16.8,A,2I4)') &
+!                '  DEBUG mass source: total=', total_mass_source, &
+!                '  max=', max_mass_source, &
+!                '  at node', x_debug, y_debug
+        end block
+        ! === END DEBUG ===
 
         do i=1,Lx
             do j=1,Ly
@@ -318,7 +368,7 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
+        write(6,'(I0,A,2(ES26.16,A))') current_iteration,'   total h:', sum(h), '   h(Lx/4,Ly/4,):,', h(Lx/4,Ly/4)
 
         do i=1,Lx
             do j = 1, Ly
@@ -348,7 +398,13 @@ program main
         elseif (mod(current_iteration, per_checkpoint) == 0) then
             call write_csv
         end if
-        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
+        if (stopSim) then
+            call end_simulation
+            exit
+        elseif (check_convergence(h,hLast,epsilon) .and. &
+            &  check_convergence(u,uLast,epsilon) .and. &
+            &  check_convergence(v,vLast,epsilon)) then
+            print*, "Solution converges."
             call end_simulation
             exit
         end if
