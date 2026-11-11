@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <BrowseTracker_layout_file>
 	<ActiveTarget name="bin/main" />
+	<File name="src\main.f90" open="1" top="0" tabpos="2">
+		<Cursor position="13302" topLine="301" />
+	</File>
 	<File name="src\Mu_LaB_SWE.f90" open="1" top="0" tabpos="1">
-		<Cursor position="3542" topLine="61" />
+		<Cursor position="11567" topLine="171" />
 	</File>
 	<File name="doc\parameters.cfg" open="1" top="1" tabpos="3">
-		<Cursor position="535" topLine="0" />
-	</File>
-	<File name="src\main.f90" open="1" top="0" tabpos="2">
-		<Cursor position="3528" topLine="18" />
+		<Cursor position="554" topLine="5" />
 	</File>
 </BrowseTracker_layout_file>
