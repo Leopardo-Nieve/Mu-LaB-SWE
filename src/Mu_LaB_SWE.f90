@@ -51,11 +51,12 @@ module Mu_LaB_SWE
     character(len=50) :: project_name
     double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
     &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-    & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon,epsilon_base,nb, position_x, position_y, nu_MMs
+    & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon,nb, position_x, position_y
     double precision, dimension(9):: ex,ey, eMax
     ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-    double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
-    & force_x,force_y,H_part,zb,dzbdx,dzbdy,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
+    double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hLast2,uLast2,vLast2,&
+    hCentered,uCentered,vCentered,force_x,force_y,H_part,zb,dzbdx,dzbdy,&
+    &consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
     & force_x_MMS,force_y_MMS!&
     ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
     double precision, allocatable, dimension(:,:,:):: f,feq,ftemp
@@ -157,22 +158,6 @@ end subroutine setup
 
 subroutine update_body_force
 
-    ! interpolate values of h centred between each nodes to evaluate centred slope body force
-    ! do x = 2, 2*Lx
-    !     if (mod(x,2) == 0) then
-    !         hCentered(x,:) = h(x/2,Ly/2)
-    !     else
-    !         hCentered(x,:) = (-h((x-3)/2,Ly/2)+6.0d0*h((x-1)/2,Ly/2) + 3.0d0*h((x+1)/2,Ly/2))/8.0d0
-    !     end if
-
-    !     ! if ( x>190 .AND. x<210 ) then !debug
-    !     !     print*,"h_centred(",x,") =",hCentered(x,Ly/2) !debug
-    !     ! end if!debug
-    ! end do
-
-    ! hCentered(1,:)    = (15.0d0*h(1,Ly/2) - 10.0d0*h(2,Ly/2) + 3.0d0*h(3,Ly/2))/8.0d0
-    ! hCentered(2*Lx+1,:) = (15.0d0*h(Lx,Ly/2) - 10.0d0*h(Lx-1,Ly/2) + 3.0d0*h(Lx-2,Ly/2))/8.0d0
-
     hCentered = centred_interpolation(h,Lx,Ly)
     uCentered = centred_interpolation(u,Lx,Ly)
     vCentered = centred_interpolation(v,Lx,Ly)
@@ -199,10 +184,6 @@ subroutine update_body_force
                     & + hCentered(ix,iy)*dzbdy(ix,iy) )
             end do
     end do
-
-    ! debug
-    force_x_MMS = 0.0d0
-    force_y_MMS = 0.0d0
 
     ! Set body force
     force_x = force_x + force_x_MMS
@@ -306,10 +287,9 @@ end subroutine collide_stream
 
 subroutine solution
 
-    ! save last timestep
-    hLast = h
-    uLast = u
-    vLast = v
+    ! save last two timesteps
+    hLast2 = hLast; uLast2 = uLast; vLast2 = vLast
+    hLast = h;      uLast = u;      vLast = v
 
     ! compute physical variables h, u and v
 
@@ -364,28 +344,6 @@ subroutine Noslip_BC
     do a = 6, 8
         ftemp(a,:,Ly) = ftemp(a-4,:,Ly)
     end do
-
-    ! for cylinder boundary
-    ! do x = 1, Lx !debug
-    !     do y = 1, Ly !debug
-    !         if (C(x,y) == 0.5) then ! boundary node !debug
-    !             xf = x + 1
-    !             xb = x - 1
-    !             yf = y + 1
-    !             yb = y - 1
-
-    !             ! apply bounce back scheme
-    !             if (C(xf,y)  == 1) ftemp(5,x,y) = ftemp(1,x,y) ! E
-    !             if (C(xf,yf) == 1) ftemp(6,x,y) = ftemp(2,x,y) ! NE
-    !             if (C(x,yf)  == 1) ftemp(7,x,y) = ftemp(3,x,y) ! N
-    !             if (C(xb,yf) == 1) ftemp(8,x,y) = ftemp(4,x,y) ! NW
-    !             if (C(xb,y)  == 1) ftemp(1,x,y) = ftemp(5,x,y) ! W
-    !             if (C(xb,yb) == 1) ftemp(2,x,y) = ftemp(6,x,y) ! SW
-    !             if (C(x,yb)  == 1) ftemp(3,x,y) = ftemp(7,x,y) ! S
-    !             if (C(xf,yb) == 1) ftemp(4,x,y) = ftemp(8,x,y) ! SE
-    !         end if
-    !     end do
-    ! end do
 
     return
 end subroutine Noslip_BC
@@ -777,7 +735,6 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
         do i = 1, dim
             if ( abs(consLft(i) - consRgt(i)) > criterionCheck ) then
                 stopSim = .true.
-                ! stopSim = .false. ! debug
                 ! if (localPrintErrors) then
                 print*, "Inlet consistency check failed at node", i
                 print*, consLft(i), "=/=", consRgt(i)
@@ -788,52 +745,32 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
 
     if (.NOT. stopSim) then
         check_consistency = .true. ! If no inconsistency found, return true
-        ! print*, "Left side:", consLft(dim/2), "Right side:", consRgt(dim/2) !debug
     else
 
     end if
 
 end function check_consistency
 
-logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
+logical function check_convergence(phiCheck, phiPrev, phiPrev2, epsilonCheck)
     implicit none
-    real(8), intent(in)  :: phiCheck(:,:), phiPrev(:,:) !uCheck(:,:)
+    real(8), intent(in)  :: phiCheck(:,:), phiPrev(:,:), phiPrev2(:,:)
     real(8), intent(in)  :: epsilonCheck
-    double precision :: R
-    ! real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0, h_nMinus2 = 0.0d0, h_nMinus1 = 0.0d0, h_n = 0.0d0
-    ! real(8)              :: u_avg, h_avg, u_diff1, u_diff2, h_diff1, h_diff2
+    double precision     :: R, avg_curr, avg_prev
 
-    ! u_avg = sum(uCheck) / size(uCheck); h_avg = sum(phiCheck)/size(phiCheck)
-
-    ! ! Shift average history
-    ! u_nMinus2 = u_nMinus1; h_nMinus2 = h_nMinus1
-    ! u_nMinus1 = u_n;       h_nMinus1 = h_n
-    ! u_n     = u_avg;       h_n = h_avg
-
-    ! ! Avoid check on first 2 calls
-    ! if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
-    !   check_convergence = .false.
-    !   return
-    ! end if
-
-    ! u_diff1 = u_n       - u_nMinus1;    h_diff1 = h_n       - h_nMinus1
-    ! u_diff2 = u_nMinus1 - u_nMinus2;    h_diff2 = h_nMinus1 - h_nMinus2
-
-    ! if (abs(u_diff1 - u_diff2) < epsilonCheck .and. abs(h_diff1 - h_diff2) < epsilonCheck) then
-    R = 0
+    ! Criterion: |avg(phi^t, phi^(t-1)) - avg(phi^(t-1), phi^(t-2))| < epsilon
+    ! summed over all nodes
+    R = 0.0d0
     do x = 1, Lx
         do y = 1, Ly
-            R = R + ((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))*((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))
+            avg_curr = 0.5d0*(phiCheck(x,y) + phiPrev(x,y))
+            avg_prev = 0.5d0*(phiPrev(x,y)  + phiPrev2(x,y))
+            R = R + (avg_curr - avg_prev)**2
         end do
     end do
-
     R = dsqrt(R)
-    if ( R < epsilonCheck ) then
-        check_convergence = .true.
-    else
-        check_convergence = .false.
-    end if
-  end function check_convergence
+
+    check_convergence = (R < epsilonCheck)
+end function check_convergence
 
 subroutine MMS_analytic_solution
     do i = 1, Lx

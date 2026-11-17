@@ -52,7 +52,7 @@ program main
 
     call CFG_add_get(my_cfg, "simulation_parameters%project_name", project_name, "Name of this project")
     call CFG_add_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow, "Whether the flow is steady or tidal")
-    call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon_base, "convergence criterion")
+    call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon, "convergence criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
     call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
@@ -77,9 +77,7 @@ program main
 
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    if ( steadyFlow ) then
-        epsilon = max(epsilon_base / DBLE(r)**6.0, 1.0d-13)
-    else
+    if ( .not. steadyFlow ) then
         epsilon = 0.0d0
     end if
 
@@ -95,6 +93,7 @@ program main
 
     ! allocate dimensions for dynamic arrays
     allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
+        & hLast2(Lx,Ly), uLast2(Lx,Ly), vLast2(Lx,Ly), &
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
         ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
@@ -136,35 +135,34 @@ program main
             position_x = dx*(DBLE(ix-1)*0.5d0)
             position_y = dy*(DBLE(iy-1)*0.5d0)
             tmp0 = pi/domainX
-            tmp1 = 4*tmp0
+            tmp1 = 4.0d0*tmp0
             tmp2 = position_x*tmp1
             tmp3 = dsin(tmp2)
             tmp4 = pi**2
             tmp5 = (27.0d0/2.0d0)*tmp4
-            tmp6 = 2*tmp0
+            tmp6 = 2.0d0*tmp0
             tmp7 = position_x*tmp6
             tmp8 = dsin(tmp7)
             tmp9 = position_y*tmp6
             tmp10 = tmp8*dcos(tmp9)
             tmp11 = dsin(tmp9)
-            tmp12 = tmp11*tmp8 + 3
-            tmp13 = 360*nu_MMS*tmp12*tmp4
+            tmp12 = tmp11*tmp8 + 3.0d0
+            tmp13 = 360.0d0*nu*tmp12*tmp4
             tmp14 = tmp11*dcos(tmp7)
             tmp15 = position_y*tmp1
             tmp16 = dsin(tmp15)
-            tmp17 = 20*domainX**2*gacl*tmp12**2
-            tmp18 = (1.0d0/225.0d0)*pi/(domainX**3*tmp12)
-            force_x_MMS(ix,iy) = tmp18*(tmp10*tmp13 + tmp17*(10*tmp14 + 3*tmp16*dcos(tmp2)) + tmp3*tmp5)
-            force_y_MMS(ix,iy) = tmp18*(-tmp13*tmp14 + tmp16*tmp5 + tmp17*(10*tmp10 + 3*tmp3*dcos(tmp15)))
+            tmp17 = 20.0d0*domainX**2.0d0*gacl*tmp12**2.0d0
+            tmp18 = (1.0d0/225.0d0)*pi/(domainX**3.0d0*tmp12)
+            force_x_MMS(ix,iy) = tmp18*(tmp10*tmp13 + tmp17*(10.0d0*tmp14 + 3.0d0*tmp16*dcos(tmp2)) + tmp3*tmp5)
+            force_y_MMS(ix,iy) = tmp18*(-tmp13*tmp14 + tmp16*tmp5 + tmp17*(10.0d0*tmp10 + 3.0d0*tmp3*dcos(tmp15)))
         end do
+    end do
     end do
 
     !do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
      !   position_x = dx*(DBLE(x-1)*0.5d0)
         ! commented to debug MMS
         !zb(x,:) =       0.02d0*dsin(3.1415926535897932d0*position_x/domainX)**2.0d0 ! 2 m wide bump function
-
-        ! force_x_MMS(x,:) = 0.0d0 ! debug
 
 	! with bed
         ! force_x_MMS(x,:) = (1.0d0/9.0d0)*pi*gacl/domainX*(0.12d0*dsin(2.0d0*pi*position_x/domainX) &
@@ -290,6 +288,8 @@ program main
     ! end do
     u = uAnal
     v = vAnal
+
+
     ! prepare the calculations
     call setup
 
@@ -310,27 +310,27 @@ program main
         ! We measure it as the change in Σ_α ftemp vs Σ_α f (before solution updates f).
         ! The collision term -(f-feq)/tau conserves mass, so any change in sum(ftemp)
         ! vs sum(f) comes purely from S_alpha.
-        block
-            double precision :: mass_source_node, max_mass_source, total_mass_source
-            integer :: x_debug, y_debug
-            max_mass_source   = 0.0d0
-            total_mass_source = 0.0d0
-            do i = 1, Lx
-                do j = 1, Ly
-                    mass_source_node = sum(ftemp(:,i,j)) - sum(f(:,i,j))
-                    total_mass_source = total_mass_source + mass_source_node
-                    if (abs(mass_source_node) > abs(max_mass_source)) then
-                        max_mass_source = mass_source_node
-                        x_debug = i
-                        y_debug = j
-                    end if
-                end do
-            end do
-!            write(6,'(A,ES16.8,A,ES16.8,A,2I4)') &
+!        block
+!            double precision :: mass_source_node, max_mass_source, total_mass_source
+!            integer :: x_debug, y_debug
+!            max_mass_source   = 0.0d0
+!            total_mass_source = 0.0d0
+!            do i = 1, Lx
+!                do j = 1, Ly
+!                    mass_source_node = sum(ftemp(:,i,j)) - sum(f(:,i,j))
+!                    total_mass_source = total_mass_source + mass_source_node
+!                    if (abs(mass_source_node) > abs(max_mass_source)) then
+!                        max_mass_source = mass_source_node
+!                        x_debug = i
+!                        y_debug = j
+!                    end if
+!                end do
+!            end do
+!            write(6,'(A,ES24.16,A,ES24.16,A,2I4)') &
 !                '  DEBUG mass source: total=', total_mass_source, &
 !                '  max=', max_mass_source, &
 !                '  at node', x_debug, y_debug
-        end block
+!        end block
         ! === END DEBUG ===
 
         do i=1,Lx
@@ -392,6 +392,7 @@ program main
                 end if
             end do
         end do
+
         if (current_iteration >= itera_no .or. time >= simTime) then
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
@@ -401,9 +402,9 @@ program main
         if (stopSim) then
             call end_simulation
             exit
-        elseif (check_convergence(h,hLast,epsilon) .and. &
-            &  check_convergence(u,uLast,epsilon) .and. &
-            &  check_convergence(v,vLast,epsilon)) then
+        elseif (check_convergence(h,hLast,hLast2,epsilon) .and. &
+            &   check_convergence(u,uLast,uLast2,epsilon) .and. &
+            &   check_convergence(v,vLast,vLast2,epsilon)) then
             print*, "Solution converges."
             call end_simulation
             exit

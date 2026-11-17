@@ -1,15 +1,17 @@
-2026-11-09
+2026-11-16
 
-started testing 2D case, but simulation never converged. Upon examination, there seems to be a "leak" of depth into the code caused by the GZS scheme treatment.
-Claude's reasoning seemed shotty, so I am not convinced of the source yet, but there is definitely an issue to be diagnosed.
+There is still a non physical generation of depth early in the simulation, but it eventually becomes 0
+Simulation now converges, but must be tested in an order of convergence analysis. 
 
 ---
 
 Modifications since last version:
 
-- created a 2D MMS solution and generalised the body force treatment to work in 2D
+- modified convergence criterion to difference between the macroscopic variables of the average of the past two timesteps and the second and third to last
 
-- modified convergence criterion to ensure all 3 macroscopic variables (h, u, v) converge
+- removed epsilon scaling with mesh refinement
+
+- removed various commented debugging lines cluttering up the code
 
 ---
 
