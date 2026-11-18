@@ -50,11 +50,11 @@ program main
 
     call CFG_add_get(my_cfg, "simulation_parameters%project_name", project_name, "Name of this project")
     call CFG_add_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow, "Whether the flow is steady or tidal")
-    call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon_base, "convergence criterion")
+    call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon, "convergence criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
     call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
-    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint", per_checkpoint, "period between each checkpoint")
+    call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint_iter", per_checkpoint, "period between each checkpoint")
     call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction")
     call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction")
     call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing")
@@ -74,11 +74,11 @@ program main
 
     ! initialize stopSim and epsilon to let the simulation run
     stopSim = .false.
-    if ( steadyFlow ) then
-        epsilon = max(epsilon_base / DBLE(r)**6.0, 1.0d-13)
-    else
-        epsilon = 0.0d0
-    end if
+!    if ( steadyFlow ) then
+!        epsilon = max(epsilon_base / DBLE(r)**6.0, 1.0d-13)
+!    else
+!        epsilon = 0.0d0
+!    end if
 
     current_iteration = 0
     time = 0
@@ -136,9 +136,21 @@ program main
         position_x = dx*(DBLE(x-1)*0.5d0)
         hAnal_x  = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) + 2.0d0
         dhanal_dx = (4.0d0/3.0d0)*pi/domainX*dcos(2.0d0*pi*position_x/domainX)
-        force_x_MMS(x,:) = gacl * hAnal_x * (dhanal_dx + dzbdx(x,:))
-        force_y_MMS(x,:) = 0.0d0
     end do
+
+    do x = 1, 2*Lx+1
+        position_x = dx*(DBLE(x-1)*0.5d0)
+        do y = 1,2*Ly+1
+            position_y = dx*(DBLE(y-1)*0.5d0)
+            force_x_MMS(x,y) = (4.0d0/45.0d0)*pi*(gacl*(dsin(2.0d0*pi*position_x/domainX) &
+                & + 3.0d0)**3.0d0*(10.0d0*dcos(2.0d0*pi*position_x/domainX) + 9.0d0*dcos( &
+                & 4.0d0*pi*position_x/domainX)) - 135.0d0*dcos(2.0d0*pi*position_x/domainX) &
+                & )/(domainX*(dsin(2.0d0*pi*position_x/domainX) + 3.0d0)**2.0d0)
+            force_y_MMS(x,y) = 0.0d0
+        end do
+    end do
+
+
 
     !do x = 1, 2*Lx+1 ! to allow for body force scheme to have nodes in between each node
      !   position_x = dx*(DBLE(x-1)*0.5d0)
@@ -200,12 +212,16 @@ program main
     uo = 0.0d0
     vo = 0.0d0
 
-    ! initialize the depth
-    do x = 1, Lx
-        do y = 1, Ly
-            h(x,y) = hAnal(x,y) - zb(2*x, 2*y) ! different array dimension
-        end do
-    end do
+    ! initialize macroscopic variables
+    h = hAnal
+    u = uAnal
+    v = vAnal
+
+!    do x = 1, Lx
+!        do y = 1, Ly
+!            h(x,y) = hAnal(x,y) - zb(2*x, 2*y) ! different array dimension
+!        end do
+!    end do
 
 !    dzbdx(2:2*Lx,:) = (zb(3:2*Lx+1,:) - zb(1:2*Lx-1,:))/(dx)
 !    dzbdx(1,:) = (-zb(3,:) + 4.0d0 * zb(2,:) - 3.0d0 * zb(1,:)) / (dx)
@@ -255,7 +271,6 @@ program main
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-    tau = 1.5d0
 
     ! calculate molecular viscosity
     nu = (tau-0.5d0)*e*dx/3.0d0

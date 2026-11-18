@@ -875,14 +875,15 @@ subroutine MMS_analytic_solution
             ! vAnal(i,j) = phi(3,i,j)
 
             ! directly from Sympy code
-            hAnal(i,j) = (2.0d0/3.0d0)*sin(6.2831853071795865d0*position_x/domainX) + 2.0d0
+            hAnal(i,j) = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX)+ 2.0d0
+            uAnal(i,j) = 2.0d0/((2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) + 2.0d0)
+            vAnal(i,j) = 0.0d0
+
             if (hAnal(i,j) < 0) then
                 print *, "Error: Analytic solution has negative depth in i =", i, " j =", j
                 stopSim = .TRUE.
                 exit
             end if
-            uAnal(i,j) = 0.0d0
-            vAnal(i,j) = 0.0d0
         end do
     end do
 end subroutine MMS_analytic_solution

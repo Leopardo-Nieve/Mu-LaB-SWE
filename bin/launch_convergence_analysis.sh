@@ -1,8 +1,8 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 #SBATCH --time=01:00:00
 #SBATCH --mem=180
 
-PROJECT_NAME="convergenceseabed" # maximum 17? characters without underscores? (generates error with write(fpath,...) statement in write_csv
+PROJECT_NAME="MMS1Du1" # maximum 17? characters without underscores? (generates error with write(fpath,...) statement in write_csv
 
 PARAM_FILE="./doc/parameters.cfg"
 DATA_DIR="./data"
