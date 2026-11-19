@@ -50,11 +50,13 @@ module Mu_LaB_SWE
     character(len=1) :: filename_separator
     character(len=50) :: project_name
     double precision:: ho,q_in,dx,dy,domainX,domainY,time,dt,eMin,e,tau,nu,hOut,&!,uOut & !necessary?
-    &dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,gacl = 9.81,&
-    & hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon,epsilon_base,nb, position_x, position_y, nu_MMs
+    & dt_6e2,one_8th_e4,one_3rd_e2,one_6th_e2,one_12th_e2, one_24th_e2,five_6th_g_e2,two_3rd_e2,eadotea,&
+    & gacl = 9.81,hMax, uMax2, FrMax, Fr, Ma, consCriter,pi,epsilon,epsilon_base,nb, position_x, position_y, &
+    & h_max, u_max, S, alpha_MMS
     double precision, dimension(9):: ex,ey, eMax
     ! double precision, allocatable, dimension(:):: hIn,uIn ! not necessary?
-    double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hCentered,uCentered,vCentered,&
+    double precision, allocatable, dimension(:,:):: u,v,h,hLast,uLast,vLAst,hLast2,uLast2,vLast2,&
+    & hCentered,uCentered,vCentered,&
     & force_x,force_y,H_part,zb,dzbdx,consInLft,consInRgt,consOutLft,consOutRgt,hAnal,uAnal,vAnal,&
     & force_x_MMS,force_y_MMS!&
     ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
@@ -115,6 +117,10 @@ subroutine setup
     two_3rd_e2 = 2.0d0*one_3rd_e2
 
     dt_6e2=dt/(6.0d0*e*e)
+
+    ! ensure convergence does not occur in first 2 timesteps by initialising to -infinity
+    hLast  = -huge(1.0d0); uLast  = -huge(1.0d0); vLast  = -huge(1.0d0)
+    hLast2 = -huge(1.0d0); uLast2 = -huge(1.0d0); vLast2 = -huge(1.0d0)
 
     ! determine initial inlet depth and velocity
     ! h(1,:) = 1.0d-3 ! m, initial depth at inlet
@@ -197,12 +203,12 @@ subroutine update_body_force
     end do
 
     ! Set body force
-    force_x = force_x + force_x_MMS
-    force_y = force_y + force_y_MMS
+    force_x = force_x + alpha_MMS * force_x_MMS
+    force_y = force_y + alpha_MMS * force_y_MMS
 end subroutine update_body_force
 
 subroutine collide_stream
-    double precision :: gzs_pre, eadotea, eadotU, S_alpha
+    double precision :: gzs_pre, eadotU, S_alpha
     integer          :: ix_c, ix_f, ix_b, iy_c, iy_f, iy_b
 
     gzs_pre = 1.0d0 - 1.0d0/(2.0d0*tau)
@@ -298,10 +304,9 @@ end subroutine collide_stream
 
 subroutine solution
 
-    ! save last timestep
-    hLast = h
-    uLast = u
-    vLast = v
+    ! shift history: t-1 becomes t-2, current becomes t-1
+    hLast2 = hLast; uLast2 = uLast; vLast2 = vLast
+    hLast  = h    ; uLast  = u    ; vLast  = v
 
     ! compute physical variables h, u and v
 
@@ -787,46 +792,23 @@ logical function check_consistency(direction, hCheck, uCheck, eCheck, criterionC
 
 end function check_consistency
 
-logical function check_convergence(phiCheck, phiPrev, epsilonCheck)
+logical function check_convergence(phiCheck, phiLast, phiLast2, epsilonCheck)
     implicit none
-    real(8), intent(in)  :: phiCheck(:,:), phiPrev(:,:) !uCheck(:,:)
+    real(8), intent(in)  :: phiCheck(:,:), phiLast(:,:), phiLast2(:,:)
     real(8), intent(in)  :: epsilonCheck
-    double precision :: R
-    ! real(8), save        :: u_nMinus2 = 0.0d0, u_nMinus1 = 0.0d0, u_n = 0.0d0, h_nMinus2 = 0.0d0, h_nMinus1 = 0.0d0, h_n = 0.0d0
-    ! real(8)              :: u_avg, h_avg, u_diff1, u_diff2, h_diff1, h_diff2
+    double precision     :: R
 
-    ! u_avg = sum(uCheck) / size(uCheck); h_avg = sum(phiCheck)/size(phiCheck)
+    ! R = || avg(phi^t, phi^(t-1)) - avg(phi^(t-1), phi^(t-2)) ||_2
+    R = sqrt(sum((0.5d0*(phiCheck + phiLast) - 0.5d0*(phiLast + phiLast2))**2))
 
-    ! ! Shift average history
-    ! u_nMinus2 = u_nMinus1; h_nMinus2 = h_nMinus1
-    ! u_nMinus1 = u_n;       h_nMinus1 = h_n
-    ! u_n     = u_avg;       h_n = h_avg
-
-    ! ! Avoid check on first 2 calls
-    ! if (u_nMinus2 == 0.0d0 .and. u_nMinus1 == 0.0d0) then
-    !   check_convergence = .false.
-    !   return
-    ! end if
-
-    ! u_diff1 = u_n       - u_nMinus1;    h_diff1 = h_n       - h_nMinus1
-    ! u_diff2 = u_nMinus1 - u_nMinus2;    h_diff2 = h_nMinus1 - h_nMinus2
-
-    ! if (abs(u_diff1 - u_diff2) < epsilonCheck .and. abs(h_diff1 - h_diff2) < epsilonCheck) then
-    R = 0
-    do x = 1, Lx
-        do y = 1, Ly
-            R = R + ((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))*((phiCheck(x,y) - phiPrev(x,y))/phiCheck(x,y))
-        end do
-    end do
-
-    R = dsqrt(R)
-    if ( R < epsilonCheck ) then
+    if (R < epsilonCheck) then
         print*, "Solution converges."
         check_convergence = .true.
     else
         check_convergence = .false.
     end if
-  end function check_convergence
+
+end function check_convergence
 
 subroutine MMS_analytic_solution
     ! double precision:: phi
@@ -836,8 +818,6 @@ subroutine MMS_analytic_solution
     allocate (phi(3,Lx,Ly), phi_1(3,Lx,Ly))
 
     ! indices: 1-depth (h); 2-horizontal velocity (u); 3-vertical velocity (v)
-    nu_MMS = 1.0d-2
-
     phi_0   = [2.0d0, 0.0d0, 0.0d0]
     phi_k   = [0.0d0, 0.0d0, 0.0d0]
     phi_x   = [0.0d0, 0.0d0, 0.0d0]

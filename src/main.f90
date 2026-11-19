@@ -35,7 +35,7 @@ program main
     type(CFG_t)           :: my_cfg
 
     ! declare local working variables
-    integer:: itera_no, per_checkpoint
+    integer:: itera_no, per_checkpoint, per_print
     double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
@@ -52,15 +52,18 @@ program main
     call CFG_add_get(my_cfg, "simulation_parameters%steadyFlow", steadyFlow, "Whether the flow is steady or tidal")
     call CFG_add_get(my_cfg, "simulation_parameters%epsilon", epsilon, "convergence criterion")
     call CFG_add_get(my_cfg, "simulation_parameters%consCriter", consCriter, "conservation criterion")
-    call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed")
+    call CFG_add_get(my_cfg, "simulation_parameters%simTime", simTime, "total simulation time allowed [s]")
     call CFG_add_get(my_cfg, "simulation_parameters%itera_no", itera_no, "total number of iterations allowed")
     call CFG_add_get(my_cfg, "simulation_parameters%per_checkpoint_iter", per_checkpoint, "period between each checkpoint")
-    call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction")
-    call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction")
-    call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing")
-    call CFG_add_get(my_cfg, "simulation_parameters%dt", dt, "time step")
-    call CFG_add_get(my_cfg, "simulation_parameters%tau", tau, "dimensionless relaxation time")
+    call CFG_add_get(my_cfg, "simulation_parameters%per_print", per_print, "period between values printed to screen")
+    call CFG_add_get(my_cfg, "simulation_parameters%domainX", domainX, "domain size in x direction [m]")
+    call CFG_add_get(my_cfg, "simulation_parameters%domainY", domainY, "domain size in y direction [m]")
+    call CFG_add_get(my_cfg, "simulation_parameters%dx", dx, "lattice spacing [m]")
+    call CFG_add_get(my_cfg, "simulation_parameters%tau", tau, "dimensionless relaxation time [-]")
+    call CFG_add_get(my_cfg, "simulation_parameters%S", S, "lattice velocity safety factor [-]")
     call CFG_add_get(my_cfg, "physical_constants%nb", nb, "Manning's coefficient")
+    call CFG_add_get(my_cfg, "simulation_parameters%alpha_MMS", alpha_MMS, &
+        & "MMS force scaling factor: 0.0=off, 1.0=full [-]")
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
@@ -91,14 +94,15 @@ program main
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
     ! allocate dimensions for dynamic arrays
-    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly),hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly),&
+    allocate (f(9,Lx,Ly),feq(9,Lx,Ly),ftemp(9,Lx,Ly),h(Lx,Ly),u(Lx,Ly),v(Lx,Ly), &
+        & hLast(Lx,Ly),uLast(Lx,Ly),vLast(Lx,Ly), &
+        & hLast2(Lx,Ly),uLast2(Lx,Ly),vLast2(Lx,Ly), &
         & hCentered(2*Lx+1,2*Ly+1),uCentered(2*Lx+1,2*Ly+2),vCentered(2*Lx+1,2*Ly+1),&
-        ! & C(Lx,Ly),Cz(2*Lx+1,2*Ly+1),Cb(2*Lx+1,2*Ly+1),tau_bx(2*Lx+1,2*Ly+1),&
         & force_x(2*Lx+1,2*Ly+1),force_y(2*Lx+1,2*Ly+1),&
         & H_part(2*Lx+1,2*Ly+1),zb(2*Lx+1,2*Ly+1),dzbdx(2*Lx+1,2*Ly+1), &
         & consInLft(1,Ly),consInRgt(1,Ly),consOutLft(1,Ly),consOutRgt(1,Ly),&
         & hAnal(Lx,Ly),uAnal(Lx,Ly),vAnal(Lx,Ly), &
-        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))!, hIn(Ly), uIn(Ly))
+        & force_x_MMS(2*Lx+1,2*Ly+1),force_y_MMS(2*Lx+1,2*Ly+1))
 
 
     ! define pi
@@ -113,7 +117,8 @@ program main
     radius = 4.0d0 ! m, radius of the bump
 
     ! define bathymetry
-    zb = 0
+    zb = 0.0d0
+    dzbdx = 0.0d0
 
 !    do x = 1, 2*Lx+1
 !        position_x = dx*(DBLE(x-1)*0.5d0)
@@ -124,19 +129,12 @@ program main
 !    end do
 
     ! Define bed geometry on half-node grid
-    do x = 1, 2*Lx+1
-        position_x = dx*(DBLE(x-1)*0.5d0)
-        zb(x,:)    = 0.3d0*dsin(4.0d0*pi*position_x/domainX)
-        dzbdx(x,:) = 0.3d0*(4.0d0*pi/domainX)*dcos(4.0d0*pi*position_x/domainX)
-    end do
-
-    ! MMS body force
-
-    do x = 1, 2*Lx+1
-        position_x = dx*(DBLE(x-1)*0.5d0)
-        hAnal_x  = (2.0d0/3.0d0)*dsin(2.0d0*pi*position_x/domainX) + 2.0d0
-        dhanal_dx = (4.0d0/3.0d0)*pi/domainX*dcos(2.0d0*pi*position_x/domainX)
-    end do
+    ! debug commented to identify source of instability
+!    do x = 1, 2*Lx+1
+!        position_x = dx*(DBLE(x-1)*0.5d0)
+!        zb(x,:)    = 0.3d0*dsin(4.0d0*pi*position_x/domainX)
+!        dzbdx(x,:) = 0.3d0*(4.0d0*pi/domainX)*dcos(4.0d0*pi*position_x/domainX)
+!    end do
 
     do x = 1, 2*Lx+1
         position_x = dx*(DBLE(x-1)*0.5d0)
@@ -213,9 +211,10 @@ program main
     vo = 0.0d0
 
     ! initialize macroscopic variables
-    h = hAnal
-    u = uAnal
-    v = vAnal
+!    h = hAnal
+!    u = uAnal
+!    v = vAnal
+    h = 2.0d0; u = 0.0d0; v = 0.0d0
 
 !    do x = 1, Lx
 !        do y = 1, Ly
@@ -245,35 +244,46 @@ program main
     ! h(Lx,:) = hOut ! set outflow depth
     ! u(Lx,:) = 0.0d0
 
-    ! assign a value for the molecular viscosity
-    ! nu = 1.004d-6 ! m^2/s molecular viscosity of water
-
 
     ! calculate the minimum possible value of e such that the stationary population is positive
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! define timestep dt
-    dt = dt/r**2 !s
+    ! --- Smart parameter derivation from stability conditions ---
+    ! Scan analytical solution for worst-case flow conditions
+    h_max = maxval(hAnal)
+    u_max = dsqrt(maxval(uAnal**2 + vAnal**2))
 
-    ! define the lattice velocity
-    e = dx/dt ! m/s, lattice velocity
+    ! Condition 3 (gh/e^2 < 1) is binding for subcritical flow (Fr < 1).
+    ! S > 1 ensures gh/e^2 = 1/S^2, safely inside the stability boundary.
+    e   = S * dsqrt(gacl * h_max)
+    dt  = dx / e
+    nu  = (tau - 0.5d0) * dx**2 / (3.0d0 * dt)
 
-    ! print values
-    ! print*, "q inlet =", q_in, "m^2/s"
-    print*, "e =", e, "m/s"
-    print*, "dt =", dt, "s"
+    ! Print derived values and stability diagnostics
+    print*, "--- Derived LBM parameters ---"
+    print*, "h_max =", h_max,                        "m"
+    print*, "u_max =", u_max,                        "m/s"
+    print*, "S     =", S,                            "[-]"
+    print*, "e     =", e,                            "m/s"
+    print*, "dt    =", dt,                           "s"
+    print*, "tau   =", tau,                          "[-]"
+    print*, "nu    =", nu,                           "m^2/s"
+    print*, "u/e   =", u_max/e,                      "[-]  (stable if < 1)"
+    print*, "gh/e^2=", gacl*h_max/e**2,              "[-]  (stable if < 1)"
+    print*, "Fr    =", u_max/dsqrt(gacl*h_max),      "[-]  (subcritical if < 1)"
+
+    if (per_print == 0) then
+        per_print = huge(1)
+    end if
 
     if (per_checkpoint == 0) then
         per_checkpoint = huge(per_checkpoint)
-    else
-        per_checkpoint = per_checkpoint/dt ! convert from seconds to number of iterations
+!    else
+!        per_checkpoint = per_checkpoint/dt ! convert from seconds to number of iterations
     end if
 
     ! calculate the dimensionless relaxation time
     ! tau = 3.0d0*nu*dt/dx**2 + 0.5d0
-
-    ! calculate molecular viscosity
-    nu = (tau-0.5d0)*e*dx/3.0d0
 
     ! initialize the velocities
     ! u = q_in/(h*DBLE(domainY)) ! m/s, inlet velocity
@@ -297,17 +307,6 @@ program main
 
         ! Streaming and collision steps
         call collide_stream
-
-        do i=1,Lx
-            do j=1,Ly
-                do a=1,9
-                    if (ieee_is_nan(ftemp(a,i,j))) then
-                        print*, "ftemp",a,i,j,"is not a number"
-                        stopSim = .true.
-                    end if
-                end do
-            end do
-        end do
 
         ! Apply no slip at solid boundary nodes
         ! call Noslip_BC
@@ -333,37 +332,40 @@ program main
         ! Update the feq
         call compute_feq
 
-        write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
+        if (mod(current_iteration, per_print) == 0) write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
 
-        do i=1,Lx
-            do j = 1, Ly
+!        do i=1,Lx
+!            do j = 1, Ly
+!
+!                ! make sure no u is NaN
+!                if (ieee_is_nan(u(i,j))) then
+!                    print*, "u",i,j,"is not a number"
+!                    stopSim = .true.
+!                end if
+!
+!                ! make sure no v is NaN
+!                if (ieee_is_nan(v(i,j))) then
+!                    print*, "v",i,j,"is not a number"
+!                    stopSim = .true.
+!                end if
+!
+!                ! make sure no h is NaN
+!                if (ieee_is_nan(h(i,j))) then
+!                    print*, "h",i,j,"is not a number"
+!                    stopSim = .true.
+!                end if
+!            end do
+!        end do
 
-                ! make sure no u is NaN
-                if (ieee_is_nan(u(i,j))) then
-                    print*, "u",i,j,"is not a number"
-                    stopSim = .true.
-                end if
-
-                ! make sure no v is NaN
-                if (ieee_is_nan(v(i,j))) then
-                    print*, "v",i,j,"is not a number"
-                    stopSim = .true.
-                end if
-
-                ! make sure no h is NaN
-                if (ieee_is_nan(h(i,j))) then
-                    print*, "h",i,j,"is not a number"
-                    stopSim = .true.
-                end if
-            end do
-        end do
         if (current_iteration >= itera_no .or. time >= simTime) then
             print*, "Maximum simulation time reached."
             stopSim = .true. ! stop simulation after desired time reached
         elseif (mod(current_iteration, per_checkpoint) == 0) then
             call write_csv
         end if
-        if (stopSim .or. check_convergence(h,hLast,epsilon)) then
+        if (stopSim .or. (check_convergence(h, hLast, hLast2, epsilon)&
+                  & .and. check_convergence(u, uLast, uLast2, epsilon)&
+                  & .and. check_convergence(u, vLast, vLast2, epsilon))) then
             call end_simulation
             exit
         end if

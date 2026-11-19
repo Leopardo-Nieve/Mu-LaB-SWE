@@ -1,17 +1,15 @@
-2026-11-18
+2026-11-19
 
-Decided to test 1D case with non zero velocity. To allow the continuity equation to be respected, I had to make sure the discharge (hu) is uniform over the domain. 
-I kept the same h analytical profile, but defined a discharge h*u = q = 2 m/s^2 and then defined u(x)=q/h(x)
-
-Currently, the convergence analysis lasts several days, but we reached the 2nd order with r=16, so I am making a commit here before r=32 finishes
+I tried accelerating the computation time by following David's tips. The trickiest change to implement was to assign the viscosity instead of deriving it. Ever since then, my code has been unstable.
+I am in a conversation with Claude to debug it, but I have not been able to crack it yet. 
 
 ---
 
 Modifications since last version:
 
-- modified analytical profile of u and the MMS source term required for that profile
+- assigned dx, tau and a scaling factor of e as simulation parameters. dt and nu are being derived from those values. 
 
-- modified the convergence criterion so it scales with the refinement (this was a mistake that made the criterion too strict. A different method of convergence verification will be used later)
+- tried various debugging lines to find the source of the instability
 
 ---
 
