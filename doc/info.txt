@@ -1,19 +1,24 @@
-2026-11-19
+2026-11-25
 
-I tried accelerating the computation time by following David's tips. The trickiest change to implement was to assign the viscosity instead of deriving it. Ever since then, my code has been unstable.
-I am in a conversation with Claude to debug it, but I have not been able to crack it yet. 
+Passed stages 1 and 2, but none of the rest. 
 
 ---
 
 Modifications since last version:
 
-- assigned dx, tau and a scaling factor of e as simulation parameters. dt and nu are being derived from those values. 
+- added tuning variables as well as tracking for the important variables for stages 1 and 2
 
-- tried various debugging lines to find the source of the instability
+- modified NaN check lines to check if a value is finite (NaN is one type, but infinite values also exist)
 
 ---
 
 Potential next step(s):
+
+- test cases 
+    3: gravity wave evolution
+    4: Manufactured dynamics
+    5: Complete MMS problem
+    6: Order of convergence analysis
 
 - make code 2D
 

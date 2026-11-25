@@ -62,6 +62,17 @@ module Mu_LaB_SWE
     ! &,C,Cz,Cb,tau_bx,tau_by,& !debug
     double precision, allocatable, dimension(:,:,:):: f,feq,ftemp
 
+    ! Temporary debugging parameters
+    integer :: parameter_mode, profile_mode
+
+    double precision :: nu_input
+    double precision :: alpha_hydro
+    double precision :: h_test, u_test, v_test
+    double precision :: wave_amplitude
+    double precision, allocatable :: f_initial(:,:,:)
+    double precision :: max_pop_error, pop_scale, pop_tol
+    double precision :: max_h_error, max_u_error, max_v_error
+
 contains
 
 function unix() result(is_unix)
@@ -97,14 +108,6 @@ subroutine setup
     ey = (/ 0.0d0,  1.0d0,  1.0d0,  1.0d0,  0.0d0, -1.0d0, -1.0d0, -1.0d0, 0.0d0 /)
 
     ex(9) = 0.0d0; ey(9) = 0.0d0
-    eMax = gacl*h(1,3)/3.0d0
-    eMax = eMax + ex*ex*u(1,3)*u(1,3) + 2.0d0*ex*ey*u(1,3)*v(1,3) + ey*ey*v(1,3)*v(1,3)
-    eMax = eMax - 1.0d0/3.0d0*(u(1,3)*u(1,3)+v(1,3)*v(1,3))
-    eMax = eMax/-(ex*u(1,3) + ey*v(1,3))
-    eMax = 6.0d0*eMax
-    do a=1,9
-        if (mod(a,2) == 0) eMax(a) = 2.5d-1*eMax(a) ! if even number index
-    end do
     ex(:) = e*ex(:); ey(:) = e*ey(:) !scale for non unit lattice velocity
 
     ! constants to limit random error
@@ -202,9 +205,9 @@ subroutine update_body_force
         end do
     end do
 
-    ! Set body force
-    force_x = force_x + alpha_MMS * force_x_MMS
-    force_y = force_y + alpha_MMS * force_y_MMS
+    ! Set body force using independent tuning parameters
+    force_x = alpha_hydro * force_x + alpha_MMS * force_x_MMS
+    force_y = alpha_hydro * force_y + alpha_MMS * force_y_MMS
 end subroutine update_body_force
 
 subroutine collide_stream
@@ -303,6 +306,7 @@ subroutine collide_stream
 end subroutine collide_stream
 
 subroutine solution
+    use ieee_arithmetic, only: ieee_is_finite
 
     ! shift history: t-1 becomes t-2, current becomes t-1
     hLast2 = hLast; uLast2 = uLast; vLast2 = vLast
@@ -322,6 +326,24 @@ subroutine solution
         u(:,:) = u(:,:) + ex(a)*f(a,:,:)
         v(:,:) = v(:,:) +  ey(a)*f(a,:,:)
     end do
+
+
+    ! Check water depth before dividing to obtain velocity
+    if (.not. all(ieee_is_finite(h))) then
+        print*, "ERROR: Non-finite water depth."
+        stopSim = .true.
+        return
+    end if
+
+    if (minval(h) <= 0.0d0) then
+        print*, "ERROR: Non-positive water depth."
+        print*, "Minimum depth =", minval(h)
+        print*, "Iteration =", current_iteration
+        stopSim = .true.
+        return
+    end if
+
+
     u = u/h
     v = v/h
 

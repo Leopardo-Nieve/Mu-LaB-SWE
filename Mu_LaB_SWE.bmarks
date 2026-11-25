@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <BrowseTracker_layout_file>
 	<ActiveTarget name="bin/main" />
-	<File name="src/main.f90" open="1" top="0" tabpos="2">
-		<Cursor position="6141" topLine="133" />
-		<BrowseMarks positions="" />
-	</File>
 	<File name="doc/parameters.cfg" open="1" top="1" tabpos="3">
-		<Cursor position="566" topLine="0" />
+		<Cursor position="816" topLine="12" />
 		<BrowseMarks positions="" />
 	</File>
 	<File name="src/Mu_LaB_SWE.f90" open="1" top="0" tabpos="1">
-		<Cursor position="7716" topLine="172" />
+		<Cursor position="8324" topLine="166" />
+		<BrowseMarks positions="" />
+	</File>
+	<File name="src/main.f90" open="1" top="0" tabpos="2">
+		<Cursor position="12619" topLine="302" />
 		<BrowseMarks positions="" />
 	</File>
 </BrowseTracker_layout_file>

@@ -2,36 +2,39 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="bin/main" />
-	<File name="src/main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
-		<Cursor>
-			<Cursor1 position="6141" topLine="133" />
-		</Cursor>
-		<Folding>
-			<Collapse line="300" />
-			<Collapse line="318" />
-			<Collapse line="337" />
-		</Folding>
-	</File>
 	<File name="doc/parameters.cfg" open="1" top="1" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="566" topLine="0" />
+			<Cursor1 position="816" topLine="12" />
 		</Cursor>
 	</File>
 	<File name="src/Mu_LaB_SWE.f90" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="7716" topLine="172" />
+			<Cursor1 position="8324" topLine="166" />
 		</Cursor>
 		<Folding>
-			<Collapse line="203" />
-			<Collapse line="298" />
-			<Collapse line="334" />
-			<Collapse line="345" />
-			<Collapse line="384" />
-			<Collapse line="401" />
-			<Collapse line="490" />
-			<Collapse line="616" />
-			<Collapse line="623" />
-			<Collapse line="688" />
+			<Collapse line="66" />
+			<Collapse line="304" />
+			<Collapse line="339" />
+			<Collapse line="350" />
+			<Collapse line="389" />
+			<Collapse line="406" />
+			<Collapse line="495" />
+			<Collapse line="525" />
+			<Collapse line="592" />
+			<Collapse line="621" />
+			<Collapse line="628" />
+			<Collapse line="693" />
+			<Collapse line="722" />
+			<Collapse line="730" />
+			<Collapse line="742" />
+		</Folding>
+	</File>
+	<File name="src/main.f90" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="12619" topLine="302" />
+		</Cursor>
+		<Folding>
+			<Collapse line="122" />
 		</Folding>
 	</File>
 </CodeBlocks_layout_file>

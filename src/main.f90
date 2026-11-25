@@ -36,14 +36,14 @@ program main
 
     ! declare local working variables
     integer:: itera_no, per_checkpoint, per_print
-    double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx
+    double precision :: uo, vo, simTime, x_r, y_r, radius, r
+    double precision :: hAnal_x, dhanal_dx
+    double precision :: h_scale
     character:: fdate*24, td*24 ! get date for output
     logical:: steadyFlow
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
-
-    r = 1.0d0 ! convergence ratio. start with 1, then 2, 4, 8
 
     ! define Manning's coefficient
     !nb = 0.012d0
@@ -62,8 +62,51 @@ program main
     call CFG_add_get(my_cfg, "simulation_parameters%tau", tau, "dimensionless relaxation time [-]")
     call CFG_add_get(my_cfg, "simulation_parameters%S", S, "lattice velocity safety factor [-]")
     call CFG_add_get(my_cfg, "physical_constants%nb", nb, "Manning's coefficient")
-    call CFG_add_get(my_cfg, "simulation_parameters%alpha_MMS", alpha_MMS, &
-        & "MMS force scaling factor: 0.0=off, 1.0=full [-]")
+
+
+
+
+    ! ==========================================================
+    ! TEMPORARY DEBUGGING PARAMETERS
+    ! ==========================================================
+
+    call CFG_add_get(my_cfg, "simulation_parameters%refinement_ratio", &
+        & r, "Grid refinement ratio")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%parameter_mode", &
+        & parameter_mode, "Numerical parameter selection mode")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%profile_mode", &
+        & profile_mode, "Initial macroscopic profile")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%nu_input", &
+        & nu_input, "Prescribed kinematic viscosity [m^2/s]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%h_test", &
+        & h_test, "Uniform initial depth [m]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%u_test", &
+        & u_test, "Uniform initial x velocity [m/s]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%v_test", &
+        & v_test, "Uniform initial y velocity [m/s]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%wave_amplitude", &
+        & wave_amplitude, "Gravity wave depth perturbation [m]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%alpha_hydro", &
+        & alpha_hydro, "Hydrostatic force multiplier")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%alpha_MMS", &
+        &  alpha_MMS, "MMS force scaling factor: 0.0=off, 1.0=full [-]")
+
+    call CFG_add_get(my_cfg, "simulation_parameters%h_scale", &
+        & h_scale, "Fixed reference depth for mode 2 [m]")
+
+    ! ==========================================================
+    ! END TEMPORARY DEBUGGING PARAMETERS
+    ! ==========================================================
+
 
     ! Boundary conditions for inflow and outflow MUST BE LOWER CASE
     BCInflow  = "i" ! "i" (inflow) if assigned depth and velocity, otherwise "n" (Neumann) for zero gradient
@@ -90,6 +133,21 @@ program main
     dx = dx/r ! m, lattice spacing
     dy = dx ! m, lattice spacing
 
+    if (h_scale <= 0.0d0) then
+        print*, "ERROR: h_scale must be positive."
+        stop
+    end if
+
+    if (tau <= 0.5d0) then
+        print*, "ERROR: tau must be greater than 0.5."
+        stop
+    end if
+
+    if (S <= 1.0d0) then
+        print*, "ERROR: Base-grid S must be greater than 1."
+        stop
+    end if
+
     ! define total number of nodes in x and y directions
     Lx = NINT(domainX/dx); Ly = NINT(domainY/dy) ! nodes
 
@@ -110,6 +168,75 @@ program main
 
     call MMS_analytic_solution ! calculate analytical solution
     if (stopSim) STOP
+
+
+    ! ==========================================================
+    ! SELECT INITIAL MACROSCOPIC PROFILE
+    ! ==========================================================
+
+    select case (profile_mode)
+
+    case (0)
+        ! Uniform stationary flow
+        h = h_test
+        u = 0.0d0
+        v = 0.0d0
+
+    case (1)
+        ! Uniform moving flow
+        h = h_test
+        u = u_test
+        v = v_test
+
+    case (2)
+        ! Sinusoidal depth perturbation: gravity-wave test
+        do i = 1, Lx
+            position_x = (DBLE(i)-0.5d0)*dx
+
+            h(i,:) = h_test + wave_amplitude * &
+                & dsin(2.0d0*pi*position_x/domainX)
+
+            u(i,:) = u_test
+            v(i,:) = v_test
+        end do
+
+    case (3)
+        ! Current analytical MMS solution
+        h = hAnal
+        u = uAnal
+        v = vAnal
+
+    case default
+        print*, "ERROR: Invalid profile_mode."
+        stop
+
+    end select
+
+    ! Set reference analytical values for diagnostic output
+    if (profile_mode /= 3) then
+        hAnal = h
+        uAnal = u
+        vAnal = v
+    end if
+
+    ! Check initial conditions
+    if (minval(h) <= 0.0d0) then
+        print*, "ERROR: Non-positive initial water depth."
+        stop
+    end if
+
+    print*, "Initial profile mode =", profile_mode
+    print*, "Minimum initial depth =", minval(h)
+    print*, "Maximum initial depth =", maxval(h)
+    print*, "Maximum initial velocity =", &
+        & maxval(dsqrt(u*u + v*v))
+
+    ! ==========================================================
+    ! END INITIAL PROFILE SELECTION
+    ! ==========================================================
+
+
+
     ! define bathymetry and node state array
     ! C = 0.0d0 ! m^2/s, assume all nodes are fluid nodes
     x_r    = 10.0d0 ! m, position of the bump in x direction
@@ -205,16 +332,6 @@ program main
     ! assign a value for the inlet discharge
     q_in = 4.42d0 ! m^2/s
 
-    ! ho = 2.0d0 ! m, initial water depth
-    ho = hAnal(1,Ly/2) ! m, initial water depth
-    uo = 0.0d0
-    vo = 0.0d0
-
-    ! initialize macroscopic variables
-!    h = hAnal
-!    u = uAnal
-!    v = vAnal
-    h = 2.0d0; u = 0.0d0; v = 0.0d0
 
 !    do x = 1, Lx
 !        do y = 1, Ly
@@ -248,29 +365,126 @@ program main
     ! calculate the minimum possible value of e such that the stationary population is positive
     ! eMin = dsqrt(5.0d0*gacl*ho/6.0d0 + 2.0d0/3.0d0*(q_in/ho)**2)
 
-    ! --- Smart parameter derivation from stability conditions ---
-    ! Scan analytical solution for worst-case flow conditions
-    h_max = maxval(hAnal)
-    u_max = dsqrt(maxval(uAnal**2 + vAnal**2))
 
-    ! Condition 3 (gh/e^2 < 1) is binding for subcritical flow (Fr < 1).
-    ! S > 1 ensures gh/e^2 = 1/S^2, safely inside the stability boundary.
-    e   = S * dsqrt(gacl * h_max)
-    dt  = dx / e
-    nu  = (tau - 0.5d0) * dx**2 / (3.0d0 * dt)
+    ! ==========================================================
+    ! NUMERICAL PARAMETER SELECTION
+    ! ==========================================================
 
-    ! Print derived values and stability diagnostics
-    print*, "--- Derived LBM parameters ---"
-    print*, "h_max =", h_max,                        "m"
-    print*, "u_max =", u_max,                        "m/s"
-    print*, "S     =", S,                            "[-]"
-    print*, "e     =", e,                            "m/s"
-    print*, "dt    =", dt,                           "s"
-    print*, "tau   =", tau,                          "[-]"
-    print*, "nu    =", nu,                           "m^2/s"
-    print*, "u/e   =", u_max/e,                      "[-]  (stable if < 1)"
-    print*, "gh/e^2=", gacl*h_max/e**2,              "[-]  (stable if < 1)"
-    print*, "Fr    =", u_max/dsqrt(gacl*h_max),      "[-]  (subcritical if < 1)"
+    h_max = maxval(h)
+    u_max = dsqrt(maxval(u**2 + v**2))
+
+    if (tau <= 0.5d0) then
+        print*, "ERROR: tau must be greater than 0.5."
+        stop
+    end if
+
+    if (parameter_mode == 1) then
+
+        ! MODE 1:
+        ! Prescribe physical viscosity.
+        ! Derive dt and lattice velocity.
+
+        if (nu_input <= 0.0d0) then
+            print*, "ERROR: nu_input must be positive."
+            stop
+        end if
+
+        nu = nu_input
+
+        dt = dx**2 * (2.0d0*tau - 1.0d0) / &
+            & (6.0d0*nu)
+
+        e = dx/dt
+
+    elseif (parameter_mode == 2) then
+
+    ! MODE 2 WITH DIFFUSIVE SCALING:
+    ! S is prescribed on the base grid.
+    ! The effective S increases with refinement ratio.
+    ! Derive e, dt and physical viscosity.
+
+    if (S <= 1.0d0) then
+        print*, "ERROR: Base-grid S must be greater than 1."
+        stop
+    end if
+
+    if (h_scale <= 0.0d0) then
+        print*, "ERROR: h_scale must be positive."
+        stop
+    end if
+
+    ! Scale lattice velocity linearly with refinement.
+    e = (S*r)*dsqrt(gacl*h_scale)
+
+    ! Diffusive scaling: dt is proportional to dx^2.
+    dt = dx/e
+
+    ! Physical viscosity implied by the LBM parameters.
+    nu = dx**2*(2.0d0*tau-1.0d0)/(6.0d0*dt)
+
+    else
+
+        print*, "ERROR: Invalid parameter_mode."
+        stop
+
+    end if
+
+    ! ==========================================================
+    ! STABILITY DIAGNOSTICS
+    ! ==========================================================
+
+    print*, " "
+    print*, "========== LBM PARAMETERS =========="
+
+    print*, "dx      =", dx
+    print*, "dt      =", dt
+    print*, "e       =", e
+    print*, "tau     =", tau
+    print*, "nu      =", nu
+
+    print*, "h_max   =", h_max
+    print*, "u_max   =", u_max
+
+    print*, "u/e     =", u_max/e
+    print*, "gh/e^2  =", gacl*h_max/e**2
+
+    print*, "Fr_max  =", u_max/dsqrt(gacl*h_max)
+
+    print*, "Ma_max  =", dsqrt(3.0d0)*u_max/e
+
+    print*, "===================================="
+
+    print*, " "
+    print*, "========== REFINEMENT CHECK =========="
+
+    print*, "refinement ratio =", r
+    print*, "base-grid S      =", S
+    print*, "effective S      =", S*r
+    print*, "reference depth  =", h_scale
+
+    print*, "dx*r             =", dx*r
+    print*, "dt*r^2           =", dt*r**2
+    print*, "e/r              =", e/r
+    print*, "nu               =", nu
+
+    print*, "======================================"
+
+    if (u_max/e >= 1.0d0) then
+        print*, "WARNING: Velocity stability condition violated."
+    end if
+
+    if (gacl*h_max/e**2 >= 1.0d0) then
+        print*, "WARNING: Celerity stability condition violated."
+    end if
+
+    if (u_max**2/(gacl*h_max) >= 1.0d0) then
+        print*, "WARNING: Flow is not subcritical."
+    end if
+
+    ! ==========================================================
+    ! END NUMERICAL PARAMETER SELECTION
+    ! ==========================================================
+
 
     if (per_print == 0) then
         per_print = huge(1)
@@ -291,10 +505,15 @@ program main
     !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
-    u = uAnal
-    v = vAnal
+
     ! prepare the calculations
     call setup
+
+    ! Save the initial populations as the reference solution.
+    allocate(f_initial(9,Lx,Ly))
+    f_initial = f
+
+    print*, "Initial population reference saved."
 
     ! main loop for time marching
     timStep: do
@@ -308,26 +527,102 @@ program main
         ! Streaming and collision steps
         call collide_stream
 
+        ! Stage 1: verify that stationary equilibrium is preserved.
+        if (profile_mode == 0) then
+
+            max_pop_error = maxval(abs(ftemp - f_initial))
+
+            pop_scale = maxval(abs(f_initial))
+            pop_tol = 100.0d0 * 2.2204460492503131d-16 &
+                      * max(1.0d0, pop_scale)
+
+            if (current_iteration == 1 .or. mod(current_iteration,100) == 0) then
+                print*, "Iteration:", current_iteration
+                print*, "Maximum population difference:", max_pop_error
+                print*, "Allowed tolerance:", pop_tol
+            end if
+
+            if (max_pop_error > pop_tol) then
+                print*, "ERROR: Stationary populations have changed!"
+                stopSim = .true.
+            end if
+
+        end if
+
         ! Apply no slip at solid boundary nodes
         ! call Noslip_BC
 
         ! Apply Inflow and Outflow BC
         ! call Inflow_Outflow_BC
 
-        ! make sure no population is NaN
-        do i = 1, Lx
-            do j = 1, Ly
+        ! Check populations for NaN or infinity.
+        ! Report the first problematic node and all nine populations.
+        check_populations: do j = 1, Ly
+            do i = 1, Lx
+
+                ! Check whether any of the nine populations is non-finite.
                 do a = 1, 9
-                    if ( ieee_is_nan(ftemp(a,i,j)) ) then
-                        print*, "ftemp",a,i,j,"is not a number"
+                    if (.not. ieee_is_finite(ftemp(a,i,j))) then
+
                         stopSim = .true.
+
+                        print*, " "
+                        print*, "========================================"
+                        print*, "ERROR: Non-finite population detected!"
+                        print*, "Iteration:", current_iteration
+                        print*, "Time:", time, "s"
+                        print*, "Node indices: i =", i, ", j =", j
+                        print*, "Node coordinates:"
+                        print*, "x =", (DBLE(i)-0.5d0)*dx, "m"
+                        print*, "y =", (DBLE(j)-0.5d0)*dy, "m"
+                        print*, "Problematic population: a =", a
+                        print*, "========================================"
+
+                        ! Print all nine populations at this node.
+                        print*, "Distribution functions ftemp(a,i,j):"
+                        do k = 1, 9
+                            print*, "a =", k, ", ftemp =", ftemp(k,i,j)
+                        end do
+
+                        print*, "========================================"
+                        print*, " "
+
+                        stopSim = .true.
+
+                        ! Stop searching: report only the first problematic node.
+                        exit check_populations
+
                     end if
                 end do
+
             end do
-        end do
+        end do check_populations
 
         ! Calculate h, u & v
         if (.not. stopSim) call solution
+
+        ! ==========================================================
+        ! STAGE 2: UNIFORM MOVING FLOW DIAGNOSTICS
+        ! ==========================================================
+
+        if (profile_mode == 1 .and. .not. stopSim) then
+
+            max_h_error = maxval(abs(h - h_test))
+            max_u_error = maxval(abs(u - u_test))
+            max_v_error = maxval(abs(v - v_test))
+
+            if (current_iteration == 1 .or. &
+                & mod(current_iteration,100) == 0) then
+
+                print*, " "
+                print*, "Stage 2 - Iteration:", current_iteration
+                print*, "Maximum depth error:", max_h_error
+                print*, "Maximum u error:", max_u_error
+                print*, "Maximum v error:", max_v_error
+
+            end if
+
+        end if
 
         ! Update the feq
         call compute_feq
@@ -363,11 +658,16 @@ program main
         elseif (mod(current_iteration, per_checkpoint) == 0) then
             call write_csv
         end if
-        if (stopSim .or. (check_convergence(h, hLast, hLast2, epsilon)&
-                  & .and. check_convergence(u, uLast, uLast2, epsilon)&
-                  & .and. check_convergence(u, vLast, vLast2, epsilon))) then
+
+        if (stopSim .or. &
+            & (steadyFlow .and. &
+            & check_convergence(h,hLast,hLast2,epsilon) .and. &
+            & check_convergence(u,uLast,uLast2,epsilon) .and. &
+            & check_convergence(v,vLast,vLast2,epsilon))) then
+
             call end_simulation
             exit
+
         end if
 
     end do timStep
