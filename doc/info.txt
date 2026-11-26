@@ -1,15 +1,16 @@
-2026-11-19
+2026-11-26
 
-I tried accelerating the computation time by following David's tips. The trickiest change to implement was to assign the viscosity instead of deriving it. Ever since then, my code has been unstable.
-I am in a conversation with Claude to debug it, but I have not been able to crack it yet. 
+Added debugging lines to prevent instability causing values from being assigned, as well as monitoring the stability conditions at every timestep.
 
 ---
 
 Modifications since last version:
 
-- assigned dx, tau and a scaling factor of e as simulation parameters. dt and nu are being derived from those values. 
+- created subroutine to ensure stability conditions are respected
 
-- tried various debugging lines to find the source of the instability
+- added lines ensuring only admissible values are assigned to the relevant variables (f, h, u, etc.)
+
+- modified end_simulation subroutine to be shorter and cleaner
 
 ---
 

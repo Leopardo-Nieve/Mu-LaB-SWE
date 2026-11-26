@@ -41,8 +41,11 @@
 ! zb - bed geometry
 module Mu_LaB_SWE
 
+    use, intrinsic :: ieee_arithmetic
+
     implicit none
 
+    integer :: logUnit,stabilityUnit
     integer:: Lx,Ly,x,y,a,current_iteration, b,i,j,k,xf,yf,xb,yb,ix,iy,ixm1,ixp1
     integer, dimension(2):: hIndex
     logical:: stopSim, tauOk, velOk, celOk, FrOk
@@ -89,6 +92,13 @@ subroutine setup
     else
         print *, 'Directory "',trim(fpath), '" created successfully.'
     end if
+
+    open(newunit=logUnit, file='stability_log.txt', &
+        status='replace', action='write')
+
+    write(logUnit,'(A)') 'LBM STABILITY DIAGNOSTICS'
+    write(logUnit,'(A)') '========================================'
+    write(logUnit,'(A)') 'Iteration | Stage | Location | Diagnostic'
 
     ! D2Q9 directions:
     ! 1 = E, 2 = NE, 3 = N, 4 = NW, 5 = W, 6 = SW, 7 = S, 8 = SE, 9 = Still
@@ -523,6 +533,248 @@ subroutine ensure_directory(original_path, N_characters)
     end if
 end subroutine ensure_directory
 
+subroutine audit_stability(stage, failed)
+
+    implicit none
+
+    character(len=*), intent(in) :: stage
+    logical, intent(out) :: failed
+
+    integer :: ix, iy
+    double precision :: speed2, latticeU2, latticeC2, Fr2
+
+    failed = .false.
+
+    ! Global relaxation-time condition
+    if (.not. ieee_is_finite(tau) .or. tau <= 0.5d0) then
+
+        write(stabilityUnit,'(A,ES16.8)') &
+            'FAILED RELAXATION TIME: ',tau
+
+        failed = .true.
+
+    end if
+
+    ! Check every cell
+    do ix = 1, Lx
+        do iy = 1, Ly
+
+            ! Check macroscopic variables
+            if (.not. ieee_is_finite(h(ix,iy)) .or. &
+                .not. ieee_is_finite(u(ix,iy)) .or. &
+                .not. ieee_is_finite(v(ix,iy))) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A)') &
+                    'CELL (',ix,',',iy,'): NON-FINITE MACROSCOPIC VALUE'
+
+                failed = .true.
+                cycle
+
+            end if
+
+            ! Positive depth condition
+            if (h(ix,iy) <= 0.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): INVALID DEPTH = ',h(ix,iy)
+
+                failed = .true.
+                cycle
+
+            end if
+
+            ! Calculate local stability parameters
+            speed2 = u(ix,iy)**2 + v(ix,iy)**2
+
+            latticeU2 = speed2/(e*e)
+            latticeC2 = gacl*h(ix,iy)/(e*e)
+            Fr2 = speed2/(gacl*h(ix,iy))
+
+            ! Condition 2: velocity relative to lattice speed
+            if (latticeU2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): U2/E2 = ',latticeU2
+
+                failed = .true.
+
+            end if
+
+            ! Condition 3: gravity-wave speed relative to lattice speed
+            if (latticeC2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): GH/E2 = ',latticeC2
+
+                failed = .true.
+
+            end if
+
+            ! Condition 4: Froude number
+            if (Fr2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): FROUDE = ',sqrt(Fr2)
+
+                failed = .true.
+
+            end if
+
+        end do
+    end do
+
+    flush(stabilityUnit)
+
+end subroutine audit_stability
+
+subroutine validate_postcollision(failed)
+
+    implicit none
+
+    logical, intent(out) :: failed
+
+    integer :: ix, iy, ia
+
+    double precision :: hCandidate
+    double precision :: uCandidate, vCandidate
+    double precision :: speed2
+    double precision :: latticeU2, latticeC2, Fr2
+
+    logical :: finitePop
+
+    failed = .false.
+
+    do ix = 1, Lx
+        do iy = 1, Ly
+
+            hCandidate = 0.0d0
+            uCandidate = 0.0d0
+            vCandidate = 0.0d0
+
+            finitePop = .true.
+
+            ! Check all populations and calculate moments
+            do ia = 1, 9
+
+                if (.not. ieee_is_finite(ftemp(ia,ix,iy))) then
+
+                    write(stabilityUnit,'(A,I0,A,I0,A,I0,A,I0)') &
+                        'CELL (',ix,',',iy,') POPULATION ',ia, &
+                        ': NON-FINITE VALUE'
+
+                    finitePop = .false.
+                    failed = .true.
+
+                else
+
+                    hCandidate = hCandidate + ftemp(ia,ix,iy)
+
+                    uCandidate = uCandidate + ex(ia)*ftemp(ia,ix,iy)
+
+                    vCandidate = vCandidate + ey(ia)*ftemp(ia,ix,iy)
+
+                end if
+
+            end do
+
+            if (.not. finitePop) cycle
+
+            ! Check reconstructed depth
+            if (.not. ieee_is_finite(hCandidate)) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A)') &
+                    'CELL (',ix,',',iy,'): NON-FINITE CANDIDATE DEPTH'
+
+                failed = .true.
+                cycle
+
+            end if
+
+            if (hCandidate <= 0.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): NON-POSITIVE CANDIDATE DEPTH = ', &
+                    hCandidate
+
+                failed = .true.
+                cycle
+
+            end if
+
+            ! Reconstruct velocity
+            uCandidate = uCandidate/hCandidate
+            vCandidate = vCandidate/hCandidate
+
+            ! GZS half-force velocity correction
+            uCandidate = uCandidate + &
+                0.5d0*dt*force_x(2*ix,2*iy)/hCandidate
+
+            vCandidate = vCandidate + &
+                0.5d0*dt*force_y(2*ix,2*iy)/hCandidate
+
+            ! Check candidate velocity
+            if (.not. ieee_is_finite(uCandidate) .or. &
+                .not. ieee_is_finite(vCandidate)) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A)') &
+                    'CELL (',ix,',',iy,'): NON-FINITE CANDIDATE VELOCITY'
+
+                failed = .true.
+                cycle
+
+            end if
+
+            ! Candidate stability conditions
+            speed2 = uCandidate**2 + vCandidate**2
+
+            latticeU2 = speed2/(e*e)
+            latticeC2 = gacl*hCandidate/(e*e)
+            Fr2 = speed2/(gacl*hCandidate)
+
+            if (.not. ieee_is_finite(speed2)) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A)') &
+                    'CELL (',ix,',',iy,'): NON-FINITE VELOCITY SQUARED'
+
+                failed = .true.
+                cycle
+
+            end if
+
+            if (latticeU2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): CANDIDATE U2/E2 = ',latticeU2
+
+                failed = .true.
+
+            end if
+
+            if (latticeC2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): CANDIDATE GH/E2 = ',latticeC2
+
+                failed = .true.
+
+            end if
+
+            if (Fr2 >= 1.0d0) then
+
+                write(stabilityUnit,'(A,I0,A,I0,A,ES16.8)') &
+                    'CELL (',ix,',',iy,'): CANDIDATE FROUDE = ',sqrt(Fr2)
+
+                failed = .true.
+
+            end if
+
+        end do
+    end do
+
+    flush(stabilityUnit)
+
+end subroutine validate_postcollision
+
 subroutine write_csv
     implicit none
     integer :: io, try
@@ -627,63 +879,34 @@ subroutine sleep_seconds(n)
 end subroutine sleep_seconds
 
 subroutine end_simulation
-    tauOk = .false.
-    velOk = .false.
-    celOk = .false.
-    FrOk  = .false.
 
-    hIndex = maxloc(h)
-    hMax = h(hIndex(1),hIndex(2))
-    uMax2 = 0
-    FrMax = 0
-    do x=1,Lx
-        do y=1,Ly
-            if (u(x,y)**2+v(x,y)**2>uMax2) uMax2 = u(x,y)**2+v(x,y)**2
-            Fr = (u(x,y)**2 + v(x,y)**2)/h(x,y)
-            if (Fr>FrMax) then
-                FrMax=Fr
-                i=x;j=y
-            end if
-        end do
-    end do
-    FrMax = dsqrt(FrMax/gacl)
+    implicit none
 
-    if (tau     > 0.5) tauOk = .true. ! stability condition 1
-    if (uMax2   < e*e) velOk = .true. ! stability condition 2
-    if (gacl*hMax<e*e) celOk = .true. ! stability condition 3
-    if (FrMax   < 1)   FrOk  = .true. ! stability condition 4
-    Ma = sqrt(uMax2)/(1.0d0/sqrt(3.0d0)*e)
-    print*, "tau =",tau
-    if (tauOk) then
-        print*, "tau ok!"
-    else
-        print*, "tau NOT OKAY!!"
-    end if
-    print*, "u_ju_j/e^2 =", uMax2/(e*e)
-    if (velOk) then
-        print*, "velocity ok!"
-    else
-        print*, "velocity NOT OKAY!!"
-    end if
-    print*, "gh/e^2 =", gacl*hMax/(e*e)
-    if (celOk) then
-        print*, "celerity ok!"
-    else
-        print*, "celerity NOT OKAY!!"
-    end if
-    print*, "Fr max = ",FrMax, "at node:",i,j
-    if (FrOk) then
-        print*, "Froude ok!"
-    else
-        print*, "Froude NOT OKAY!!"
-    end if
-    print*, "Ma max = ",Ma!, "at node:",uIndex
-    if (Ma<0.3) then
-        print*, "Mach ok!"
-    else
-        print*, "Mach NOT OKAY!!"
-    end if
+    write(stabilityUnit,'(/,A)') &
+        '=============================================='
+
+    write(stabilityUnit,'(A,I0)') &
+        'FINAL ITERATION: ',current_iteration
+
+    write(stabilityUnit,'(A,L1)') &
+        'STOP SIMULATION FLAG: ',stopSim
+
+    write(stabilityUnit,'(A)') 'SIMULATION TERMINATED'
+
+    write(stabilityUnit,'(A)') &
+        '=============================================='
+
+    flush(stabilityUnit)
+    close(stabilityUnit)
+
+    print*, '--------------------------------------'
+    print*, 'Simulation terminated.'
+    print*, 'Final iteration:',current_iteration
+    print*, 'Diagnostics saved in stability_log.txt'
+    print*, '--------------------------------------'
+
 end subroutine end_simulation
+
 
 ! double precision function h_in(currentTime)
 !     implicit none

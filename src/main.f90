@@ -38,7 +38,7 @@ program main
     integer:: itera_no, per_checkpoint, per_print
     double precision :: uo, vo,simTime, x_r, y_r, radius, r, hAnal_x, dhanal_dx
     character:: fdate*24, td*24 ! get date for output
-    logical:: steadyFlow
+    logical :: steadyFlow, diagnosticFailure
 
     ! read parameters.cfg file to update values
     call CFG_read_file(my_cfg, "doc/parameters.cfg")
@@ -291,84 +291,173 @@ program main
     !     u(i,:) = (u(Lx,:) - u(1,:))/Lx * i + u(1,:)
     !     v(i,:) = (v(Lx,:) - v(1,:))/Lx * i + v(1,:)
     ! end do
-    u = uAnal
-    v = vAnal
+
     ! prepare the calculations
+    ! Open stability diagnostic log
+    open(newunit=stabilityUnit, file='stability_log.txt', &
+         status='replace', action='write')
+
+    flush(stabilityUnit)
+
     call setup
 
     ! main loop for time marching
     timStep: do
 
-        time = time+dt
+        ! Advance simulation counters
+        time = time + dt
         current_iteration = current_iteration + 1
 
-        ! Update the body force with the current h
-        call update_body_force
+        ! --------------------------------------------------
+        ! 1. Validate current macroscopic state
+        ! --------------------------------------------------
 
-        ! Streaming and collision steps
-        call collide_stream
+        call audit_stability('PRE-COLLISION', diagnosticFailure)
 
-        ! Apply no slip at solid boundary nodes
-        ! call Noslip_BC
+        if (diagnosticFailure) then
 
-        ! Apply Inflow and Outflow BC
-        ! call Inflow_Outflow_BC
+            flush(stabilityUnit)
+            stopSim = .true.
 
-        ! make sure no population is NaN
-        do i = 1, Lx
-            do j = 1, Ly
-                do a = 1, 9
-                    if ( ieee_is_nan(ftemp(a,i,j)) ) then
-                        print*, "ftemp",a,i,j,"is not a number"
+        end if
+
+        ! --------------------------------------------------
+        ! 2. Collision and streaming
+        ! --------------------------------------------------
+
+        if (.not. stopSim) then
+
+            call update_body_force
+
+            call collide_stream
+
+            ! --------------------------------------------------
+            ! 3. Validate proposed post-collision state
+            ! --------------------------------------------------
+
+            call validate_postcollision(diagnosticFailure)
+
+            if (diagnosticFailure) then
+
+                write(stabilityUnit,'(/,A)') &
+                    'POST-COLLISION FAILURE DETECTED'
+
+                ! Audit the previous valid macroscopic state
+                call audit_stability('LAST VALID STATE', diagnosticFailure)
+
+                write(stabilityUnit,'(A,I0)') &
+                    'SIMULATION STOPPED AT ITERATION: ',current_iteration
+
+                flush(stabilityUnit)
+
+                stopSim = .true.
+
+            end if
+
+        end if
+
+        ! --------------------------------------------------
+        ! 4. Accept new state only if valid
+        ! --------------------------------------------------
+
+        if (.not. stopSim) then
+
+            call solution
+
+            ! Check reconstructed macroscopic variables
+            do i = 1, Lx
+                do j = 1, Ly
+
+                    if (.not. ieee_is_finite(h(i,j)) .or. &
+                        .not. ieee_is_finite(u(i,j)) .or. &
+                        .not. ieee_is_finite(v(i,j))) then
+
+                        write(stabilityUnit,'(A,I0,A,I0,A,I0)') &
+                            'ITER=',current_iteration, &
+                            ' CELL=(',i,',',j, &
+                            '): NON-FINITE MACROSCOPIC VARIABLE'
+
                         stopSim = .true.
+
+                    else if (h(i,j) <= 0.0d0) then
+
+                        write(stabilityUnit,'(A,I0,A,I0,A,I0,A,ES16.8)') &
+                            'ITER=',current_iteration, &
+                            ' CELL=(',i,',',j, &
+                            '): INVALID RECONSTRUCTED DEPTH = ',h(i,j)
+
+                        stopSim = .true.
+
                     end if
+
                 end do
             end do
-        end do
 
-        ! Calculate h, u & v
-        if (.not. stopSim) call solution
+            flush(stabilityUnit)
 
-        ! Update the feq
-        call compute_feq
-
-        if (mod(current_iteration, per_print) == 0) write(6,'(I0,A2,3(ES26.16,A2))') current_iteration,'   ', h(1,Ly/2)
-
-!        do i=1,Lx
-!            do j = 1, Ly
-!
-!                ! make sure no u is NaN
-!                if (ieee_is_nan(u(i,j))) then
-!                    print*, "u",i,j,"is not a number"
-!                    stopSim = .true.
-!                end if
-!
-!                ! make sure no v is NaN
-!                if (ieee_is_nan(v(i,j))) then
-!                    print*, "v",i,j,"is not a number"
-!                    stopSim = .true.
-!                end if
-!
-!                ! make sure no h is NaN
-!                if (ieee_is_nan(h(i,j))) then
-!                    print*, "h",i,j,"is not a number"
-!                    stopSim = .true.
-!                end if
-!            end do
-!        end do
-
-        if (current_iteration >= itera_no .or. time >= simTime) then
-            print*, "Maximum simulation time reached."
-            stopSim = .true. ! stop simulation after desired time reached
-        elseif (mod(current_iteration, per_checkpoint) == 0) then
-            call write_csv
         end if
-        if (stopSim .or. (check_convergence(h, hLast, hLast2, epsilon)&
-                  & .and. check_convergence(u, uLast, uLast2, epsilon)&
-                  & .and. check_convergence(u, vLast, vLast2, epsilon))) then
+
+        ! --------------------------------------------------
+        ! 5. Calculate equilibrium only if state is valid
+        ! --------------------------------------------------
+
+        if (.not. stopSim) then
+
+            call compute_feq
+
+            if (.not. all(ieee_is_finite(feq))) then
+
+                write(stabilityUnit,'(A,I0)') &
+                    'NON-FINITE EQUILIBRIUM POPULATION AT ITERATION: ', &
+                    current_iteration
+
+                flush(stabilityUnit)
+                stopSim = .true.
+
+            end if
+
+        end if
+
+        ! --------------------------------------------------
+        ! 6. Print/checkpoint only if simulation is valid
+        ! --------------------------------------------------
+
+        if (.not. stopSim) then
+
+            if (mod(current_iteration,per_print) == 0) then
+
+                write(6,'(I0,A2,ES26.16)') &
+                    current_iteration,'   ',h(1,Ly/2)
+
+            end if
+
+            if (current_iteration >= itera_no .or. time >= simTime) then
+
+                print*, 'Maximum simulation time reached.'
+                stopSim = .true.
+
+            else if (mod(current_iteration,per_checkpoint) == 0) then
+
+                call write_csv
+
+            end if
+
+        end if
+
+        ! --------------------------------------------------
+        ! 7. Stop or check convergence
+        ! --------------------------------------------------
+
+        if (stopSim .or. &
+            (check_convergence(h,hLast,hLast2,epsilon) .and. &
+             check_convergence(u,uLast,uLast2,epsilon) .and. &
+             check_convergence(v,vLast,vLast2,epsilon))) then
+
             call end_simulation
             exit
+
         end if
+
 
     end do timStep
 
